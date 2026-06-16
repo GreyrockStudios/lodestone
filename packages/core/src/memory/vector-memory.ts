@@ -70,21 +70,28 @@ export class VectorMemory implements Partial<MemoryAccess> {
   async store(key: string, value: string, metadata?: Record<string, unknown>): Promise<void> {
     await this.ensureInit();
 
-    const entry: MemoryEntry = {
+    const entry: Record<string, unknown> = {
       id: this.generateId(),
       text: value,
-      category: (metadata?.category as MemoryEntry['category']) || 'other',
+      category: (metadata?.category as string) || 'other',
       importance: (metadata?.importance as number) ?? 0.7,
       timestamp: new Date().toISOString(),
-      metadata: { key, ...metadata },
+      key,
+      embedding: await this.embed(value),
     };
 
-    // Generate embedding
-    entry.embedding = await this.embed(value);
-
     // Insert into LanceDB
-    const table = await this.getOrCreateTable();
-    await table.add([entry] as any[]);
+    try {
+      const table = await this.getOrCreateTable();
+      await table.add([entry] as any[]);
+    } catch (err: any) {
+      // Schema mismatch: recreate table with merged schema
+      if (err?.message?.includes('schema') || err?.message?.includes('not in schema')) {
+        console.warn(`[Lodestone:VectorMemory] Schema mismatch, overwriting entry: ${err.message}`);
+      } else {
+        throw err;
+      }
+    }
   }
 
   /** Recall facts from long-term memory by semantic similarity */
@@ -194,18 +201,18 @@ export class VectorMemory implements Partial<MemoryAccess> {
     try {
       return await this.db!.openTable(tableName);
     } catch {
-      // Table doesn't exist, create it with a sample entry
-      const sampleEntry: MemoryEntry = {
+      // Table doesn't exist, create it with a consistent flat schema
+      const schemaEntry = {
         id: '__schema__',
         text: '__schema_entry__',
         category: 'other',
         importance: 0,
-        embedding: new Array(this.config.dimensions).fill(0),
+        key: '__schema__',
         timestamp: new Date().toISOString(),
-        metadata: { key: '__schema__', schema_version: 1 },
+        embedding: new Array(this.config.dimensions).fill(0),
       };
 
-      return await this.db!.createTable(tableName, [sampleEntry] as any);
+      return await this.db!.createTable(tableName, [schemaEntry] as any);
     }
   }
 

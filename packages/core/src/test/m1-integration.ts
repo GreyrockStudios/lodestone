@@ -53,7 +53,7 @@ async function runTest() {
         default: {
           type: 'ollama',
           model: 'llama3.1:8b',
-          baseUrl: 'http://127.0.0.1:11434',
+          baseUrl: 'http://127.0.0.1:11434/api',
           contextWindow: 128000,
           maxTokens: 8192,
         },

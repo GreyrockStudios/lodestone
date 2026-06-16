@@ -40,7 +40,7 @@ async function loadConfig(): Promise<LodestoneConfig> {
         default: {
           type: config.llm?.default?.type || 'ollama',
           model: config.llm?.default?.model || 'llama3.1:8b',
-          baseUrl: config.llm?.default?.baseUrl || process.env.OLLAMA_BASE_URL || 'http://127.0.0.1:11434',
+          baseUrl: config.llm?.default?.baseUrl || process.env.OLLAMA_BASE_URL || 'http://127.0.0.1:11434/api',
           apiKey: config.llm?.default?.apiKey || process.env.OPENAI_API_KEY,
           contextWindow: config.llm?.default?.contextWindow || 128000,
           maxTokens: config.llm?.default?.maxTokens || 8192,
@@ -70,7 +70,7 @@ async function loadConfig(): Promise<LodestoneConfig> {
         default: {
           type: 'ollama',
           model: 'llama3.1:8b',
-          baseUrl: 'http://127.0.0.1:11434',
+          baseUrl: 'http://127.0.0.1:11434/api',
           contextWindow: 128000,
           maxTokens: 8192,
         },

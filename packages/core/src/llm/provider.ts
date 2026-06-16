@@ -57,7 +57,7 @@ export class LLMProvider {
     switch (config.type) {
       case 'ollama': {
         const ollama = createOllama({
-          baseURL: config.baseUrl || 'http://127.0.0.1:11434',
+          baseURL: config.baseUrl || 'http://127.0.0.1:11434/api',
         });
         return ollama(config.model) as unknown as LanguageModelV1;
       }
