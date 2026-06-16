@@ -78,6 +78,7 @@ export interface WorkspaceConfig {
   agentName: string;
   userName: string;
   template: string;
+  templates?: string[];  // Multiple templates — first is primary, others blend in
   personality: 'concise' | 'balanced' | 'detailed';
   provider: 'ollama' | 'openai' | 'anthropic';
   model: string;
@@ -114,7 +115,9 @@ export function createWorkspaceFromAnswers(config: WorkspaceConfig): void {
   }
 
   // Copy template files, replacing placeholders
-  const templateDir = join(TEMPLATES_DIR, config.template);
+  const allTemplates = config.templates || [config.template];
+  const primaryTemplate = allTemplates[0];
+  const templateDir = join(TEMPLATES_DIR, primaryTemplate);
   const today = new Date().toISOString().split('T')[0];
 
   if (existsSync(templateDir)) {
@@ -136,6 +139,23 @@ export function createWorkspaceFromAnswers(config: WorkspaceConfig): void {
           content = content.replace(/\{\{name\}\}/g, config.agentName) + personalityDirective;
         }
         writeFileSync(join(root, file), content);
+      }
+    }
+  }
+
+  // Blend in additional templates (secondary focus areas)
+  for (let i = 1; i < allTemplates.length; i++) {
+    const secondaryKey = allTemplates[i];
+    const secondaryDir = join(TEMPLATES_DIR, secondaryKey);
+    if (existsSync(secondaryDir)) {
+      const secondarySoul = join(secondaryDir, 'SOUL.md');
+      if (existsSync(secondarySoul)) {
+        let soulContent = readFileSync(secondarySoul, 'utf-8');
+        soulContent = soulContent.replace(/\{\{name\}\}/g, config.agentName);
+        soulContent = soulContent.replace(/\{\{userName\}\}/g, config.userName);
+        const secondaryName = TEMPLATE_INFO[secondaryKey]?.name || secondaryKey;
+        const existingSoul = readFileSync(join(root, 'SOUL.md'), 'utf-8');
+        writeFileSync(join(root, 'SOUL.md'), existingSoul + `\n\n## ${secondaryName} Focus\n\n${soulContent}`);
       }
     }
   }
