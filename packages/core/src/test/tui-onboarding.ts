@@ -1,16 +1,12 @@
 /**
  * Lodestone — Conversational Onboarding
  *
- * Chat-based setup flow that uses the TUI's existing Editor for input.
- * No custom overlays or key handlers — just messages in the chat log
- * and responses from the editor. Works on every terminal.
+ * Chat-based setup that uses the TUI's existing message system.
+ * No overlays or custom key handling — just conversation.
  */
 
-import { TUI, ProcessTerminal, Markdown } from '@earendil-works/pi-tui';
 import { createWorkspaceFromAnswers, TEMPLATE_INFO, PROVIDER_INFO, PERSONALITY_INFO } from '../tui-onboarding/workspace-creator.js';
 import type { WorkspaceConfig } from '../tui-onboarding/workspace-creator.js';
-import { existsSync } from 'fs';
-import { resolve } from 'path';
 
 // ─── Colors (OpenClaw dark palette) ────────────────────────────────────────
 
@@ -34,20 +30,17 @@ interface OnboardingState {
   provider: 'ollama' | 'openai' | 'anthropic';
   model: string;
   workspacePath: string;
-  step: number;
 }
+
+type ChatMessage = { role: 'user' | 'assistant' | 'system' | 'tool'; text: string; ts: number };
 
 // ─── Conversational Onboarding ─────────────────────────────────────────────
 
-/**
- * Run onboarding as a conversation in the chat log.
- * Returns null if user types /quit, otherwise returns workspace config.
- */
 export async function runOnboarding(
-  chatLog: any,
-  editor: any,
-  tui: TUI,
-  term: ProcessTerminal,
+  messages: ChatMessage[],
+  addMessage: (msg: ChatMessage) => void,
+  editor: any, // Editor component — we temporarily override onSubmit
+  refreshAll: () => void,
   suggestedPath: string,
 ): Promise<{ workspace: string; agentName: string; userName: string; model: string; provider: string } | null> {
   const state: OnboardingState = {
@@ -58,50 +51,33 @@ export async function runOnboarding(
     provider: 'ollama',
     model: 'glm-5.1:cloud',
     workspacePath: suggestedPath,
-    step: 0,
   };
 
-  const ask = async (prompt: string): Promise<string> => {
-    return new Promise((resolve) => {
-      // Add prompt to chat log
-      chatLog.addMessage({
-        role: 'assistant',
-        text: prompt,
-        ts: Date.now(),
-      });
-      tui.requestRender();
+  // Wait for user input via the editor
+  const ask = (prompt: string): Promise<string> => new Promise((resolve) => {
+    addMessage({ role: 'assistant', text: prompt, ts: Date.now() });
+    refreshAll();
+    const saved = editor.onSubmit;
+    editor.onSubmit = async (text: string) => {
+      const trimmed = text.trim();
+      if (!trimmed) return;
+      editor.setText('');
+      editor.onSubmit = saved;
+      resolve(trimmed);
+    };
+  });
 
-      const originalOnSubmit = editor.onSubmit;
-      editor.onSubmit = async (text: string) => {
-        const trimmed = text.trim();
-        if (!trimmed) return;
-        editor.setText('');
-        editor.onSubmit = originalOnSubmit;
-        resolve(trimmed);
-      };
-    });
-  };
-
+  // Ask for a choice — displays options and accepts number or name
   const askChoice = async (prompt: string, options: { key: string; label: string }[]): Promise<string> => {
     const optionLines = options.map((o, i) => `  ${B}${i + 1}.${R} ${o.label}`).join('\n');
-    const fullPrompt = `${prompt}\n\n${optionLines}\n\n${D}Type a number or name:${R}`;
-    const answer = await ask(fullPrompt);
+    const answer = await ask(`${prompt}\n\n${optionLines}\n\n${D}Type a number or name:${R}`);
     
-    // Try to match by number
     const num = parseInt(answer);
-    if (num >= 1 && num <= options.length) {
-      return options[num - 1].key;
-    }
-    
-    // Try to match by key (case-insensitive)
+    if (num >= 1 && num <= options.length) return options[num - 1].key;
     const keyMatch = options.find(o => o.key.toLowerCase() === answer.toLowerCase());
     if (keyMatch) return keyMatch.key;
-    
-    // Try to match by partial label
     const labelMatch = options.find(o => o.label.toLowerCase().includes(answer.toLowerCase()));
     if (labelMatch) return labelMatch.key;
-    
-    // Default to first option
     return options[0].key;
   };
 
@@ -109,7 +85,7 @@ export async function runOnboarding(
   await ask(
     `${B}${fg(P.accent)}🔮 Welcome to Lodestone!${R}\n\n` +
     `I'll help you set up your agent. Just answer a few questions — you can change everything later in your config files.\n\n` +
-    `Type anything to continue, or /quit to exit.`
+    `Type anything to continue.`
   );
 
   // Step 1: Agent name
@@ -180,7 +156,7 @@ export async function runOnboarding(
     `  ${B}Personality:${R}  ${personalityInfo.emoji} ${personalityInfo.name}\n` +
     `  ${B}Provider:${R}      ${providerInfo.emoji} ${providerInfo.name}\n` +
     `  ${B}Model:${R}        ${state.model}\n\n` +
-    `${D}Type yes to create, or anything else to restart:${R}`
+    `${D}Type yes to create, or anything else to cancel:${R}`
   );
 
   if (confirm.toLowerCase() !== 'yes' && confirm.toLowerCase() !== 'y') {

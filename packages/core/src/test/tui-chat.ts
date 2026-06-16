@@ -313,7 +313,7 @@ async function main() {
     bootMsg.setText(`${B}${fg(P.accent)}🔮 Lodestone${R}\n\nNo workspace found. Let\u2019s set one up!`);
     tui.requestRender();
 
-    onboardingResult = await runOnboarding(chatLog, editor, tui, term, WORKSPACE);
+    onboardingResult = await runOnboarding(messages, addMessage, editor, refreshAll, WORKSPACE);
 
     if (!onboardingResult) {
       // User cancelled onboarding
