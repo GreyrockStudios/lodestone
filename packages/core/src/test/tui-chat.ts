@@ -91,7 +91,7 @@ async function main() {
   }
 
   console.log(`\n${D}${'─'.repeat(60)}${R}`);
-  console.log(`${B}Identity:${R} ${identity!.name}   ${B}Model:${R} ${process.env.LODESTONE_MODEL||'qwen3:8b'}\n`);
+  console.log(`${B}Identity:${R} ${identity!.identity.name}   ${B}Model:${R} ${process.env.LODESTONE_MODEL||'qwen3:8b'}\n`);
 
   // ─── TUI ────────────────────────────────────────────────────────────
 
@@ -103,7 +103,7 @@ async function main() {
   const tui = new TUI(term);
 
   // Components
-  const headerText = new Text(` ${B}${fg(P.accent)}🔮 Lodestone${R}  ${fg(P.dim)}│${R}  ${identity!.name}  ${fg(P.dim)}│${R}  ${process.env.LODESTONE_MODEL||'qwen3:8b'} `, 1, 0);
+  const headerText = new Text(` ${B}${fg(P.accent)}🔮 Lodestone${R}  ${fg(P.dim)}│${R}  ${identity!.identity.name}  ${fg(P.dim)}│${R}  ${process.env.LODESTONE_MODEL||'qwen3:8b'} `, 1, 0);
   const logText = new Text('', 1, 0);
   const statusText = new Text(` ${fg(P.success)}✓${R} ${D}Ready · /help for commands${R} `, 1, 0);
 
@@ -189,6 +189,9 @@ async function main() {
     statusText.setText(s);
     tui.requestRender();
   }
+
+  // Start the TUI event loop
+  tui.start();
 
   process.on('SIGINT', () => { tui.stop(); process.exit(0); });
   process.on('SIGTERM', () => { tui.stop(); process.exit(0); });
