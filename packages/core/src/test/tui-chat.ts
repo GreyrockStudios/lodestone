@@ -205,7 +205,7 @@ async function main() {
 
     // ─── Commands ───────────────────────────────────────────────────
 
-    if (trimmed === '/quit' || trimmed === '/exit') { tui.stop(); process.exit(0); }
+    if (trimmed === '/quit' || trimmed === '/exit') { cleanup(); }
     if (trimmed === '/help') {
       messages.push({ role:'system', text:'**Commands:** /help · /tools · /memory · /state · /wiki · /reset · /quit', ts:Date.now() });
       refreshAll(); return;
@@ -240,13 +240,18 @@ async function main() {
     });
   };
 
-  (editor as any).onEscape = () => { tui.stop(); process.exit(0); };
+  (editor as any).onEscape = () => { cleanup(); };
+
+  // Ctrl+C also exits cleanly
+  process.on('SIGINT', () => { cleanup(); });
+  process.on('SIGTERM', () => { cleanup(); });
+
+  function cleanup() {
+    tui.stop();
+    console.log(`\n${B}${fg(P.accent)}🔮 Lodestone${R} session ended.\n`);
+    process.exit(0);
+  }
 
   // Start the TUI
   tui.start();
-
-  process.on('SIGINT', () => { tui.stop(); process.exit(0); });
-  process.on('SIGTERM', () => { tui.stop(); process.exit(0); });
 }
-
-main().catch(err => { console.error('Fatal:', err); process.exit(1); });
