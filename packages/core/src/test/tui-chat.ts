@@ -99,7 +99,7 @@ async function main() {
   for (let i = 0; i < steps.length; i++) {
     process.stdout.write(`  ${D}[${i+1}/${steps.length}]${R} ${steps[i]}...`);
     switch (i) {
-      case 0: engine = new LodestoneEngine({ workspaceRoot: WORKSPACE, identityDir: WORKSPACE, wikiRoot: resolve(WORKSPACE,'memory/wiki'), memoryDir: resolve(WORKSPACE,'data/lancedb'), llm: { default: { type:'ollama', model: process.env.LODESTONE_MODEL||'qwen3:8b', baseUrl: process.env.OLLAMA_BASE_URL||'http://127.0.0.1:11434/api', contextWindow:32768, maxTokens:4096 }}}); break;
+      case 0: engine = new LodestoneEngine({ workspaceRoot: WORKSPACE, identityDir: WORKSPACE, wikiRoot: resolve(WORKSPACE,'memory/wiki'), memoryDir: resolve(WORKSPACE,'data/lancedb'), llm: { default: { type:'ollama', model: process.env.LODESTONE_MODEL||'glm-5.1:cloud', baseUrl: process.env.OLLAMA_BASE_URL||'http://127.0.0.1:11434/api', contextWindow:32768, maxTokens:4096 }}}); break;
       case 1: await engine!.memory.init(); break;
       case 2: engine!.registerTool(new WikiResolveTool()); engine!.registerTool(new WikiSearchTool()); engine!.registerTool(new SmartRetrieveTool()); engine!.registerTool(new DecisionLogTool(resolve(WORKSPACE,'data/decisions.json'))); engine!.registerTool(new ResumeStateTool()); engine!.registerTool(new WatchdogTool()); engine!.registerTool(new BusinessHoursTool()); break;
       case 3: identity = await engine!.identity.load(); break;
@@ -109,7 +109,7 @@ async function main() {
   }
 
   console.log(`\n${D}${'─'.repeat(60)}${R}`);
-  console.log(`${B}Identity:${R} ${identity!.identity.name}   ${B}Model:${R} ${process.env.LODESTONE_MODEL||'qwen3:8b'}\n`);
+  console.log(`${B}Identity:${R} ${identity!.identity.name}   ${B}Model:${R} ${process.env.LODESTONE_MODEL||'glm-5.1:cloud'}\n`);
 
   // ─── TUI ────────────────────────────────────────────────────────────
 
@@ -127,7 +127,7 @@ async function main() {
 
   // ─── Status bar ─────────────────────────────────────────────────────
 
-  const statusText = new Text(` ${B}${fg(P.accent)}🔮${R} ${identity!.identity.name} ${fg(P.dim)}│${R} ${process.env.LODESTONE_MODEL||'qwen3:8b'} ${fg(P.dim)}│${R} ${fg(P.success)}✓${R} Ready ${fg(P.dim)}│${R} /help for commands `, 0, 0);
+  const statusText = new Text(` ${B}${fg(P.accent)}🔮${R} ${identity!.identity.name} ${fg(P.dim)}│${R} ${process.env.LODESTONE_MODEL||'glm-5.1:cloud'} ${fg(P.dim)}│${R} ${fg(P.success)}✓${R} Ready ${fg(P.dim)}│${R} /help for commands `, 0, 0);
   const statusBar = new Box(0, 0, (line: string) => `${bg('#1E232A')}${line}${R}`);
   statusBar.addChild(statusText);
 
@@ -225,18 +225,18 @@ async function main() {
     isProcessing = true;
     messages.push({ role:'user', text:trimmed, ts:Date.now() });
     refreshAll();
-    setStatus(` ${B}${fg(P.accent)}🔮${R} ${identity!.identity.name} ${fg(P.dim)}│${R} ${process.env.LODESTONE_MODEL||'qwen3:8b'} ${fg(P.dim)}│${R} ${fg(P.accent)}⚡${R} thinking... `);
+    setStatus(` ${B}${fg(P.accent)}🔮${R} ${identity!.identity.name} ${fg(P.dim)}│${R} ${process.env.LODESTONE_MODEL||'glm-5.1:cloud'} ${fg(P.dim)}│${R} ${fg(P.accent)}⚡${R} thinking... `);
 
     loop!.run(currentSessionId, trimmed).then(result => {
       messages.push({ role:'assistant', text:result.response, ts:Date.now(), tokens:result.totalTokens, ms:result.durationMs, tools:result.toolCalls.map(tc=>tc.toolName) });
       isProcessing = false;
       refreshAll();
-      setStatus(` ${B}${fg(P.accent)}🔮${R} ${identity!.identity.name} ${fg(P.dim)}│${R} ${process.env.LODESTONE_MODEL||'qwen3:8b'} ${fg(P.dim)}│${R} ${fg(P.success)}✓${R} ${messages.filter(m=>m.role==='user').length} msgs `);
+      setStatus(` ${B}${fg(P.accent)}🔮${R} ${identity!.identity.name} ${fg(P.dim)}│${R} ${process.env.LODESTONE_MODEL||'glm-5.1:cloud'} ${fg(P.dim)}│${R} ${fg(P.success)}✓${R} ${messages.filter(m=>m.role==='user').length} msgs `);
     }).catch(err => {
       messages.push({ role:'system', text:`${fg(P.error)}**Error:** ${err instanceof Error ? err.message : String(err)}${R}`, ts:Date.now() });
       isProcessing = false;
       refreshAll();
-      setStatus(` ${B}${fg(P.accent)}🔮${R} ${identity!.identity.name} ${fg(P.dim)}│${R} ${process.env.LODESTONE_MODEL||'qwen3:8b'} ${fg(P.dim)}│${R} ${fg(P.error)}✗${R} Error `);
+      setStatus(` ${B}${fg(P.accent)}🔮${R} ${identity!.identity.name} ${fg(P.dim)}│${R} ${process.env.LODESTONE_MODEL||'glm-5.1:cloud'} ${fg(P.dim)}│${R} ${fg(P.error)}✗${R} Error `);
     });
   };
 
