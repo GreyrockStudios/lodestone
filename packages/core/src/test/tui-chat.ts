@@ -468,7 +468,7 @@ async function main() {
     // Use onboarding result if available
     if (onboardingResult) {
       WORKSPACE = onboardingResult.workspace;
-      displayName = onboardingResult.agentName || 'Lodestone';
+      displayName = (onboardingResult.agentName && onboardingResult.agentName !== '__surprise__') ? onboardingResult.agentName : 'Lodestone';
     }
     const effectiveModel = onboardingResult?.model || model;
     const effectiveProvider = onboardingResult?.provider || 'ollama';
