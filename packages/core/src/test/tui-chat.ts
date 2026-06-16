@@ -97,13 +97,13 @@ function buildUserMessage(msg: ChatMessage): string {
   return `**you** ${D}${formatTimestamp(msg.ts)}${R}\n${msg.text}`;
 }
 
-function buildAssistantMessage(msg: ChatMessage): string {
+function buildAssistantMessage(msg: ChatMessage, agentName: string = 'Lodestone'): string {
   const stats: string[] = [];
   if (msg.ms) stats.push(formatDuration(msg.ms));
   if (msg.tokens) stats.push(`${msg.tokens} tok`);
   if (msg.tools?.length) stats.push(`⚡${msg.tools.join(',')}`);
   const statsLine = stats.length > 0 ? `\n[${stats.join(' · ')}]` : '';
-  return `**🔮 lodestone** ${D}${formatTimestamp(msg.ts)}${R}\n${msg.text}${statsLine}`;
+  return `**🔮 ${agentName}** ${D}${formatTimestamp(msg.ts)}${R}\n${msg.text}${statsLine}`;
 }
 
 function buildToolMessage(msg: ChatMessage): string {
@@ -426,6 +426,7 @@ async function main() {
   let sessionId: string;
   let loop: AgentLoop;
   let identity: any;
+  let displayName = 'Lodestone';  // Updated after onboarding/identity load
   let currentSessionId: string;
   let msgCount = 0;
   let streamingBuffer = '';
@@ -467,6 +468,7 @@ async function main() {
     // Use onboarding result if available
     if (onboardingResult) {
       WORKSPACE = onboardingResult.workspace;
+      displayName = onboardingResult.agentName || 'Lodestone';
     }
     const effectiveModel = onboardingResult?.model || model;
     const effectiveProvider = onboardingResult?.provider || 'ollama';
@@ -530,6 +532,7 @@ async function main() {
     bootMsg.setText(`${B}${fg(P.accent)}🔮 Lodestone${R}\nLoading identity...`);
     tui.requestRender();
     identity = await engine.identity.load();
+    displayName = identity?.identity?.name || displayName;
 
     // Create session
     bootMsg.setText(`${B}${fg(P.accent)}🔮 Lodestone${R}\nCreating session...`);
@@ -591,7 +594,7 @@ async function main() {
     const scrollLabel = scrollOffset > 0 ? ` ${fg(P.dim)}│${R} ${fg(P.warn)}↑${scrollOffset}${R}` : '';
 
     statusText.setText(
-      ` ${B}${fg(P.accent)}🔮${R} ${identity?.identity?.name || 'Lodestone'} ${fg(P.dim)}│${R} ${model || '...'} ${fg(P.dim)}│${R} ${icon} ${stateLabel} ${fg(P.dim)}│${R} ${msgLabel}${channelLabel}${scrollLabel} ${detail && state !== 'tool' ? `${fg(P.dim)}│${R} ${detail}` : ''} `
+      ` ${B}${fg(P.accent)}🔮${R} ${displayName} ${fg(P.dim)}│${R} ${model || '...'} ${fg(P.dim)}│${R} ${icon} ${stateLabel} ${fg(P.dim)}│${R} ${msgLabel}${channelLabel}${scrollLabel} ${detail && state !== 'tool' ? `${fg(P.dim)}│${R} ${detail}` : ''} `
     );
     tui.requestRender();
   }
@@ -603,7 +606,7 @@ async function main() {
     const md = new Markdown('', 1, 1, mdTheme as any);
     let content: string;
     if (msg.role === 'user') content = buildUserMessage(msg);
-    else if (msg.role === 'assistant') content = buildAssistantMessage(msg);
+    else if (msg.role === 'assistant') content = buildAssistantMessage(msg, displayName);
     else if (msg.role === 'tool') content = buildToolMessage(msg);
     else content = buildSystemMessage(msg);
 
@@ -632,7 +635,7 @@ async function main() {
   function appendStreamingText(delta: string) {
     streamingBuffer += delta;
     if (streamingMd) {
-      streamingMd.setText(`**🔮 lodestone** ${D}${formatTimestamp(Date.now())}${R} ${fg(P.dim)}streaming...${R}\n${streamingBuffer}`);
+      streamingMd.setText(`**🔮 ${displayName}** ${D}${formatTimestamp(Date.now())}${R} ${fg(P.dim)}streaming...${R}\n${streamingBuffer}`);
       tui.requestRender();
     }
   }
@@ -640,7 +643,7 @@ async function main() {
   function finishStreamingMessage(msg: ChatMessage) {
     if (streamingMd && streamingWrapper) {
       // Replace with final rendered message
-      streamingMd.setText(buildAssistantMessage(msg));
+      streamingMd.setText(buildAssistantMessage(msg, displayName));
       tui.requestRender();
     }
     streamingMd = null;
