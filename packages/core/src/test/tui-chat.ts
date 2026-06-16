@@ -24,8 +24,10 @@ import { ResumeStateTool } from '../tools/impl/resume-state.js';
 import { WatchdogTool } from '../tools/impl/watchdog.js';
 import { BusinessHoursTool } from '../tools/impl/business-hours.js';
 import { resolve } from 'path';
+import { existsSync } from 'fs';
+import { runOnboarding } from './tui-onboarding.js';
 
-const WORKSPACE = process.env.LODESTONE_WORKSPACE || '/tmp/lodestone-test/workspace';
+let WORKSPACE = process.env.LODESTONE_WORKSPACE || '/tmp/lodestone-test/workspace';
 
 // ─── Colors (OpenClaw dark palette) ───────────────────────────────────────
 
@@ -301,26 +303,71 @@ async function main() {
 
   const model = process.env.LODESTONE_MODEL || 'glm-5.1:cloud';
 
+  // ─── Onboarding check ───────────────────────────────────────────────────
+
+  // If workspace doesn't exist or has no identity, run onboarding
+  const workspaceExists = existsSync(resolve(WORKSPACE, 'IDENTITY.md'));
+  let onboardingResult: { workspace: string; agentName: string; userName: string; model: string; provider: string } | null = null;
+
+  if (!workspaceExists) {
+    bootMsg.setText(`${B}${fg(P.accent)}🔮 Lodestone${R}\n\nNo workspace found. Let\u2019s set one up!`);
+    tui.requestRender();
+
+    onboardingResult = await runOnboarding(tui, term, WORKSPACE);
+
+    if (!onboardingResult) {
+      // User quit onboarding
+      tui.stop();
+      process.stdout.write(`\n${D}Setup cancelled.${R}\n\n`);
+      process.exit(0);
+    }
+
+    // Update workspace path and model from onboarding
+    process.env.LODESTONE_WORKSPACE = onboardingResult.workspace;
+    process.env.LODESTONE_MODEL = onboardingResult.model;
+
+    bootMsg.setText(`${B}${fg(P.accent)}🔮 ${onboardingResult.agentName}${R}\n\nWorkspace created! Booting...`);
+    tui.requestRender();
+  }
+
   // ─── Boot ──────────────────────────────────────────────────────────────
 
   try {
+    // Use onboarding result if available
+    if (onboardingResult) {
+      WORKSPACE = onboardingResult.workspace;
+    }
+    const effectiveModel = onboardingResult?.model || model;
+    const effectiveProvider = onboardingResult?.provider || 'ollama';
+    const effectiveBaseUrl = effectiveProvider === 'ollama'
+      ? (process.env.OLLAMA_BASE_URL || 'http://127.0.0.1:11434/api')
+      : undefined; // OpenAI/Anthropic use default endpoints
+
     bootMsg.setText(`${B}${fg(P.accent)}🔮 Lodestone${R}\nCreating engine...`);
     tui.requestRender();
+
+    const llmConfig: any = {
+      default: {
+        type: effectiveProvider,
+        model: effectiveModel,
+        contextWindow: 32768,
+        maxTokens: 4096,
+      },
+    };
+    if (effectiveProvider === 'ollama') {
+      llmConfig.default.baseUrl = effectiveBaseUrl;
+    } else if (effectiveProvider === 'openai') {
+      llmConfig.default.apiKey = process.env.OPENAI_API_KEY;
+    } else if (effectiveProvider === 'anthropic') {
+      llmConfig.default.apiKey = process.env.ANTHROPIC_API_KEY;
+    }
 
     engine = new LodestoneEngine({
       workspaceRoot: WORKSPACE,
       identityDir: WORKSPACE,
       wikiRoot: resolve(WORKSPACE, 'memory/wiki'),
       memoryDir: resolve(WORKSPACE, 'data/lancedb'),
-      llm: {
-        default: {
-          type: 'ollama',
-          model,
-          baseUrl: process.env.OLLAMA_BASE_URL || 'http://127.0.0.1:11434/api',
-          contextWindow: 32768,
-          maxTokens: 4096,
-        },
-      },
+      llm: llmConfig,
     });
 
     bootMsg.setText(`${B}${fg(P.accent)}🔮 Lodestone${R}\nInitializing memory...`);
@@ -488,6 +535,7 @@ async function main() {
         messages.push({ role: 'system', text: [
           '**Commands:**',
           '  /help — Show this help',
+          '  /setup — Re-run setup wizard',
           '  /tools — List available tools',
           '  /memory — Show memory stats',
           '  /state — Show session state',
