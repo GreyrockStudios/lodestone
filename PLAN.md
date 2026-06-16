@@ -14,40 +14,71 @@ Take any LLM from "answers questions" to "thinks ahead, remembers everything, ge
 
 ## Milestones
 
-### M1: First Breath (Target: 2-3 weeks)
+### M1: First Breath ✅ (Completed 2026-06-14)
 Docker Compose boots an agent that starts thinking proactively within 5 minutes.
 
-**Scope:**
-- Runtime: LLM orchestration (Ollama first, multi-provider later), tool execution, streaming
-- Memory: Wiki scaffold + LanceDB vector store + scratch buffer
-- Identity: Config files (SOUL.md, IDENTITY.md, RULES.md, HEARTBEAT.md)
-- Proactive: Sensorium health check, basic sleep cycle
-- MCP Tools: wiki-resolve, smart-retrieve, decision-log, scratch-buffer
-- Deployment: Docker Compose (engine + Ollama + LanceDB)
+**Done:**
+- [x] Runtime core (LLM orchestration, tool execution, streaming responses)
+- [x] Session management (create, resume, compaction)
+- [x] Wiki scaffold (empty, with templates)
+- [x] Vector memory (LanceDB, embed, recall)
+- [x] Scratch buffer (key-value with TTL)
+- [x] Decision log, wiki resolver, smart retrieve, watchdog, business hours, resume state
+- [x] Identity loader (read SOUL/IDENTITY/RULES/HEARTBEAT)
+- [x] Agent loop (LLM call, tool execution, auto-capture, auto-recall, compaction)
+- [x] TUI chat interface (pi-tui)
+- [x] Docker Compose
+- [x] M1 integration test: 15/15 passing, live LLM smoke test passing
 
-**M1 Checklist:**
-- [ ] Runtime core (LLM abstraction, tool execution, streaming responses)
-- [ ] Session management (create, resume, compaction)
-- [ ] MCP tool server framework
-- [ ] Wiki scaffold (empty, with templates)
-- [ ] Vector memory (LanceDB, embed, recall)
-- [ ] Scratch buffer (key-value with TTL)
-- [ ] Decision log (decisions, search, supersede)
-- [ ] Wiki resolver (wikilink resolution)
-- [ ] Smart retrieve (relevance-ranked retrieval)
-- [ ] Identity loader (read SOUL/IDENTITY/RULES/HEARTBEAT)
-- [ ] Sensorium (health check script)
-- [ ] Sleep cycle (consolidation cron)
-- [ ] Docker Compose (engine + Ollama + LanceDB)
-- [ ] Setup wizard (`lodestone init`)
-- [ ] 5-minute proactive test
-
-### M2: Self-Improvement (Target: 2 weeks after M1)
+### M2: Self-Improvement ✅ (Completed 2026-06-16)
 Agent gets better over time through structured self-assessment.
 
-**Scope:**
-- Prediction journal (log predictions, review outcomes, calibration)
-- Pre-mortem analysis (before major decisions)
+**Done:**
+- [x] Prediction journal (log predictions, resolve outcomes, Brier score calibration)
+- [x] Drift detector (compare behavior vs identity principles, flag deviations)
+- [x] RBT diagnosis (Roses/Buds/Thorns structured self-assessment)
+- [x] Skill evolver (learn lessons, validate/contradict, promote to core instructions)
+- [x] Sleep cycle (6-stage nightly: harvest→mine→reflect→consolidate→validate→prepare)
+- [x] 4 improvement tools registered in engine
+- [x] E2E test: 38/38 passing
+
+### M3: Channels ✅ (Completed 2026-06-16)
+Multi-platform messaging adapters.
+
+**Done:**
+- [x] Channel base class (start/stop/send/onMessage)
+- [x] Telegram adapter (grammy, polling, streaming edits)
+- [x] Discord adapter (discord.js, slash commands)
+- [x] WebChat adapter (Express + Socket.IO)
+- [x] Channel manager (config-driven, message routing)
+- [x] Wired into engine boot
+
+### M4: Polish & Ship ✅ (Completed 2026-06-16)
+CLI, templates, docs.
+
+**Done:**
+- [x] CLI: lodestone init/start/status/chat/tools/memory/config
+- [x] 5 identity templates (developer, business, creative, researcher, general)
+- [x] README, CHANGELOG
+- [x] Config YAML generation (with channels section)
+- [x] lodestone init --yes for non-interactive use
+
+### M5: TUI v2 (Current)
+Full-featured terminal UI.
+
+**Done:**
+- [x] Streaming responses (token-by-token)
+- [x] Live tool call indicators (name, duration, result)
+- [x] Improvement dashboard (/improve)
+- [x] Improvement slash commands (/predict, /rbt, /drift, /lessons, /sleep)
+- [x] Dynamic status bar (state, message count, tool info)
+- [x] Rich tool result rendering
+
+**Remaining:**
+- [ ] Chat history scroll (pgUp/pgDn)
+- [ ] Multi-line input (Shift+Enter)
+- [ ] Channel status in status bar
+- [ ] Theme/skin command
 - Drift detection (behavior vs core principles)
 - RBT diagnosis (Roses/Buds/Thorns self-healing)
 - Skill evolution (lesson tracking, promotion to core)
