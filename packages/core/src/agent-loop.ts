@@ -286,11 +286,23 @@ export class AgentLoop {
     const provider = this.engine.llm.getDefault();
     const model = provider.getModel();
 
+    // AI SDK v6: system messages must go in the 'system' option, not in messages
+    let systemPrompt: string | undefined;
+    const chatMessages: ModelMessage[] = [];
+    for (const msg of messages) {
+      if (msg.role === 'system') {
+        systemPrompt = typeof msg.content === 'string' ? msg.content : JSON.stringify(msg.content);
+      } else {
+        chatMessages.push(msg);
+      }
+    }
+
     if (this.config.stream && streamHandler) {
       // Streaming mode
       const result = await streamText({
         model,
-        messages,
+        system: systemPrompt,
+        messages: chatMessages,
         maxOutputTokens: this.config.maxTokens,
         temperature: this.config.temperature,
       });
@@ -328,7 +340,8 @@ export class AgentLoop {
       // Non-streaming mode
       const result = await generateText({
         model,
-        messages,
+        system: systemPrompt,
+        messages: chatMessages,
         maxOutputTokens: this.config.maxTokens,
         temperature: this.config.temperature,
       });
