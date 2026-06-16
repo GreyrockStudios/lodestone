@@ -102,10 +102,9 @@ async function main() {
   const term = new ProcessTerminal();
   const tui = new TUI(term);
 
-  // Components
-  const headerText = new Text(` ${B}${fg(P.accent)}🔮 Lodestone${R}  ${fg(P.dim)}│${R}  ${identity!.identity.name}  ${fg(P.dim)}│${R}  ${process.env.LODESTONE_MODEL||'qwen3:8b'} `, 1, 0);
+  // Components — status bar shows identity + model + state
+  const statusText = new Text(` ${B}${fg(P.accent)}🔮 Lodestone${R}  ${fg(P.dim)}│${R}  ${identity!.identity.name}  ${fg(P.dim)}│${R}  ${process.env.LODESTONE_MODEL||'qwen3:8b'}  ${fg(P.dim)}│${R}  ${fg(P.success)}✓${R} ${D}Ready · /help${R} `, 1, 0);
   const logText = new Text('', 1, 0);
-  const statusText = new Text(` ${fg(P.success)}✓${R} ${D}Ready · /help for commands${R} `, 1, 0);
 
   const selectListTheme = {
     selectedBg: (s: string) => bg(P.border) + s + R,
@@ -126,11 +125,11 @@ async function main() {
     selectList: selectListTheme as any,
   });
 
-  // Layout: TUI IS the root container
-  tui.addChild(headerText);
-  (tui as any).addChild(logText, 1); // flex=1
-  tui.addChild(statusText);
+  // Layout: editor at top, status below it, messages fill the rest
+  // This matches OpenClaw's TUI: type at top, see responses below
   tui.addChild(editor);
+  tui.addChild(statusText);
+  (tui as any).addChild(logText, 1); // flex=1 fills remaining space
   tui.setFocus(editor);
 
   // Submit handler
