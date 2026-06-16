@@ -19,6 +19,8 @@
  */
 
 import { TUI, ProcessTerminal, Text, Box, Markdown, Editor, Container, Spacer } from '@earendil-works/pi-tui';
+
+type InputListenerResult = { consume?: boolean; data?: string } | undefined;
 import { existsSync, mkdirSync, readFileSync, writeFileSync, cpSync } from 'fs';
 import { resolve, join, dirname } from 'path';
 import { fileURLToPath } from 'url';
@@ -181,7 +183,7 @@ async function renderWelcome(tui: TUI, term: ProcessTerminal, state: OnboardingS
     box.addChild(content);
     const overlay = tui.showOverlay(box, { anchor: 'center', width: 60 });
 
-    const handler = (data: string) => {
+    const handler = (data: string): InputListenerResult => {
       if (data === '\r' || data === '\n') {
         tui.removeInputListener(handler);
         overlay.hide();
@@ -192,8 +194,9 @@ async function renderWelcome(tui: TUI, term: ProcessTerminal, state: OnboardingS
         overlay.hide();
         resolve({ type: 'quit' });
       }
+      return undefined;
     };
-    tui.addInputListener((data: string) => { const result = handler(data); return result; });
+    tui.addInputListener((data: string) => { handler(data); return { consume: true }; });
     tui.requestRender();
   });
 }
@@ -290,7 +293,7 @@ async function renderAgentName(tui: TUI, term: ProcessTerminal, state: Onboardin
     box.addChild(content);
     const overlay = tui.showOverlay(box, { anchor: 'center', width: 60 });
 
-    const handler = (data: string) => {
+    const handler = (data: string): InputListenerResult => {
       if (data === '\r' || data === '\n') {
         tui.removeInputListener(handler);
         state.agentName = currentInput || defaultName;
@@ -323,8 +326,9 @@ async function renderAgentName(tui: TUI, term: ProcessTerminal, state: Onboardin
         ].join('\n'));
         tui.requestRender();
       }
+      return undefined;
     };
-    tui.addInputListener((data: string) => { const result = handler(data); return result; });
+    tui.addInputListener((data: string) => { handler(data); return { consume: true }; });
     tui.requestRender();
   });
 }
@@ -353,7 +357,7 @@ async function renderUserName(tui: TUI, term: ProcessTerminal, state: Onboarding
     box.addChild(content);
     const overlay = tui.showOverlay(box, { anchor: 'center', width: 60 });
 
-    const handler = (data: string) => {
+    const handler = (data: string): InputListenerResult => {
       if (data === '\r' || data === '\n') {
         tui.removeInputListener(handler);
         state.userName = currentInput || 'User';
@@ -386,8 +390,9 @@ async function renderUserName(tui: TUI, term: ProcessTerminal, state: Onboarding
         ].join('\n'));
         tui.requestRender();
       }
+      return undefined;
     };
-    tui.addInputListener((data: string) => { const result = handler(data); return result; });
+    tui.addInputListener((data: string) => { handler(data); return { consume: true }; });
     tui.requestRender();
   });
 }
@@ -413,7 +418,7 @@ async function renderTemplate(tui: TUI, term: ProcessTerminal, state: Onboarding
       selected,
     );
 
-    const handler = (data: string) => {
+    const handler = (data: string): InputListenerResult => {
       // Up arrow
       if (data === '\x1b[A' || data === '\x1bOA') {
         selected = Math.max(0, selected - 1);
@@ -439,8 +444,9 @@ async function renderTemplate(tui: TUI, term: ProcessTerminal, state: Onboarding
         overlay.hide();
         resolve({ type: 'back' });
       }
+      return undefined;
     };
-    tui.addInputListener((data: string) => { const result = handler(data); return result; });
+    tui.addInputListener((data: string) => { handler(data); return { consume: true }; });
     tui.requestRender();
   });
 }
@@ -467,7 +473,7 @@ async function renderPersonality(tui: TUI, term: ProcessTerminal, state: Onboard
       selected,
     );
 
-    const handler = (data: string) => {
+    const handler = (data: string): InputListenerResult => {
       if (data === '\x1b[A' || data === '\x1bOA') {
         selected = Math.max(0, selected - 1);
         updateChoice(content, 'How should I think?', `When I respond, should I be brief or thorough?`, options, selected);
@@ -486,8 +492,9 @@ async function renderPersonality(tui: TUI, term: ProcessTerminal, state: Onboard
         overlay.hide();
         resolve({ type: 'back' });
       }
+      return undefined;
     };
-    tui.addInputListener((data: string) => { const result = handler(data); return result; });
+    tui.addInputListener((data: string) => { handler(data); return { consume: true }; });
     tui.requestRender();
   });
 }
@@ -514,7 +521,7 @@ async function renderProvider(tui: TUI, term: ProcessTerminal, state: Onboarding
       selected,
     );
 
-    const handler = (data: string) => {
+    const handler = (data: string): InputListenerResult => {
       if (data === '\x1b[A' || data === '\x1bOA') {
         selected = Math.max(0, selected - 1);
         updateChoice(content, 'How will I think?', `Which LLM provider should I use?`, options, selected);
@@ -534,8 +541,9 @@ async function renderProvider(tui: TUI, term: ProcessTerminal, state: Onboarding
         overlay.hide();
         resolve({ type: 'back' });
       }
+      return undefined;
     };
-    tui.addInputListener((data: string) => { const result = handler(data); return result; });
+    tui.addInputListener((data: string) => { handler(data); return { consume: true }; });
     tui.requestRender();
   });
 }
@@ -569,7 +577,7 @@ async function renderReview(tui: TUI, term: ProcessTerminal, state: OnboardingSt
     box.addChild(content);
     const overlay = tui.showOverlay(box, { anchor: 'center', width: 60 });
 
-    const handler = (data: string) => {
+    const handler = (data: string): InputListenerResult => {
       if (data === '\r' || data === '\n') {
         tui.removeInputListener(handler);
         // Create workspace
@@ -586,8 +594,9 @@ async function renderReview(tui: TUI, term: ProcessTerminal, state: OnboardingSt
         overlay.hide();
         resolve({ type: 'back' });
       }
+      return undefined;
     };
-    tui.addInputListener((data: string) => { const result = handler(data); return result; });
+    tui.addInputListener((data: string) => { handler(data); return { consume: true }; });
     tui.requestRender();
   });
 }
