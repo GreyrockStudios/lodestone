@@ -253,6 +253,135 @@ async function main() {
   // Start TUI immediately
   tui.start();
 
+
+  // ─── Submit Handler ──────────────────────────────────────────────────
+
+  editor.onSubmit = async (text: string) => {
+    const trimmed = text.trim();
+    if (!trimmed || isProcessing) return;
+    editor.setText('');
+
+    // Check slash commands
+    if (trimmed.startsWith('/')) {
+      const handled = await handleCommand(trimmed);
+      if (handled) return;
+    }
+
+    // ─── LLM with streaming ─────────────────────────────────────────
+
+    isProcessing = true;
+    msgCount++;
+    messages.push({ role: 'user', text: trimmed, ts: Date.now() });
+    refreshAll();
+    updateStatus('thinking', 'waiting for LLM');
+
+    // Create stream handler for live updates
+    const streamHandler = new StreamHandler();
+    let currentToolName = '';
+
+    // Handle text deltas — update streaming message
+    streamHandler.on('text_delta', (event) => {
+      const delta = (event.data as { text: string }).text;
+      if (!streamingMd) {
+        startStreamingMessage();
+        updateStatus('streaming');
+      }
+      appendStreamingText(delta);
+    });
+
+    // Handle tool calls — show indicator
+    streamHandler.on('tool_call_start', (event) => {
+      const data = event.data as { toolCallId: string; toolName: string };
+      currentToolName = data.toolName;
+      updateStatus('tool', data.toolName);
+
+      // Add a tool indicator message
+      messages.push({
+        role: 'tool',
+        text: '',
+        ts: Date.now(),
+        toolName: data.toolName,
+        toolSuccess: true,
+        toolDuration: 0,
+        toolSummary: 'running...',
+      });
+      // Don't refresh yet — tool result will come
+    });
+
+    // Handle tool results — update with result
+    streamHandler.on('tool_result', (event) => {
+      const data = event.data as { toolName: string; success: boolean; result: string; durationMs: number };
+      // Update the last tool message
+      const lastTool = [...messages].reverse().find(m => m.role === 'tool' && m.toolName === data.toolName);
+      if (lastTool) {
+        lastTool.toolSuccess = data.success;
+        lastTool.toolDuration = data.durationMs;
+        lastTool.toolSummary = data.result?.slice(0, 120) || '';
+      }
+      updateStatus('streaming', `tool: ${data.toolName}`);
+      refreshAll();
+    });
+
+    // Handle stream done
+    streamHandler.on('done', () => {
+      // Will be handled in the main promise chain
+    });
+
+    try {
+      const result = await loop.run(currentSessionId, trimmed, streamHandler);
+
+      // Finish streaming message or add new one
+      const assistantMsg: ChatMessage = {
+        role: 'assistant',
+        text: result.response || streamingBuffer || '(no response)',
+        ts: Date.now(),
+        tokens: result.totalTokens,
+        ms: result.durationMs,
+        tools: result.toolCalls.map(tc => tc.toolName),
+      };
+
+      if (streamingMd) {
+        finishStreamingMessage(assistantMsg);
+      } else {
+        addMessage(assistantMsg);
+        messages.push(assistantMsg);
+      }
+
+      // Update tool messages with final durations
+      for (const tc of result.toolCalls) {
+        const toolMsg = [...messages].reverse().find(m => m.role === 'tool' && m.toolName === tc.toolName);
+        if (toolMsg) {
+          toolMsg.toolDuration = tc.durationMs;
+          toolMsg.toolSuccess = tc.success;
+          toolMsg.toolSummary = tc.summary?.slice(0, 120) || '';
+        }
+      }
+
+      isProcessing = false;
+      msgCount = messages.filter(m => m.role === 'user').length;
+      updateStatus('ready', `${msgCount} msgs`);
+      refreshAll();
+    } catch (err) {
+      const errMsg: ChatMessage = {
+        role: 'system',
+        text: `${fg(P.error)}**Error:** ${err instanceof Error ? err.message : String(err)}${R}`,
+        ts: Date.now(),
+      };
+
+      if (streamingMd) {
+        streamingMd.setText(buildSystemMessage(errMsg));
+      } else {
+        addMessage(errMsg);
+        messages.push(errMsg);
+      }
+
+      isProcessing = false;
+      updateStatus('error');
+      refreshAll();
+    }
+  };
+
+
   // ─── Scroll & Keyboard Handler ────────────────────────────────────────
 
   // PageUp/PageDown scroll the chat log
@@ -809,133 +938,6 @@ async function main() {
         return false;
     }
   }
-
-  // ─── Submit Handler ──────────────────────────────────────────────────
-
-  editor.onSubmit = async (text: string) => {
-    const trimmed = text.trim();
-    if (!trimmed || isProcessing) return;
-    editor.setText('');
-
-    // Check slash commands
-    if (trimmed.startsWith('/')) {
-      const handled = await handleCommand(trimmed);
-      if (handled) return;
-    }
-
-    // ─── LLM with streaming ─────────────────────────────────────────
-
-    isProcessing = true;
-    msgCount++;
-    messages.push({ role: 'user', text: trimmed, ts: Date.now() });
-    refreshAll();
-    updateStatus('thinking', 'waiting for LLM');
-
-    // Create stream handler for live updates
-    const streamHandler = new StreamHandler();
-    let currentToolName = '';
-
-    // Handle text deltas — update streaming message
-    streamHandler.on('text_delta', (event) => {
-      const delta = (event.data as { text: string }).text;
-      if (!streamingMd) {
-        startStreamingMessage();
-        updateStatus('streaming');
-      }
-      appendStreamingText(delta);
-    });
-
-    // Handle tool calls — show indicator
-    streamHandler.on('tool_call_start', (event) => {
-      const data = event.data as { toolCallId: string; toolName: string };
-      currentToolName = data.toolName;
-      updateStatus('tool', data.toolName);
-
-      // Add a tool indicator message
-      messages.push({
-        role: 'tool',
-        text: '',
-        ts: Date.now(),
-        toolName: data.toolName,
-        toolSuccess: true,
-        toolDuration: 0,
-        toolSummary: 'running...',
-      });
-      // Don't refresh yet — tool result will come
-    });
-
-    // Handle tool results — update with result
-    streamHandler.on('tool_result', (event) => {
-      const data = event.data as { toolName: string; success: boolean; result: string; durationMs: number };
-      // Update the last tool message
-      const lastTool = [...messages].reverse().find(m => m.role === 'tool' && m.toolName === data.toolName);
-      if (lastTool) {
-        lastTool.toolSuccess = data.success;
-        lastTool.toolDuration = data.durationMs;
-        lastTool.toolSummary = data.result?.slice(0, 120) || '';
-      }
-      updateStatus('streaming', `tool: ${data.toolName}`);
-      refreshAll();
-    });
-
-    // Handle stream done
-    streamHandler.on('done', () => {
-      // Will be handled in the main promise chain
-    });
-
-    try {
-      const result = await loop.run(currentSessionId, trimmed, streamHandler);
-
-      // Finish streaming message or add new one
-      const assistantMsg: ChatMessage = {
-        role: 'assistant',
-        text: result.response || streamingBuffer || '(no response)',
-        ts: Date.now(),
-        tokens: result.totalTokens,
-        ms: result.durationMs,
-        tools: result.toolCalls.map(tc => tc.toolName),
-      };
-
-      if (streamingMd) {
-        finishStreamingMessage(assistantMsg);
-      } else {
-        addMessage(assistantMsg);
-        messages.push(assistantMsg);
-      }
-
-      // Update tool messages with final durations
-      for (const tc of result.toolCalls) {
-        const toolMsg = [...messages].reverse().find(m => m.role === 'tool' && m.toolName === tc.toolName);
-        if (toolMsg) {
-          toolMsg.toolDuration = tc.durationMs;
-          toolMsg.toolSuccess = tc.success;
-          toolMsg.toolSummary = tc.summary?.slice(0, 120) || '';
-        }
-      }
-
-      isProcessing = false;
-      msgCount = messages.filter(m => m.role === 'user').length;
-      updateStatus('ready', `${msgCount} msgs`);
-      refreshAll();
-    } catch (err) {
-      const errMsg: ChatMessage = {
-        role: 'system',
-        text: `${fg(P.error)}**Error:** ${err instanceof Error ? err.message : String(err)}${R}`,
-        ts: Date.now(),
-      };
-
-      if (streamingMd) {
-        streamingMd.setText(buildSystemMessage(errMsg));
-      } else {
-        addMessage(errMsg);
-        messages.push(errMsg);
-      }
-
-      isProcessing = false;
-      updateStatus('error');
-      refreshAll();
-    }
-  };
 
   (editor as any).onEscape = () => { cleanup(); };
 
