@@ -125,11 +125,11 @@ async function main() {
     selectList: selectListTheme as any,
   });
 
-  // Layout: editor at top, status below it, messages fill the rest
-  // This matches OpenClaw's TUI: type at top, see responses below
-  tui.addChild(editor);
-  tui.addChild(statusText);
+  // Layout: messages fill top, status bar, editor at bottom
+  // Standard chat: see history above, type below
   (tui as any).addChild(logText, 1); // flex=1 fills remaining space
+  tui.addChild(statusText);
+  tui.addChild(editor);
   tui.setFocus(editor);
 
   // Submit handler
