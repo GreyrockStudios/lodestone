@@ -12,6 +12,8 @@ import { StreamHandler } from './streaming/handler.js';
 import { Scheduler, type JobConfig } from './scheduler/scheduler.js';
 import { IdentityLoader, type Identity, type IdentityConfig } from './identity/loader.js';
 import { MemorySystem } from './memory/memory-system.js';
+import { ImprovementSystem, type ImprovementConfig } from './improvement/index.js';
+import { ChannelManager, type ChannelManagerConfig } from './channels/index.js';
 import { join } from 'path';
 
 // ─── Engine Config ─────────────────────────────────────────────────────────
@@ -36,6 +38,8 @@ export interface LodestoneConfig {
   maxConcurrentJobs?: number;
   /** Session compaction threshold (0-1) */
   compactionThreshold?: number;
+  /** Channel configuration */
+  channels?: ChannelManagerConfig;
 }
 
 // ─── Engine Events ──────────────────────────────────────────────────────────
@@ -67,6 +71,8 @@ export class LodestoneEngine {
   readonly identity: IdentityLoader;
 
   readonly memory: MemorySystem;
+  readonly improvement: ImprovementSystem;
+  readonly channelManager: ChannelManager | null;
 
   // State
   private running = false;
@@ -106,6 +112,17 @@ export class LodestoneEngine {
     this.identity = new IdentityLoader({
       identityDir: config.identityDir,
     });
+
+    // Improvement subsystem
+    this.improvement = new ImprovementSystem({
+      dataDir: join(config.workspaceRoot, 'data/improvement'),
+      sleepCycleEnabled: true,
+    });
+
+    // Initialize channels (only if configured)
+    this.channelManager = config.channels
+      ? new ChannelManager(config.channels)
+      : null;
   }
 
   // ─── Lifecycle ──────────────────────────────────────────────────────────
@@ -120,6 +137,17 @@ export class LodestoneEngine {
     const loadedIdentity = await this.identity.load();
     console.log(`[Lodestone] Identity loaded: ${loadedIdentity.identity.name}`);
 
+    // Initialize improvement subsystem
+    await this.improvement.init();
+
+    // Register improvement tools
+    for (const tool of this.improvement.getTools()) {
+      this.tools.register(tool);
+    }
+
+    // Register sleep cycle job
+    this.scheduler.register(this.improvement.getSleepCycleJob());
+
     // Start scheduler
     this.scheduler.on('job:start' as never, (data: { jobId: string; name: string }) => {
       this.emit({ type: 'job.started', jobId: data.jobId });
@@ -130,6 +158,11 @@ export class LodestoneEngine {
     this.scheduler.on('job:error' as never, (data: { jobId: string; error: string }) => {
       this.emit({ type: 'job.completed', jobId: data.jobId, status: 'error' });
     });
+
+    // Start channels (if configured)
+    if (this.channelManager) {
+      await this.channelManager.start();
+    }
 
     this.running = true;
     this.emit({ type: 'started', timestamp: new Date().toISOString() });
@@ -142,6 +175,12 @@ export class LodestoneEngine {
     if (!this.running) return;
 
     console.log('[Lodestone] Stopping engine...');
+
+    // Stop channels
+    if (this.channelManager) {
+      await this.channelManager.stop();
+    }
+
     this.scheduler.stopAll();
     this.running = false;
 

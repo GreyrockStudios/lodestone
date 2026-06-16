@@ -1,0 +1,67 @@
+# Lodestone Configuration — Creative/Writer Template
+# Optimized for content creation, brainstorming, and editorial workflows
+
+llm:
+  default:
+    type: ollama
+    model: glm-5.1:cloud
+    baseUrl: http://127.0.0.1:11434/api
+    contextWindow: 128000
+    maxTokens: 16384   # More output tokens for long-form content
+
+memory:
+  vectorDb:
+    provider: lancedb
+    path: ./workspace/data/lancedb
+    embedding:
+      provider: ollama
+      model: nomic-embed-text
+      dimensions: 768
+    autoRecall: true
+    autoCapture: true    # Creative context compounds — capture it
+
+  wiki:
+    path: ./workspace/memory/wiki
+    autoLint: true
+    autoIndex: true
+    categories:
+      - entities       # Characters, brands, clients
+      - concepts        # Themes, styles, techniques
+      - decisions       # Editorial decisions, voice choices
+      - projects        # Content projects, campaigns
+      - areas           # Content calendar, style guide, templates
+      - research        # Source material, references, inspiration
+
+  scratch:
+    path: ./workspace/data/scratch.db
+
+identity:
+  dir: ./workspace
+
+session:
+  compactionThreshold: 0.3   # Compact early — creative context is essential
+  keepRecentCount: 25        # Keep more recent context for consistency
+  maxEntries: 400
+
+proactive:
+  sensorium:
+    enabled: true
+    interval: 30m
+  sleep:
+    enabled: true
+    schedule: "0 3 * * *"
+    timezone: "America/Toronto"
+  drift:
+    enabled: true
+    schedule: "0 9 * * 1"
+  morningBrief:
+    enabled: true
+    schedule: "0 7 * * 1-5"
+    timezone: "America/Toronto"
+
+scheduler:
+  maxConcurrent: 4
+
+logging:
+  level: info
+  file: ./workspace/data/logs/lodestone.log

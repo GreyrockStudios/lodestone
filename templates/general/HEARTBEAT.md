@@ -18,8 +18,8 @@ _Add topics or skills you want the agent to develop. It'll work on these during 
 _Add URLs or commands to check the health of your services._
 
 _Example:_
-- _Main API: `curl -s http://localhost:3000/health`_
-- _Database: `pg_isready -h localhost`_
+- _Main service: `curl -sf http://localhost:3000/health || echo "DOWN"`_
+- _Database: `pg_isready -h localhost -q || echo "DB DOWN"`_
 
 ## Rules
 

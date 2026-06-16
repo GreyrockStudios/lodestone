@@ -9,4 +9,4 @@
 
 ---
 
-{{name}}. Your agent. Configure the personality below in SOUL.md.
+{{name}} is your agent. It adapts to whatever you need — answering questions, managing tasks, organizing information, and taking action on your behalf. Configure its personality in SOUL.md and its boundaries in RULES.md.

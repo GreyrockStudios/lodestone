@@ -1,0 +1,70 @@
+# Lodestone Configuration — Researcher Template
+# Optimized for literature review, data analysis, and citation management
+
+llm:
+  default:
+    type: ollama
+    model: glm-5.1:cloud
+    baseUrl: http://127.0.0.1:11434/api
+    contextWindow: 128000
+    maxTokens: 16384   # Long outputs for literature reviews and syntheses
+
+  # For deep analysis, route to a more capable model:
+  # routes:
+  #   deep:
+  #     type: openai
+  #     model: o3
+  #     apiKey: ${OPENAI_API_KEY}
+
+memory:
+  vectorDb:
+    provider: lancedb
+    path: ./workspace/data/lancedb
+    embedding:
+      provider: ollama
+      model: nomic-embed-text
+      dimensions: 768
+    autoRecall: true
+    autoCapture: true    # Research context compounds — capture everything
+
+  wiki:
+    path: ./workspace/memory/wiki
+    autoLint: true
+    autoIndex: true      # Always maintain the index — it's the research catalog
+    categories:
+      - entities       # Authors, organizations, key figures
+      - concepts        # Theories, methods, frameworks
+      - decisions       # Research direction decisions
+      - projects        # Active research projects
+      - areas           # Research domains
+      - research        # Source material, findings, annotations
+
+  scratch:
+    path: ./workspace/data/scratch.db
+
+identity:
+  dir: ./workspace
+
+session:
+  compactionThreshold: 0.3   # Compact early — research context is essential
+  keepRecentCount: 30        # Keep more recent context for coherence
+  maxEntries: 500
+
+proactive:
+  sensorium:
+    enabled: true
+    interval: 30m
+  sleep:
+    enabled: true
+    schedule: "0 3 * * *"
+    timezone: "America/Toronto"
+  drift:
+    enabled: true
+    schedule: "0 9 * * 1"
+
+scheduler:
+  maxConcurrent: 4
+
+logging:
+  level: info
+  file: ./workspace/data/logs/lodestone.log

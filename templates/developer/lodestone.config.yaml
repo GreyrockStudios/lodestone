@@ -1,0 +1,70 @@
+# Lodestone Configuration — Developer Template
+# Optimized for software engineering workflows
+
+llm:
+  default:
+    type: ollama
+    model: glm-5.1:cloud
+    baseUrl: http://127.0.0.1:11434/api
+    contextWindow: 128000
+    maxTokens: 8192
+
+  # Route code review and architecture decisions to a smarter model
+  # routes:
+  #   review:
+  #     type: openai
+  #     model: o3
+  #     apiKey: ${OPENAI_API_KEY}
+
+memory:
+  vectorDb:
+    provider: lancedb
+    path: ./workspace/data/lancedb
+    embedding:
+      provider: ollama
+      model: nomic-embed-text
+      dimensions: 768
+    autoRecall: true
+    autoCapture: false
+
+  wiki:
+    path: ./workspace/memory/wiki
+    autoLint: true
+    autoIndex: true
+    categories:
+      - entities
+      - concepts
+      - decisions
+      - projects
+      - areas
+      - research
+
+  scratch:
+    path: ./workspace/data/scratch.db
+
+identity:
+  dir: ./workspace
+
+session:
+  compactionThreshold: 0.5
+  keepRecentCount: 15
+  maxEntries: 300
+
+proactive:
+  sensorium:
+    enabled: true
+    interval: 30m
+  sleep:
+    enabled: true
+    schedule: "0 3 * * *"
+    timezone: "America/Toronto"
+  drift:
+    enabled: true
+    schedule: "0 9 * * 1"
+
+scheduler:
+  maxConcurrent: 4
+
+logging:
+  level: info
+  file: ./workspace/data/logs/lodestone.log

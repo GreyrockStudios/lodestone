@@ -1,0 +1,63 @@
+# Lodestone Configuration
+# Copy to lodestone.config.yaml and customize
+
+# ─── Workspace ──────────────────────────────────────────────────────
+workspace:
+  root: ./workspace
+
+# ─── Identity ────────────────────────────────────────────────────────
+identity:
+  dir: ./identity
+
+# ─── LLM ─────────────────────────────────────────────────────────────
+llm:
+  default:
+    type: ollama
+    model: glm-5.1:cloud
+    baseUrl: http://127.0.0.1:11434/api
+    contextWindow: 128000
+    maxTokens: 8192
+  # routes:
+  #   fast:
+  #     type: ollama
+  #     model: qwen3:4b
+  #     baseUrl: http://127.0.0.1:11434/api
+
+# ─── Memory ──────────────────────────────────────────────────────────
+memory:
+  wiki:
+    path: ./memory/wiki
+  vector:
+    path: ./data/lancedb
+
+# ─── Session ─────────────────────────────────────────────────────────
+session:
+  compactionThreshold: 0.5
+
+# ─── Scheduler ───────────────────────────────────────────────────────
+scheduler:
+  maxConcurrent: 4
+
+# ─── Channels ────────────────────────────────────────────────────────
+# Each channel is optional — only enabled channels boot.
+# Telegram and Discord require their npm packages (grammy, discord.js)
+# to be installed separately. WebChat uses express + socket.io (core deps).
+channels:
+  telegram:
+    type: telegram
+    enabled: false
+    botToken: ${TELEGRAM_BOT_TOKEN}
+    streaming: true
+
+  discord:
+    type: discord
+    enabled: false
+    botToken: ${DISCORD_BOT_TOKEN}
+    channelId: "1234567890"
+    streaming: true
+
+  webchat:
+    type: webchat
+    enabled: false
+    port: 3000
+    corsOrigin: "*"

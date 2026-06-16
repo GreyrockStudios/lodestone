@@ -39,5 +39,21 @@ export { StreamHandler, type StreamEvent, type StreamEventType, type StreamConfi
 // Scheduler
 export { Scheduler, type JobConfig, type JobResult, type JobState } from './scheduler/scheduler.js';
 
+// Improvement
+export { ImprovementSystem, type ImprovementConfig } from './improvement/index.js';
+export { PredictionJournal, type PredictionEntry, type CalibrationReport, type CalibrationBucket } from './improvement/prediction-journal.js';
+export { DriftDetector, type IdentityRule, type DecisionRecord, type DriftScore, type DriftReport } from './improvement/drift-detector.js';
+export { RBTDiagnosis, type ActivityEntry, type RoseEntry, type BudEntry, type ThornEntry, type RBTReport } from './improvement/rbt-diagnosis.js';
+export { SkillEvolver, type Lesson, type Skill, type EvolveResult } from './improvement/skill-evolver.js';
+export { SleepCycle, type SleepStage, type SleepCycleResult, type HarvestResult, type MineResult, type ReflectionResult, type ConsolidationResult, type ValidationResult, type PreparationResult } from './improvement/sleep-cycle.js';
+export { PredictionJournalTool, DriftCheckTool, RBTDiagnoseTool, SkillLearnTool } from './improvement/index.js';
+
 // Identity
 export { IdentityLoader, type Identity, type AgentIdentity, type UserIdentity, type AgentRules, type HeartbeatState, type IdentityConfig } from './identity/loader.js';
+
+// Channels
+export { Channel, type ChannelConfig, type ChannelMessage, type MessageHandler } from './channels/channel.js';
+export { TelegramChannel, type TelegramConfig } from './channels/telegram.js';
+export { DiscordChannel, type DiscordConfig } from './channels/discord.js';
+export { WebChatChannel, type WebChatConfig } from './channels/webchat.js';
+export { ChannelManager, type ChannelManagerConfig } from './channels/manager.js';

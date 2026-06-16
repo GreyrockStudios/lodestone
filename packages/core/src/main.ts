@@ -57,6 +57,12 @@ async function loadConfig(): Promise<LodestoneConfig> {
           },
         })),
       },
+      channels: config.channels ? {
+        channels: Object.entries(config.channels || {}).map(([name, ch]: [string, any]) => ({
+          ...ch,
+          // name is used as key in config but channels array doesn't need it
+        })).filter((ch: any) => ch.enabled !== false),
+      } : undefined,
     };
   } catch (err) {
     console.error('[Lodestone] Failed to load config:', err);
@@ -149,7 +155,43 @@ async function main() {
   console.log(`[Lodestone] Identity loaded: ${identity.identity.name}`);
   console.log(`[Lodestone] User: ${identity.user.name}`);
 
-  // 10. Ready
+  // 10. Wire channels to agent loop
+  if (engine.channelManager) {
+    engine.channelManager.onMessage(async (message) => {
+      try {
+        // Find or create a session for this channel+user
+        let sessionId: string;
+        const existingSession = engine.sessions.list().find(s =>
+          s.metadata.channelSessionId === message.sessionId
+        );
+        if (existingSession) {
+          sessionId = existingSession.id;
+        } else {
+          sessionId = engine.createSession();
+          engine.sessions.updateState(sessionId, {
+            currentTask: `Chat via ${message.channelId}`,
+            progress: 'active',
+          });
+          // Track which channel session this belongs to
+          const session = engine.sessions.get(sessionId);
+          if (session) {
+            session.metadata.channelSessionId = message.sessionId;
+            session.metadata.channelId = message.channelId;
+          }
+        }
+
+        // Run the agent loop
+        const result = await loop.run(sessionId, message.content);
+        return result.response;
+      } catch (err) {
+        console.error('[Lodestone] Channel message error:', err);
+        return 'Sorry, an error occurred processing your message.';
+      }
+    });
+    console.log(`[Lodestone] Channels wired: ${engine.channelManager.listChannels().length} active`);
+  }
+
+  // 11. Ready
   console.log('');
   console.log('🔮 Lodestone is ready.');
   console.log(`   Model: ${config.llm.default.model}`);

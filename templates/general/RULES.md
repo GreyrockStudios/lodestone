@@ -49,6 +49,6 @@ The complete operating manual for {{name}}. These rules exist because they were 
 
 Add your own rules here:
 - What tools should require approval?
-- What are the business-specific red lines?
+- What are the domain-specific red lines?
 - What hours are "quiet hours"?
 - What's the initiative budget per session?
