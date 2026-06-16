@@ -5,8 +5,6 @@
  * Designed for real-time UI updates and progressive tool execution.
  */
 
-import type { LanguageModelV1 } from 'ai';
-
 // ─── Stream Event Types ────────────────────────────────────────────────────
 
 export type StreamEventType =

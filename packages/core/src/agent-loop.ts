@@ -15,7 +15,7 @@
  */
 
 import { generateText, streamText } from 'ai';
-import type { CoreMessage } from 'ai';
+import type { ModelMessage } from 'ai';
 import type { LodestoneEngine } from './engine.js';
 import type { StreamHandler } from './streaming/handler.js';
 import type { ToolResult } from './tools/definitions.js';
@@ -258,11 +258,11 @@ export class AgentLoop {
 
   // ─── Message History ────────────────────────────────────────────────────
 
-  private buildMessageHistory(sessionId: string, systemPrompt: string): CoreMessage[] {
+  private buildMessageHistory(sessionId: string, systemPrompt: string): ModelMessage[] {
     const session = this.engine.sessions.get(sessionId);
     if (!session) throw new Error(`Session ${sessionId} not found`);
 
-    const messages: CoreMessage[] = [
+    const messages: ModelMessage[] = [
       { role: 'system', content: systemPrompt },
     ];
 
@@ -280,7 +280,7 @@ export class AgentLoop {
   // ─── LLM Call ──────────────────────────────────────────────────────────
 
   private async callLLM(
-    messages: CoreMessage[],
+    messages: ModelMessage[],
     streamHandler?: StreamHandler
   ): Promise<LLMResponse> {
     const provider = this.engine.llm.getDefault();
@@ -291,7 +291,7 @@ export class AgentLoop {
       const result = await streamText({
         model,
         messages,
-        maxTokens: this.config.maxTokens,
+        maxOutputTokens: this.config.maxTokens,
         temperature: this.config.temperature,
       });
 
@@ -300,13 +300,15 @@ export class AgentLoop {
 
       for await (const event of result.fullStream) {
         if (event.type === 'text-delta') {
-          fullText += event.textDelta;
-          streamHandler.emit('text_delta', { text: event.textDelta });
+          // AI SDK v6 uses event.text instead of event.textDelta
+          const delta = (event as any).text || (event as any).textDelta || '';
+          fullText += delta;
+          streamHandler.emit('text_delta', { text: delta });
         } else if (event.type === 'tool-call') {
           toolCalls.push({
             toolCallId: event.toolCallId,
             toolName: event.toolName,
-            arguments: event.args as Record<string, unknown>,
+            arguments: (event as any).args || (event as any).input as Record<string, unknown>,
           });
           streamHandler.emit('tool_call_start', {
             toolCallId: event.toolCallId,
@@ -327,14 +329,14 @@ export class AgentLoop {
       const result = await generateText({
         model,
         messages,
-        maxTokens: this.config.maxTokens,
+        maxOutputTokens: this.config.maxTokens,
         temperature: this.config.temperature,
       });
 
       const toolCalls: ParsedToolCall[] = (result.toolCalls || []).map(tc => ({
         toolCallId: tc.toolCallId || `tc_${Date.now()}`,
         toolName: tc.toolName,
-        arguments: typeof tc.args === 'string' ? JSON.parse(tc.args) : tc.args as Record<string, unknown>,
+        arguments: typeof (tc as any).args === 'string' ? JSON.parse((tc as any).args) : ((tc as any).args || (tc as any).input) as Record<string, unknown>,
       }));
 
       return {

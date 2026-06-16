@@ -9,7 +9,6 @@
 import { createOllama } from 'ollama-ai-provider';
 import { createOpenAI } from '@ai-sdk/openai';
 import { createAnthropic } from '@ai-sdk/anthropic';
-import type { LanguageModelV1 } from 'ai';
 
 // ─── Provider Types ────────────────────────────────────────────────────────
 
@@ -53,7 +52,7 @@ export class LLMProvider {
     this.modelInstance = this.createModel(config);
   }
 
-  private createModel(config: ProviderConfig): LanguageModelV1 {
+  private createModel(config: ProviderConfig) {
     switch (config.type) {
       case 'ollama': {
         // Use OpenAI-compatible endpoint for all Ollama models
@@ -62,7 +61,7 @@ export class LLMProvider {
           baseURL: (config.baseUrl || 'http://127.0.0.1:11434/api').replace(/\/api$/, '/v1'),
           apiKey: config.apiKey || 'unused',
         });
-        return ollama.chat(config.model) as unknown as LanguageModelV1;
+        return ollama.chat(config.model);
       }
 
       case 'openai': {
@@ -70,7 +69,7 @@ export class LLMProvider {
           baseURL: config.baseUrl,
           apiKey: config.apiKey,
         });
-        return openai(config.model) as unknown as LanguageModelV1;
+        return openai.chat(config.model);
       }
 
       case 'anthropic': {
@@ -78,7 +77,7 @@ export class LLMProvider {
           baseURL: config.baseUrl,
           apiKey: config.apiKey,
         });
-        return anthropic(config.model) as unknown as LanguageModelV1;
+        return anthropic(config.model);
       }
 
       case 'custom': {
@@ -88,7 +87,7 @@ export class LLMProvider {
           apiKey: config.apiKey || 'not-needed',
           headers: config.headers,
         });
-        return custom.chat(config.model) as unknown as LanguageModelV1;
+        return custom.chat(config.model);
       }
 
       default:
@@ -96,9 +95,9 @@ export class LLMProvider {
     }
   }
 
-  /** Get the Vercel AI SDK model instance */
-  getModel(): LanguageModelV1 {
-    return this.modelInstance as LanguageModelV1;
+  /** Get the AI SDK model instance */
+  getModel() {
+    return this.modelInstance;
   }
 
   /** Get provider config (safe copy) */
