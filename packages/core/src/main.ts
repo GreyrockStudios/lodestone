@@ -107,8 +107,10 @@ async function runHeadlessOnboarding(workspaceRoot: string): Promise<void> {
   // Template
   console.log('\nWhat kind of work will you do?');
   for (let i = 0; i < HEADLESS_TEMPLATES.length; i++) {
-    const t = PROVIDER_INFO[HEADLESS_TEMPLATES[i] as keyof typeof PROVIDER_INFO] || HEADLESS_TEMPLATES[i];
-    console.log(`  ${i + 1}. ${HEADLESS_TEMPLATES[i]}`);
+    const t = PROVIDER_INFO[HEADLESS_TEMPLATES[i] as keyof typeof PROVIDER_INFO];
+    // PROVIDER_INFO doesn't have template info — show template names directly
+    const names: Record<string, string> = { general: '⚡ General — balanced assistant', developer: '💻 Developer — coding partner', business: '📊 Business — strategic advisor', creative: '🎨 Creative — writing and design', researcher: '🔬 Researcher — analysis and synthesis' };
+    console.log(`  ${i + 1}. ${names[HEADLESS_TEMPLATES[i]]}`);
   }
   const tIdx = Math.max(0, Math.min(HEADLESS_TEMPLATES.length - 1, parseInt(await ask(`Choose [1-${HEADLESS_TEMPLATES.length}]: `)) - 1 || 0));
   const template = HEADLESS_TEMPLATES[tIdx];
