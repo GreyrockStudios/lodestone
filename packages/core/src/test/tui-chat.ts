@@ -611,14 +611,6 @@ async function main() {
     wrapper.addChild(md);
     wrapper.addChild(new Spacer(1));
     chatLog.addChild(wrapper);
-
-    // Trim old messages to keep editor visible (max 70% of terminal)
-    const maxLines = Math.floor(tui.terminal.rows * 0.7);
-    let totalLines = chatLog.render(tui.terminal.columns).length;
-    while (totalLines > maxLines && chatLog.children.length > 1) {
-      chatLog.removeChild(chatLog.children[0]);
-      totalLines = chatLog.render(tui.terminal.columns).length;
-    }
   }
 
   // Streaming: update the last assistant message in-place
@@ -655,8 +647,6 @@ async function main() {
   }
 
   function refreshAll() {
-    chatLog.clear();
-    for (const msg of messages) addMessage(msg);
     tui.requestRender();
   }
 
