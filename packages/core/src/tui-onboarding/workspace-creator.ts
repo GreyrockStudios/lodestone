@@ -89,6 +89,8 @@ export interface WorkspaceConfig {
 
 export function createWorkspaceFromAnswers(config: WorkspaceConfig): void {
   const root = config.workspacePath;
+  // If agentName is the surprise sentinel, use a placeholder
+  const effectiveName = config.agentName === '__surprise__' ? 'Lodestone' : config.agentName;
   const templateInfo = TEMPLATE_INFO[config.template];
 
   // Create directory tree
@@ -103,7 +105,7 @@ export function createWorkspaceFromAnswers(config: WorkspaceConfig): void {
     join(root, 'memory', 'wiki', 'areas'),
     join(root, 'memory', 'wiki', 'research'),
     join(root, 'memory', 'agents'),
-    join(root, 'memory', 'agents', config.agentName.toLowerCase().replace(/\s+/g, '-')),
+    join(root, 'memory', 'agents', effectiveName.toLowerCase().replace(/\s+/g, '-')),
     join(root, 'memory', '00-inbox'),
     join(root, 'data'),
     join(root, 'data', 'lancedb'),
@@ -126,7 +128,7 @@ export function createWorkspaceFromAnswers(config: WorkspaceConfig): void {
       const src = join(templateDir, file);
       if (existsSync(src)) {
         let content = readFileSync(src, 'utf-8');
-        content = content.replace(/\{\{name\}\}/g, config.agentName);
+        content = content.replace(/\{\{name\}\}/g, effectiveName);
         content = content.replace(/\{\{userName\}\}/g, config.userName);
         content = content.replace(/\{\{date\}\}/g, today);
         // Inject personality into SOUL.md
@@ -136,7 +138,7 @@ export function createWorkspaceFromAnswers(config: WorkspaceConfig): void {
             : config.personality === 'detailed'
             ? '\n\nBe thorough. Provide full context and explanations. Over-explain rather than under-explain.'
             : '\n\nBe balanced. Enough detail to be useful, not so much it drowns.';
-          content = content.replace(/\{\{name\}\}/g, config.agentName) + personalityDirective;
+          content = content.replace(/\{\{name\}\}/g, effectiveName) + personalityDirective;
         }
         writeFileSync(join(root, file), content);
       }
@@ -151,7 +153,7 @@ export function createWorkspaceFromAnswers(config: WorkspaceConfig): void {
       const secondarySoul = join(secondaryDir, 'SOUL.md');
       if (existsSync(secondarySoul)) {
         let soulContent = readFileSync(secondarySoul, 'utf-8');
-        soulContent = soulContent.replace(/\{\{name\}\}/g, config.agentName);
+        soulContent = soulContent.replace(/\{\{name\}\}/g, effectiveName);
         soulContent = soulContent.replace(/\{\{userName\}\}/g, config.userName);
         const secondaryName = TEMPLATE_INFO[secondaryKey]?.name || secondaryKey;
         const existingSoul = readFileSync(join(root, 'SOUL.md'), 'utf-8');
@@ -267,6 +269,7 @@ logging:
 
 function generateWikiIndex(state: WorkspaceConfig): string {
   const today = new Date().toISOString().split('T')[0];
+  const name = state.agentName === '__surprise__' ? 'Lodestone' : state.agentName;
   return `---
 title: Knowledge Index
 created: ${today}
@@ -277,7 +280,7 @@ tags: [index]
 
 # Knowledge Index
 
-Welcome to ${state.agentName}'s knowledge base. Pages are organized by category:
+Welcome to ${name}'s knowledge base. Pages are organized by category:
 
 ## Categories
 
@@ -290,7 +293,7 @@ Welcome to ${state.agentName}'s knowledge base. Pages are organized by category:
 
 ## Quick Start
 
-Start adding pages by talking to ${state.agentName} or creating files directly.
+Start adding pages by talking to ${name} or creating files directly.
 `;
 }
 

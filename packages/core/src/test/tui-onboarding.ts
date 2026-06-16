@@ -26,30 +26,6 @@ const BACK = Symbol('back');
 // Procedural unique names: first + last syllable combos.
 // Produces ~4,000 pronounceable, memorable names.
 // Collision probability at 1,000 deployments: <0.1% (birthday paradox).
-const NAME_FIRST = [
-  'Ael', 'Aer', 'Ald', 'Arv', 'Ash', 'Axi', 'Bex', 'Bri', 'Cael', 'Cas',
-  'Ced', 'Cor', 'Dax', 'Del', 'Drav', 'El', 'Emr', 'Eno', 'Eri', 'Fal',
-  'Fenn', 'Gal', 'Gor', 'Hale', 'Ior', 'Jas', 'Jor', 'Kal', 'Kes', 'Kir',
-  'Lor', 'Lun', 'Lyv', 'Maev', 'Mor', 'Nar', 'Nix', 'Nol', 'Ori', 'Pael',
-  'Phar', 'Rav', 'Ren', 'Rho', 'Ryn', 'Saer', 'Sel', 'Syl', 'Thal', 'Tor',
-  'Vael', 'Var', 'Vex', 'Vor', 'Xar', 'Zel', 'Zep', 'Zor',
-  'Ari', 'Bol', 'Cyr', 'Dav', 'Eld', 'Fyn', 'Gren', 'Hal', 'Jan', 'Kol',
-  'Lev', 'Myr', 'Nev', 'Orv', 'Pry', 'Quen', 'Rez', 'Sol', 'Tev', 'Ul',
-  'Ver', 'Wyn', 'Yor', 'Zal', 'Ath', 'Brav', 'Cen', 'Dar', 'Elv', 'Fyn',
-];
-const NAME_LAST = [
-  'is', 'on', 'en', 'ar', 'ix', 'os', 'an', 'us', 'ek', 'in',
-  'ia', 'ra', 'na', 'la', 'da', 'ma', 'ka', 'ta', 'va', 'tha',
-  'ion', 'ren', 'ven', 'den', 'lon', 'rin', 'nis', 'lis', 'mir',
-  'ath', 'eth', 'oth', 'ial', 'eal', 'ael',
-];
-
-function generateName(): string {
-  const first = NAME_FIRST[Math.floor(Math.random() * NAME_FIRST.length)];
-  const last = NAME_LAST[Math.floor(Math.random() * NAME_LAST.length)];
-  return first + last;
-}
-
 // ─── Types ─────────────────────────────────────────────────────────────────
 
 interface OnboardingState {
@@ -74,7 +50,7 @@ export async function runOnboarding(
   refreshAll: () => void,
   updateStatus: (status: StatusType, detail?: string) => void,
   suggestedPath: string,
-): Promise<{ workspace: string; agentName: string; userName: string; model: string; provider: string } | null> {
+): Promise<{ workspace: string; agentName: string; userName: string; model: string; provider: string; templates: string[] } | null> {
   const state: OnboardingState = {
     agentName: 'Lodestone',
     userName: 'User',
@@ -200,8 +176,8 @@ export async function runOnboarding(
       if (answer === BACK) return 0;
       if (answer && answer.toLowerCase() !== state.agentName.toLowerCase()) {
         if (answer.toLowerCase() === 'surprise me' || answer.toLowerCase() === 'surprise') {
-          state.agentName = generateName();
-          messages.push({ role: 'system', text: `${fg(P.success)}I'll go with ${B}${state.agentName}${R}! 🎲`, ts: Date.now() });
+          state.agentName = '__surprise__';  // Sentinel — model picks after boot
+          messages.push({ role: 'system', text: `${fg(P.dim)}I'll pick a name for myself once I'm booted up. 🎲${R}`, ts: Date.now() });
           addMessage(messages[messages.length - 1]);
         } else {
           state.agentName = answer;
@@ -303,7 +279,7 @@ export async function runOnboarding(
 
       const answer = await ask(
         `${B}${fg(P.accent)}Here's your setup:${R}\n\n` +
-        `  ${B}Agent name:${R}   ${state.agentName}\n` +
+        `  ${B}Agent name:${R}   ${state.agentName === '__surprise__' ? fg(P.accent) + '🎲 Model will decide' + R : state.agentName}\n` +
         `  ${B}Your name:${R}     ${state.userName}\n` +
         `  ${B}Focus:${R}        ${templatesList}\n` +
         `  ${B}Personality:${R}  ${personalityInfo.emoji} ${personalityInfo.name}\n` +
@@ -359,8 +335,13 @@ export async function runOnboarding(
 
   // ── Done ────────────────────────────────────────────────────────────────
 
+  const nameDisplay = state.agentName === '__surprise__' ? 'Your agent' : state.agentName;
+  const nameNote = state.agentName === '__surprise__'
+    ? `\n${fg(P.dim)}I'll pick a name for myself once I'm online. 🎲${R}`
+    : '';
+
   await ask(
-    `${fg(P.success)}✅ ${state.agentName} is ready!${R}\n\n` +
+    `${fg(P.success)}✅ ${nameDisplay} is ready!${R}${nameNote}\n\n` +
     `I've created your workspace at:\n` +
     `  ${D}${state.workspacePath}${R}\n\n` +
     `Your settings are saved in ${D}lodestone.config.yaml${R}. Edit it anytime to change your model, provider, or other settings.\n\n` +
@@ -376,5 +357,6 @@ export async function runOnboarding(
     userName: state.userName,
     model: state.model,
     provider: state.provider,
+    templates: state.templates,
   };
 }

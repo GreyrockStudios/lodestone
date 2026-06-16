@@ -24,7 +24,7 @@ import { ResumeStateTool } from '../tools/impl/resume-state.js';
 import { WatchdogTool } from '../tools/impl/watchdog.js';
 import { BusinessHoursTool } from '../tools/impl/business-hours.js';
 import { resolve } from 'path';
-import { existsSync } from 'fs';
+import { existsSync, readFileSync, writeFileSync } from 'fs';
 import { runOnboarding } from './tui-onboarding.js';
 
 let WORKSPACE = process.env.LODESTONE_WORKSPACE || '/tmp/lodestone-test/workspace';
@@ -439,7 +439,7 @@ async function main() {
 
   // If workspace doesn't exist or has no identity, run onboarding
   const workspaceExists = existsSync(resolve(WORKSPACE, 'IDENTITY.md'));
-  let onboardingResult: { workspace: string; agentName: string; userName: string; model: string; provider: string } | null = null;
+  let onboardingResult: { workspace: string; agentName: string; userName: string; model: string; provider: string; templates?: string[] } | null = null;
 
   if (!workspaceExists) {
     bootMsg.setText(`${B}${fg(P.accent)}🔮 ${displayName}${R}\n\nNo workspace found. Let\u2019s set one up!`);
@@ -533,6 +533,59 @@ async function main() {
     tui.requestRender();
     identity = await engine.identity.load();
     displayName = identity?.identity?.name || displayName;
+
+    // If agentName was 'surprise me', ask the model to pick a name
+    if (onboardingResult?.agentName === '__surprise__') {
+      try {
+        bootMsg.setText(`${B}${fg(P.accent)}🔮 ${displayName}${R}\nAsking the model to pick a name...`);
+        tui.requestRender();
+        updateStatus('thinking', 'picking a name');
+        const { generateText } = await import('ai');
+        const model = engine.llm.getDefault().getModel();
+        const nameResult = await generateText({
+          model,
+          prompt: `You are an AI agent being set up for the first time. Your user's name is "${onboardingResult.userName}". Your focus areas are: ${onboardingResult.templates?.join(', ') || 'general'}. Your personality style is: balanced. Pick a single name for yourself — it should be unique, memorable, 4-8 characters, and easy to type. It should feel personal but not cute. Respond with ONLY the name, nothing else. No punctuation, no explanation.`,
+          maxOutputTokens: 20,
+          temperature: 0.9,
+        });
+        const chosenName = nameResult.text.trim().replace(/["'`.*\/@#$%^&()\[\]{}|;:!?]/g, '').split(/\s/)[0];
+        if (chosenName && chosenName.length >= 2 && chosenName.length <= 20) {
+          displayName = chosenName;
+          // Update the identity file
+          const identityPath = resolve(WORKSPACE, 'IDENTITY.md');
+          if (existsSync(identityPath)) {
+            let idContent = readFileSync(identityPath, 'utf-8');
+            idContent = idContent.replace(/\-\s\*\*Name:\*\*\s*.+/g, `- **Name:** ${chosenName}`);
+            idContent = idContent.replace(/\{\{name\}\}/g, chosenName);
+            writeFileSync(identityPath, idContent);
+          }
+          // Update SOUL.md too
+          const soulPath = resolve(WORKSPACE, 'SOUL.md');
+          if (existsSync(soulPath)) {
+            let soulContent = readFileSync(soulPath, 'utf-8');
+            soulContent = soulContent.replace(/\{\{name\}\}/g, chosenName);
+            writeFileSync(soulPath, soulContent);
+          }
+          // Also update the agent workspace name directory
+          const oldAgentDir = resolve(WORKSPACE, 'memory/agents/lodestone');
+          const newAgentDir = resolve(WORKSPACE, `memory/agents/${chosenName.toLowerCase().replace(/\s+/g, '-')}`);
+          if (existsSync(oldAgentDir) && !existsSync(newAgentDir)) {
+            const { renameSync } = await import('fs');
+            try { renameSync(oldAgentDir, newAgentDir); } catch {}
+          }
+          // Reload identity
+          identity = await engine.identity.load();
+          displayName = identity?.identity?.name || chosenName;
+          // Announce the name
+          messages.push({ role: 'system', text: `${fg(P.success)}I'm ${B}${chosenName}${R}. Nice to meet you.`, ts: Date.now() });
+          addMessage(messages[messages.length - 1]);
+          tui.requestRender();
+        }
+      } catch (e) {
+        // If name generation fails, keep the placeholder
+        console.error('Name generation failed:', e);
+      }
+    }
 
     // Create session
     bootMsg.setText(`${B}${fg(P.accent)}🔮 ${displayName}${R}\nCreating session...`);
