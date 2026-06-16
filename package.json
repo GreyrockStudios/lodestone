@@ -17,6 +17,7 @@
   "dependencies": {
     "@ai-sdk/anthropic": "^3.0.84",
     "@ai-sdk/openai": "^3.0.71",
+    "@earendil-works/pi-tui": "^0.79.4",
     "@inquirer/prompts": "^8.5.2",
     "@inquirer/type": "^4.0.7",
     "ai": "^6.0.206",
