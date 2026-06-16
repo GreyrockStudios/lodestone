@@ -130,7 +130,7 @@ export async function runOnboarding(
     return results.length > 0 ? [...new Set(results)] : defaults;
   };
 
-  // ── Step definitions (each returns step number to go to, or -1 to cancel) ─
+  // ── Step definitions ────────────────────────────────────────────────────
 
   const templateOptions = Object.entries(TEMPLATE_INFO).map(([key, info]) => ({
     key, label: `${info.emoji} ${info.name} — ${info.desc}`,
@@ -142,25 +142,29 @@ export async function runOnboarding(
     key, label: `${info.emoji} ${info.name} — ${info.desc}`,
   }));
 
-  type StepFn = () => Promise<number>;  // returns next step, or -1 to cancel
-
+  type StepFn = () => Promise<number>;
   const steps: Record<number, StepFn> = {
+
+    // ── Step 0: Welcome ──────────────────────────────────────────────────
     0: async () => {
-      // Welcome — can't go back
       await ask(
         `${B}${fg(P.accent)}🔮 Welcome to Lodestone!${R}\n\n` +
-        `I'll help you set up your agent. Just answer a few questions — you can change everything later in your config files.\n\n` +
-        `${D}Type "back" at any step to go back. Type anything to continue.${R}`,
+        `Lodestone is your personal AI agent — it runs locally, remembers your conversations, and works the way you want it to.\n\n` +
+        `I'll ask a few questions to set things up. Nothing is permanent — you can change everything later in your config files.\n\n` +
+        `${D}💡 Type "back" at any question to go back to the previous one.${R}\n\n` +
+        `Type anything to get started.`,
         'welcome',
         false
       );
       return 1;
     },
 
+    // ── Step 1: Agent name ────────────────────────────────────────────────
     1: async () => {
       const answer = await ask(
         `${B}${fg(P.accent)}What should I call myself?${R}\n\n` +
-        `This becomes my identity. I'll use it when I introduce myself, sign my work, and talk to you.\n\n` +
+        `This is my name — I'll use it to introduce myself, sign my work, and address you. Think of it like naming a pet or a project: something you'll want to type and read a lot.\n\n` +
+        `Good examples: ${fg(P.success)}Aria${R}, ${fg(P.success)}Atlas${R}, ${fg(P.success)}Nova${R}, ${fg(P.success)}Mochi${R}\n\n` +
         `Type a name ${D}(default: ${state.agentName}):${R}`,
         'agent name'
       );
@@ -169,10 +173,11 @@ export async function runOnboarding(
       return 2;
     },
 
+    // ── Step 2: User name ─────────────────────────────────────────────────
     2: async () => {
       const answer = await ask(
         `${B}${fg(P.accent)}What should I call you?${R}\n\n` +
-        `I'll use this when I greet you and reference our conversations.\n\n` +
+        `I'll use your name in greetings and when I reference our conversations. First name is fine — whatever feels natural.\n\n` +
         `Type a name ${D}(default: ${state.userName}):${R}`,
         'user name'
       );
@@ -181,9 +186,12 @@ export async function runOnboarding(
       return 3;
     },
 
+    // ── Step 3: Template(s) ───────────────────────────────────────────────
     3: async () => {
       const answer = await askMultiChoice(
-        `${B}${fg(P.accent)}What kind of work will we do?${R}\n\nYou can pick more than one — I'll blend them together.`,
+        `${B}${fg(P.accent)}What kind of work will we do together?${R}\n\n` +
+        `This sets my starting personality, rules, and knowledge areas. Pick one for a focused setup, or combine several — I'll blend them together.\n\n` +
+        `You can always add more later by editing the files in your workspace.`,
         templateOptions,
         state.templates.length > 0 ? state.templates : ['general'],
         'focus areas'
@@ -193,9 +201,12 @@ export async function runOnboarding(
       return 4;
     },
 
+    // ── Step 4: Personality ────────────────────────────────────────────────
     4: async () => {
       const answer = await askChoice(
-        `${B}${fg(P.accent)}How should I communicate?${R}`,
+        `${B}${fg(P.accent)}How should I communicate?${R}\n\n` +
+        `This controls how wordy I am by default. ${fg(P.success)}Concise${R} for quick answers, ${fg(P.accent)}Balanced${R} for most things, or ${fg(P.info)}Detailed${R} when you want the full picture.\n\n` +
+        `Don't overthink it — you can always ask me to adjust on the fly.`,
         personalityOptions,
         'personality'
       );
@@ -204,9 +215,13 @@ export async function runOnboarding(
       return 5;
     },
 
+    // ── Step 5: Provider ──────────────────────────────────────────────────
     5: async () => {
       const answer = await askChoice(
-        `${B}${fg(P.accent)}Which LLM provider?${R}`,
+        `${B}${fg(P.accent)}Which LLM provider should I use?${R}\n\n` +
+        `${fg(P.accent)}Ollama${R} runs models locally on your machine — free, private, no API key needed.\n` +
+        `${fg(P.accent)}OpenAI${R} and ${fg(P.accent)}Anthropic${R} use cloud models — faster and smarter, but need API keys and cost money per token.\n\n` +
+        `If you're not sure, start with Ollama. You can switch providers anytime in ${D}lodestone.config.yaml${R}.`,
         providerOptions,
         'provider'
       );
@@ -215,13 +230,21 @@ export async function runOnboarding(
       return 6;
     },
 
+    // ── Step 6: Model ──────────────────────────────────────────────────────
     6: async () => {
+      const providerHint = state.provider === 'ollama'
+        ? 'Make sure you have Ollama running locally with the model pulled.'
+        : state.provider === 'openai'
+        ? "You'll need an OpenAI API key — set it in your .env file as OPENAI_API_KEY."
+        : "You'll need an Anthropic API key — set it in your .env file as ANTHROPIC_API_KEY.";
       const models = PROVIDER_INFO[state.provider].models;
       const modelOptions = models.map((m, i) => ({
         key: m, label: `${m}${i === 0 ? ' (recommended)' : ''}`,
       }));
       const answer = await askChoice(
-        `${B}${fg(P.accent)}Which model?${R}`,
+        `${B}${fg(P.accent)}Which model?${R}\n\n` +
+        `The model determines how smart and fast I am. Bigger models are smarter but slower.\n\n` +
+        `${D}${providerHint}${R}`,
         modelOptions,
         'model'
       );
@@ -230,8 +253,8 @@ export async function runOnboarding(
       return 7;
     },
 
+    // ── Step 7: Confirm ───────────────────────────────────────────────────
     7: async () => {
-      // Confirm
       const primaryTemplate = state.templates[0] || 'general';
       const templateInfo = TEMPLATE_INFO[primaryTemplate];
       const providerInfo = PROVIDER_INFO[state.provider];
@@ -249,20 +272,19 @@ export async function runOnboarding(
         `  ${B}Personality:${R}  ${personalityInfo.emoji} ${personalityInfo.name}\n` +
         `  ${B}Provider:${R}      ${providerInfo.emoji} ${providerInfo.name}\n` +
         `  ${B}Model:${R}        ${state.model}\n\n` +
-        `${D}Type "yes" to create, "back" to change something, or anything else to cancel:${R}`,
+        `${D}Type "yes" to create the workspace, "back" to change something, or anything else to cancel.${R}`,
         'confirm',
         true
       );
 
-      if (answer === BACK) return 1;  // Go back to step 1 with current values as defaults
+      if (answer === BACK) return 1;
       if (answer.toLowerCase() !== 'yes' && answer.toLowerCase() !== 'y') {
-        // Cancel
         messages.push({ role: 'system', text: `${fg(P.dim)}Setup cancelled. Run Lodestone again to start over.${R}`, ts: Date.now() });
         addMessage(messages[messages.length - 1]);
         updateStatus('error', 'cancelled');
         return -1;
       }
-      return 8; // Create workspace
+      return 8;
     },
   };
 
@@ -271,13 +293,13 @@ export async function runOnboarding(
   let currentStep = 0;
   while (currentStep >= 0 && currentStep <= 7) {
     const nextStep = await steps[currentStep]();
-    if (nextStep === -1) return null;  // Cancelled
+    if (nextStep === -1) return null;
     currentStep = nextStep;
   }
 
   // ── Create workspace ────────────────────────────────────────────────────
 
-  if (currentStep !== 8) return null;  // Shouldn't happen but safety check
+  if (currentStep !== 8) return null;
 
   updateStatus('setup', 'creating workspace');
   try {
@@ -301,11 +323,12 @@ export async function runOnboarding(
   // ── Done ────────────────────────────────────────────────────────────────
 
   await ask(
-    `${fg(P.success)}✅ Workspace created!${R}\n\n` +
-    `${B}${state.agentName}${R} is ready to go.\n\n` +
-    `Workspace: ${D}${state.workspacePath}${R}\n` +
-    `Config: ${D}lodestone.config.yaml${R}\n\n` +
-    `Type anything to start chatting.`,
+    `${fg(P.success)}✅ ${state.agentName} is ready!${R}\n\n` +
+    `I've created your workspace at:\n` +
+    `  ${D}${state.workspacePath}${R}\n\n` +
+    `Your settings are saved in ${D}lodestone.config.yaml${R}. Edit it anytime to change your model, provider, or other settings.\n\n` +
+    `API keys go in ${D}.env${R} (already gitignored).\n\n` +
+    `${D}Type anything to start chatting.${R}`,
     'ready',
     false
   );
