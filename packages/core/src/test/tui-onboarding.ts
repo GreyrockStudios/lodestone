@@ -1,50 +1,18 @@
 /**
- * Lodestone — TUI Onboarding
+ * Lodestone — Conversational Onboarding
  *
- * Conversational first-time setup that runs inside the TUI.
- * Like setting up a new phone: the agent walks you through it.
- *
- * Flow:
- * 1. Welcome screen
- * 2. "What should I call you?" → agent name
- * 3. "What's your name?" → user name
- * 4. "What kind of work will we do?" → template (multiple choice)
- * 5. "How should I think?" → personality style (concise/detailed/balanced)
- * 6. "Which model?" → LLM provider + model
- * 7. "Where should I live?" → workspace path
- * 8. Review → confirm
- * 9. Create workspace → boot
- *
- * Uses pi-tui overlays for interactive prompts.
+ * Chat-based setup flow that uses the TUI's existing Editor for input.
+ * No custom overlays or key handlers — just messages in the chat log
+ * and responses from the editor. Works on every terminal.
  */
 
-import { TUI, ProcessTerminal, Text, Box, Markdown, Editor, Container, Spacer } from '@earendil-works/pi-tui';
-import { matchesKey } from '@earendil-works/pi-tui/dist/keys.js';
-import { decodeKittyPrintable } from '@earendil-works/pi-tui/dist/keys.js';
-
-import { createWorkspaceFromAnswers } from '../tui-onboarding/workspace-creator.js';
+import { TUI, ProcessTerminal, Markdown } from '@earendil-works/pi-tui';
+import { createWorkspaceFromAnswers, TEMPLATE_INFO, PROVIDER_INFO, PERSONALITY_INFO } from '../tui-onboarding/workspace-creator.js';
 import type { WorkspaceConfig } from '../tui-onboarding/workspace-creator.js';
+import { existsSync } from 'fs';
+import { resolve } from 'path';
 
-type InputListenerResult = { consume?: boolean; data?: string } | undefined;
-
-/** Check if a key event is a printable character (handles both raw and Kitty protocol) */
-function isPrintable(data: string): boolean {
-  // Raw printable character
-  if (data.length === 1 && !data.startsWith('\x1b')) return true;
-  // Kitty protocol printable
-  if (decodeKittyPrintable(data) !== undefined) return true;
-  return false;
-}
-
-/** Decode a printable key event into the character to insert */
-function decodeChar(data: string): string {
-  if (data.length === 1 && !data.startsWith('\x1b')) return data;
-  const decoded = decodeKittyPrintable(data);
-  return decoded ?? data;
-}
-
-const AVAILABLE_TEMPLATES = ['general', 'developer', 'business', 'creative', 'researcher'] as const;
-type TemplateName = typeof AVAILABLE_TEMPLATES[number];
+// ─── Colors (OpenClaw dark palette) ────────────────────────────────────────
 
 const P = {
   text: '#E8E3D5', dim: '#7B7F87', accent: '#F6C453', accent2: '#F2A65A',
@@ -55,98 +23,34 @@ const P = {
 };
 const R = '\x1B[0m'; const B = '\x1B[1m'; const D = '\x1B[2m'; const I = '\x1B[3m';
 function fg(c: string) { return `\x1B[38;2;${parseInt(c.slice(1,3),16)};${parseInt(c.slice(3,5),16)};${parseInt(c.slice(5,7),16)}m`; }
-function bg(c: string) { return `\x1B[48;2;${parseInt(c.slice(1,3),16)};${parseInt(c.slice(3,5),16)};${parseInt(c.slice(5,7),16)}m`; }
 
-const mdTheme = {
-  heading: (s: string) => `${B}${fg(P.accent)}${s}${R}`,
-  bold: (s: string) => `${B}${s}${R}`,
-  italic: (s: string) => `${I}${s}${R}`,
-  strikethrough: (s: string) => `\x1B[9m${s}${R}`,
-  underline: (s: string) => `\x1B[4m${s}${R}`,
-  link: (s: string) => `${fg(P.success)}${s}${R}`,
-  linkUrl: (s: string) => `${D}${s}${R}`,
-  code: (s: string) => `${fg(P.code)}${s}${R}`,
-  codeBlock: (s: string) => `${fg(P.code)}${s}${R}`,
-  codeBlockBorder: (s: string) => `${fg(P.border)}${s}${R}`,
-  quote: (s: string) => `${fg(P.quote)}${s}${R}`,
-  quoteBorder: (s: string) => `${fg(P.quoteBorder)}${s}${R}`,
-  hr: (s: string) => `${fg(P.border)}${s}${R}`,
-  listBullet: (s: string) => `${fg(P.accent2)}${s}${R}`,
-  highlightCode: (code: string) => code.split('\n').map((line: string) => `${fg(P.code)}${line}`),
-};
-
-// ─── Choice descriptions ────────────────────────────────────────────────────
-
-const TEMPLATE_INFO: Record<string, { emoji: string; name: string; desc: string; soul: string; defaultName: string }> = {
-  general: {
-    emoji: '🔮',
-    name: 'General',
-    desc: 'A balanced assistant for everyday tasks. Adaptable, helpful, grounded.',
-    soul: 'I\'m {name}. Helpful, adaptable, and grounded. I get things done without overcomplicating.',
-    defaultName: 'Lodestone',
-  },
-  developer: {
-    emoji: '💻',
-    name: 'Developer',
-    desc: 'A coding partner focused on software. Thinks in systems, debugs methodically.',
-    soul: 'I\'m {name}. I write clean code, catch bugs before they bite, and think in systems. No fluff — just working software.',
-    defaultName: 'Coder',
-  },
-  business: {
-    emoji: '📊',
-    name: 'Business',
-    desc: 'A strategic advisor for business decisions. Data-driven, concise, revenue-focused.',
-    soul: 'I\'m {name}. Strategic, data-driven, and focused on what moves the needle. I cut through noise to find leverage.',
-    defaultName: 'Atlas',
-  },
-  creative: {
-    emoji: '🎨',
-    name: 'Creative',
-    desc: 'A creative collaborator for writing, design, and ideas. Imaginative, expressive.',
-    soul: 'I\'m {name}. I think in stories, see patterns others miss, and craft things that resonate. Let\'s make something worth making.',
-    defaultName: 'Muse',
-  },
-  researcher: {
-    emoji: '🔬',
-    name: 'Researcher',
-    desc: 'A research assistant for analysis and synthesis. Thorough, evidence-based, precise.',
-    soul: 'I\'m {name}. I follow the evidence, question assumptions, and synthesize across domains. Rigor and curiosity.',
-    defaultName: 'Scholar',
-  },
-};
-
-const PERSONALITY_INFO: Record<string, { emoji: string; name: string; desc: string }> = {
-  concise: { emoji: '⚡', name: 'Concise', desc: 'Short, direct answers. No filler. Get to the point.' },
-  balanced: { emoji: '⚖️', name: 'Balanced', desc: 'Thoughtful but efficient. Enough detail to be useful, not so much it drowns.' },
-  detailed: { emoji: '📖', name: 'Detailed', desc: 'Thorough explanations with context. I\'d rather over-explain than under-explain.' },
-};
-
-const PROVIDER_INFO: Record<string, { emoji: string; name: string; models: string[]; desc: string }> = {
-  ollama: { emoji: '🦙', name: 'Ollama (local)', models: ['glm-5.1:cloud', 'qwen3:8b', 'llama3:8b', 'mistral:7b'], desc: 'Run models on your own machine. Free, private, no API key needed.' },
-  openai: { emoji: '🟢', name: 'OpenAI', models: ['gpt-4o', 'gpt-4o-mini', 'gpt-4-turbo'], desc: 'Cloud API. Requires OPENAI_API_KEY in environment.' },
-  anthropic: { emoji: '🟣', name: 'Anthropic', models: ['claude-sonnet-4-20250514', 'claude-haiku-4-20250514'], desc: 'Cloud API. Requires ANTHROPIC_API_KEY in environment.' },
-};
-
-// ─── Onboarding State ──────────────────────────────────────────────────────
+// ─── Types ─────────────────────────────────────────────────────────────────
 
 interface OnboardingState {
-  step: number;
   agentName: string;
   userName: string;
-  template: TemplateName;
+  template: string;
   personality: 'concise' | 'balanced' | 'detailed';
   provider: 'ollama' | 'openai' | 'anthropic';
   model: string;
   workspacePath: string;
+  step: number;
 }
 
-// ─── Step Renderer ─────────────────────────────────────────────────────────
+// ─── Conversational Onboarding ─────────────────────────────────────────────
 
-type StepResult = { type: 'next' } | { type: 'back' } | { type: 'quit' } | { type: 'done'; workspace: string };
-
-export async function runOnboarding(tui: TUI, term: ProcessTerminal, suggestedPath: string): Promise<{ workspace: string; agentName: string; userName: string; model: string; provider: string } | null> {
+/**
+ * Run onboarding as a conversation in the chat log.
+ * Returns null if user types /quit, otherwise returns workspace config.
+ */
+export async function runOnboarding(
+  chatLog: any,
+  editor: any,
+  tui: TUI,
+  term: ProcessTerminal,
+  suggestedPath: string,
+): Promise<{ workspace: string; agentName: string; userName: string; model: string; provider: string } | null> {
   const state: OnboardingState = {
-    step: 0,
     agentName: '',
     userName: '',
     template: 'general',
@@ -154,527 +58,163 @@ export async function runOnboarding(tui: TUI, term: ProcessTerminal, suggestedPa
     provider: 'ollama',
     model: 'glm-5.1:cloud',
     workspacePath: suggestedPath,
+    step: 0,
   };
 
-  const steps = [
-    renderWelcome,
-    renderAgentName,
-    renderUserName,
-    renderTemplate,
-    renderPersonality,
-    renderProvider,
-    renderModelSelect,
-    renderReview,
-  ];
+  const ask = async (prompt: string): Promise<string> => {
+    return new Promise((resolve) => {
+      // Add prompt to chat log
+      chatLog.addMessage({
+        role: 'assistant',
+        text: prompt,
+        ts: Date.now(),
+      });
+      tui.requestRender();
 
-  while (state.step < steps.length) {
-    const result = await steps[state.step](tui, term, state);
-    if (result.type === 'quit') return null;
-    if (result.type === 'back') { state.step = Math.max(0, state.step - 1); continue; }
-    if (result.type === 'done') return { workspace: (result as any).workspace, agentName: state.agentName, userName: state.userName, model: state.model, provider: state.provider };
-    state.step++;
+      const originalOnSubmit = editor.onSubmit;
+      editor.onSubmit = async (text: string) => {
+        const trimmed = text.trim();
+        if (!trimmed) return;
+        editor.setText('');
+        editor.onSubmit = originalOnSubmit;
+        resolve(trimmed);
+      };
+    });
+  };
+
+  const askChoice = async (prompt: string, options: { key: string; label: string }[]): Promise<string> => {
+    const optionLines = options.map((o, i) => `  ${B}${i + 1}.${R} ${o.label}`).join('\n');
+    const fullPrompt = `${prompt}\n\n${optionLines}\n\n${D}Type a number or name:${R}`;
+    const answer = await ask(fullPrompt);
+    
+    // Try to match by number
+    const num = parseInt(answer);
+    if (num >= 1 && num <= options.length) {
+      return options[num - 1].key;
+    }
+    
+    // Try to match by key (case-insensitive)
+    const keyMatch = options.find(o => o.key.toLowerCase() === answer.toLowerCase());
+    if (keyMatch) return keyMatch.key;
+    
+    // Try to match by partial label
+    const labelMatch = options.find(o => o.label.toLowerCase().includes(answer.toLowerCase()));
+    if (labelMatch) return labelMatch.key;
+    
+    // Default to first option
+    return options[0].key;
+  };
+
+  // Step 0: Welcome
+  await ask(
+    `${B}${fg(P.accent)}🔮 Welcome to Lodestone!${R}\n\n` +
+    `I'll help you set up your agent. Just answer a few questions — you can change everything later in your config files.\n\n` +
+    `Type anything to continue, or /quit to exit.`
+  );
+
+  // Step 1: Agent name
+  state.agentName = await ask(
+    `${B}${fg(P.accent)}What should I call myself?${R}\n\n` +
+    `This becomes my identity. I'll use it when I introduce myself, sign my work, and talk to you.\n\n` +
+    `Type a name ${D}(default: Lodestone):${R}`
+  ) || 'Lodestone';
+
+  // Step 2: User name
+  state.userName = await ask(
+    `${B}${fg(P.accent)}What should I call you?${R}\n\n` +
+    `I'll use this when I greet you and reference our conversations.\n\n` +
+    `Type a name ${D}(default: User):${R}`
+  ) || 'User';
+
+  // Step 3: Template
+  const templateOptions = Object.entries(TEMPLATE_INFO).map(([key, info]) => ({
+    key,
+    label: `${info.emoji} ${info.name} — ${info.desc}`,
+  }));
+  state.template = await askChoice(
+    `${B}${fg(P.accent)}What kind of work will we do?${R}`,
+    templateOptions,
+  );
+
+  // Step 4: Personality
+  const personalityOptions = Object.entries(PERSONALITY_INFO).map(([key, info]) => ({
+    key,
+    label: `${info.emoji} ${info.name} — ${info.desc}`,
+  }));
+  state.personality = (await askChoice(
+    `${B}${fg(P.accent)}How should I communicate?${R}`,
+    personalityOptions,
+  )) as 'concise' | 'balanced' | 'detailed';
+
+  // Step 5: Provider
+  const providerOptions = Object.entries(PROVIDER_INFO).map(([key, info]) => ({
+    key,
+    label: `${info.emoji} ${info.name} — ${info.desc}`,
+  }));
+  state.provider = (await askChoice(
+    `${B}${fg(P.accent)}Which LLM provider?${R}`,
+    providerOptions,
+  )) as 'ollama' | 'openai' | 'anthropic';
+
+  // Step 6: Model
+  const models = PROVIDER_INFO[state.provider].models;
+  const modelOptions = models.map((m, i) => ({
+    key: m,
+    label: `${m}${i === 0 ? ' (recommended)' : ''}`,
+  }));
+  state.model = await askChoice(
+    `${B}${fg(P.accent)}Which model?${R}`,
+    modelOptions,
+  );
+
+  // Step 7: Confirm
+  const templateInfo = TEMPLATE_INFO[state.template];
+  const providerInfo = PROVIDER_INFO[state.provider];
+  const personalityInfo = PERSONALITY_INFO[state.personality];
+  
+  const confirm = await ask(
+    `${B}${fg(P.accent)}Here's your setup:${R}\n\n` +
+    `  ${B}Agent name:${R}   ${state.agentName}\n` +
+    `  ${B}Your name:${R}     ${state.userName}\n` +
+    `  ${B}Template:${R}      ${templateInfo.emoji} ${templateInfo.name}\n` +
+    `  ${B}Personality:${R}  ${personalityInfo.emoji} ${personalityInfo.name}\n` +
+    `  ${B}Provider:${R}      ${providerInfo.emoji} ${providerInfo.name}\n` +
+    `  ${B}Model:${R}        ${state.model}\n\n` +
+    `${D}Type yes to create, or anything else to restart:${R}`
+  );
+
+  if (confirm.toLowerCase() !== 'yes' && confirm.toLowerCase() !== 'y') {
+    return null;
   }
 
-  // Should not reach here, but just in case
-  return null;
-}
-
-// ─── Step 0: Welcome ───────────────────────────────────────────────────────
-
-async function renderWelcome(tui: TUI, term: ProcessTerminal, state: OnboardingState): Promise<StepResult> {
-  return new Promise((resolve) => {
-    const content = new Markdown('', 2, 1, mdTheme as any);
-    content.setText([
-      `${B}${fg(P.accent)}🔮 Lodestone${R}`,
-      '',
-      'Welcome. Let\'s set up your agent.',
-      '',
-      'I\'ll walk you through it — just pick what feels right.',
-      'You can change everything later in your config files.',
-      '',
-      `${D}Press Enter to start, or Esc to quit.${R}`,
-    ].join('\n'));
-
-    const box = new Box(2, 2, (line: string) => `${bg('#1E232A')}${line}${R}`);
-    box.addChild(content);
-    const overlay = tui.showOverlay(box, { anchor: 'center', width: 60 });
-
-    const handler = (data: string): InputListenerResult => {
-      if (matchesKey(data, 'enter')) {
-        tui.removeInputListener(outerHandler);
-      }
-      if (matchesKey(data, 'escape')) {
-        tui.removeInputListener(outerHandler);
-        overlay.hide();
-        resolve({ type: 'quit' });
-      }
-      return undefined;
-    };
-    const outerHandler = (data: string) => { handler(data); return { consume: true }; };
-    tui.addInputListener(outerHandler);
-    tui.requestRender();
-  });
-}
-
-// ─── Helper: Render a choice screen ─────────────────────────────────────────
-
-function renderChoice(
-  tui: TUI,
-  title: string,
-  subtitle: string,
-  options: { key: string; label: string; desc: string; emoji: string }[],
-  selectedIdx: number,
-): { overlay: any; content: Markdown } {
-  const lines: string[] = [
-    `${B}${fg(P.accent)}${title}${R}`,
-    '',
-    subtitle,
-    '',
-  ];
-
-  for (let i = 0; i < options.length; i++) {
-    const opt = options[i];
-    const isSelected = i === selectedIdx;
-    const prefix = isSelected ? `${fg(P.accent)}▸${R} ` : `  `;
-    const style = isSelected ? `${B}${fg(P.accent)}` : `${D}`;
-    const descStyle = isSelected ? `${fg(P.text)}` : `${D}`;
-    lines.push(`${prefix}${opt.emoji} ${style}${opt.label}${R}`);
-    lines.push(`    ${descStyle}${opt.desc}${R}`);
-    lines.push('');
+  // Create workspace
+  try {
+    createWorkspaceFromAnswers({
+      agentName: state.agentName,
+      userName: state.userName,
+      template: state.template,
+      personality: state.personality,
+      provider: state.provider,
+      model: state.model,
+      workspacePath: state.workspacePath,
+    });
+  } catch (err: any) {
+    await ask(`${fg(P.error)}Error creating workspace: ${err.message}${R}`);
+    return null;
   }
 
-  lines.push(`${D}↑↓ select  ·  Enter confirm  ·  Esc back${R}`);
+  await ask(
+    `${fg(P.success)}✅ Workspace created!${R}\n\n` +
+    `Your workspace is at ${D}${state.workspacePath}${R}\n` +
+    `Config saved to ${D}lodestone.config.yaml${R}\n\n` +
+    `Type anything to start chatting.`
+  );
 
-  const content = new Markdown('', 2, 1, mdTheme as any);
-  content.setText(lines.join('\n'));
-
-  const box = new Box(2, 2, (line: string) => `${bg('#1E232A')}${line}${R}`);
-  box.addChild(content);
-  const overlay = tui.showOverlay(box, { anchor: 'center', width: 65 });
-  return { overlay, content };
+  return {
+    workspace: state.workspacePath,
+    agentName: state.agentName,
+    userName: state.userName,
+    model: state.model,
+    provider: state.provider,
+  };
 }
-
-function updateChoice(
-  content: Markdown,
-  title: string,
-  subtitle: string,
-  options: { key: string; label: string; desc: string; emoji: string }[],
-  selectedIdx: number,
-) {
-  const lines: string[] = [
-    `${B}${fg(P.accent)}${title}${R}`,
-    '',
-    subtitle,
-    '',
-  ];
-
-  for (let i = 0; i < options.length; i++) {
-    const opt = options[i];
-    const isSelected = i === selectedIdx;
-    const prefix = isSelected ? `${fg(P.accent)}▸${R} ` : `  `;
-    const style = isSelected ? `${B}${fg(P.accent)}` : `${D}`;
-    const descStyle = isSelected ? `${fg(P.text)}` : `${D}`;
-    lines.push(`${prefix}${opt.emoji} ${style}${opt.label}${R}`);
-    lines.push(`    ${descStyle}${opt.desc}${R}`);
-    lines.push('');
-  }
-
-  lines.push(`${D}↑↓ select  ·  Enter confirm  ·  Esc back${R}`);
-  content.setText(lines.join('\n'));
-}
-
-// ─── Step 1: Agent Name ────────────────────────────────────────────────────
-
-async function renderAgentName(tui: TUI, term: ProcessTerminal, state: OnboardingState): Promise<StepResult> {
-  return new Promise((resolve) => {
-    const defaultName = 'Lodestone';
-    let currentInput = state.agentName || defaultName;
-
-    const content = new Markdown('', 2, 1, mdTheme as any);
-    content.setText([
-      `${B}${fg(P.accent)}What should I call myself?${R}`,
-      '',
-      'This becomes my identity. I\'ll use it when I introduce myself,',
-      'sign my work, and talk to you.',
-      '',
-      `Type a name, or press Enter for **${defaultName}**:`,
-      '',
-      `${fg(P.accent)}▸ ${B}${currentInput}${R}${fg(P.border)}█${R}`,
-      '',
-      `${D}Enter confirm  ·  Esc back${R}`,
-    ].join('\n'));
-
-    const box = new Box(2, 2, (line: string) => `${bg('#1E232A')}${line}${R}`);
-    box.addChild(content);
-    const overlay = tui.showOverlay(box, { anchor: 'center', width: 60 });
-
-    const handler = (data: string): InputListenerResult => {
-      if (matchesKey(data, 'enter')) {
-        tui.removeInputListener(outerHandler);
-        state.agentName = currentInput || defaultName;
-      } else if (matchesKey(data, 'escape')) {
-        tui.removeInputListener(outerHandler);
-        overlay.hide();
-        resolve({ type: 'back' });
-      } else if (matchesKey(data, 'backspace')) {
-        currentInput = currentInput.slice(0, -1) || '';
-        content.setText([
-          `${B}${fg(P.accent)}What should I call myself?${R}`,
-          '', 'This becomes my identity. I\'ll use it when I introduce myself,',
-          'sign my work, and talk to you.', '',
-          `Type a name, or press Enter for **${defaultName}**:`, '',
-          `${fg(P.accent)}▸ ${B}${currentInput}${R}${fg(P.border)}█${R}`, '',
-          `${D}Enter confirm  ·  Esc back${R}`,
-        ].join('\n'));
-        tui.requestRender();
-      } else if (isPrintable(data)) {
-        currentInput += decodeChar(data);
-        content.setText([
-          `${B}${fg(P.accent)}What should I call myself?${R}`,
-          '', 'This becomes my identity. I\'ll use it when I introduce myself,',
-          'sign my work, and talk to you.', '',
-          `Type a name, or press Enter for **${defaultName}**:`, '',
-          `${fg(P.accent)}▸ ${B}${currentInput}${R}${fg(P.border)}█${R}`, '',
-          `${D}Enter confirm  ·  Esc back${R}`,
-        ].join('\n'));
-        tui.requestRender();
-      }
-      return undefined;
-    };
-    const outerHandler = (data: string) => { handler(data); return { consume: true }; };
-    tui.addInputListener(outerHandler);
-    tui.requestRender();
-  });
-}
-
-// ─── Step 2: User Name ────────────────────────────────────────────────────
-
-async function renderUserName(tui: TUI, term: ProcessTerminal, state: OnboardingState): Promise<StepResult> {
-  return new Promise((resolve) => {
-    let currentInput = state.userName || '';
-
-    const content = new Markdown('', 2, 1, mdTheme as any);
-    content.setText([
-      `${B}${fg(P.accent)}And what should I call you?${R}`,
-      '',
-      `I'm **${state.agentName}**. What's your name?`,
-      'I\'ll use it to personalize my responses.',
-      '',
-      `Type your name:`,
-      '',
-      `${fg(P.accent)}▸ ${B}${currentInput || '(your name)'}${R}${fg(P.border)}█${R}`,
-      '',
-      `${D}Enter confirm  ·  Esc back${R}`,
-    ].join('\n'));
-
-    const box = new Box(2, 2, (line: string) => `${bg('#1E232A')}${line}${R}`);
-    box.addChild(content);
-    const overlay = tui.showOverlay(box, { anchor: 'center', width: 60 });
-
-    const handler = (data: string): InputListenerResult => {
-      if (matchesKey(data, 'enter')) {
-        tui.removeInputListener(outerHandler);
-        state.userName = currentInput || 'User';
-        overlay.hide();
-        resolve({ type: 'next' });
-      } else if (matchesKey(data, 'escape')) {
-        tui.removeInputListener(outerHandler);
-        overlay.hide();
-        resolve({ type: 'back' });
-      } else if (matchesKey(data, 'backspace')) {
-        currentInput = currentInput.slice(0, -1);
-        content.setText([
-          `${B}${fg(P.accent)}And what should I call you?${R}`, '',
-          `I'm **${state.agentName}**. What's your name?`,
-          'I\'ll use it to personalize my responses.', '',
-          `Type your name:`, '',
-          `${fg(P.accent)}▸ ${B}${currentInput || '(your name)'}${R}${fg(P.border)}█${R}`, '',
-          `${D}Enter confirm  ·  Esc back${R}`,
-        ].join('\n'));
-        tui.requestRender();
-      } else if (isPrintable(data)) {
-        currentInput += decodeChar(data);
-        content.setText([
-          `${B}${fg(P.accent)}And what should I call you?${R}`, '',
-          `I'm **${state.agentName}**. What's your name?`,
-          'I\'ll use it to personalize my responses.', '',
-          `Type your name:`, '',
-          `${fg(P.accent)}▸ ${B}${currentInput || '(your name)'}${R}${fg(P.border)}█${R}`, '',
-          `${D}Enter confirm  ·  Esc back${R}`,
-        ].join('\n'));
-        tui.requestRender();
-      }
-      return undefined;
-    };
-    const outerHandler = (data: string) => { handler(data); return { consume: true }; };
-    tui.addInputListener(outerHandler);
-    tui.requestRender();
-  });
-}
-
-// ─── Step 3: Template ──────────────────────────────────────────────────────
-
-async function renderTemplate(tui: TUI, term: ProcessTerminal, state: OnboardingState): Promise<StepResult> {
-  return new Promise((resolve) => {
-    let selected = AVAILABLE_TEMPLATES.indexOf(state.template);
-
-    const options = AVAILABLE_TEMPLATES.map(t => ({
-      key: t,
-      label: TEMPLATE_INFO[t].name,
-      desc: TEMPLATE_INFO[t].desc,
-      emoji: TEMPLATE_INFO[t].emoji,
-    }));
-
-    const { overlay, content } = renderChoice(
-      tui,
-      'What kind of work will we do?',
-      `This sets my personality, rules, and focus areas.`,
-      options,
-      selected,
-    );
-
-    const handler = (data: string): InputListenerResult => {
-      // Up arrow
-      if (matchesKey(data, 'up')) {
-        selected = Math.max(0, selected - 1);
-        updateChoice(content, 'What kind of work will we do?', `This sets my personality, rules, and focus areas.`, options, selected);
-        tui.requestRender();
-      }
-      // Down arrow
-      else if (matchesKey(data, 'down')) {
-        selected = Math.min(options.length - 1, selected + 1);
-        updateChoice(content, 'What kind of work will we do?', `This sets my personality, rules, and focus areas.`, options, selected);
-        tui.requestRender();
-      }
-      // Enter
-      else if (matchesKey(data, 'enter')) {
-        tui.removeInputListener(outerHandler);
-        state.template = AVAILABLE_TEMPLATES[selected];
-        overlay.hide();
-        resolve({ type: 'next' });
-      }
-      // Escape
-      else if (matchesKey(data, 'escape')) {
-        tui.removeInputListener(outerHandler);
-        overlay.hide();
-        resolve({ type: 'back' });
-      }
-      return undefined;
-    };
-    const outerHandler = (data: string) => { handler(data); return { consume: true }; };
-    tui.addInputListener(outerHandler);
-    tui.requestRender();
-  });
-}
-
-// ─── Step 4: Personality ──────────────────────────────────────────────────
-
-async function renderPersonality(tui: TUI, term: ProcessTerminal, state: OnboardingState): Promise<StepResult> {
-  return new Promise((resolve) => {
-    const personalities = ['concise', 'balanced', 'detailed'] as const;
-    let selected = personalities.indexOf(state.personality);
-
-    const options = personalities.map(p => ({
-      key: p,
-      label: PERSONALITY_INFO[p].name,
-      desc: PERSONALITY_INFO[p].desc,
-      emoji: PERSONALITY_INFO[p].emoji,
-    }));
-
-    const { overlay, content } = renderChoice(
-      tui,
-      'How should I think?',
-      `When I respond, should I be brief or thorough?`,
-      options,
-      selected,
-    );
-
-    const handler = (data: string): InputListenerResult => {
-      if (matchesKey(data, 'up')) {
-        selected = Math.max(0, selected - 1);
-        updateChoice(content, 'How should I think?', `When I respond, should I be brief or thorough?`, options, selected);
-        tui.requestRender();
-      } else if (matchesKey(data, 'down')) {
-        selected = Math.min(options.length - 1, selected + 1);
-        updateChoice(content, 'How should I think?', `When I respond, should I be brief or thorough?`, options, selected);
-        tui.requestRender();
-      } else if (matchesKey(data, 'enter')) {
-        tui.removeInputListener(outerHandler);
-        state.personality = personalities[selected];
-        overlay.hide();
-        resolve({ type: 'next' });
-      } else if (matchesKey(data, 'escape')) {
-        tui.removeInputListener(outerHandler);
-        overlay.hide();
-        resolve({ type: 'back' });
-      }
-      return undefined;
-    };
-    const outerHandler = (data: string) => { handler(data); return { consume: true }; };
-    tui.addInputListener(outerHandler);
-    tui.requestRender();
-  });
-}
-
-// ─── Step 5: Provider ─────────────────────────────────────────────────────
-
-async function renderProvider(tui: TUI, term: ProcessTerminal, state: OnboardingState): Promise<StepResult> {
-  return new Promise((resolve) => {
-    const providers = ['ollama', 'openai', 'anthropic'] as const;
-    let selected = providers.indexOf(state.provider);
-
-    const options = providers.map(p => ({
-      key: p,
-      label: PROVIDER_INFO[p].name,
-      desc: PROVIDER_INFO[p].desc,
-      emoji: PROVIDER_INFO[p].emoji,
-    }));
-
-    const { overlay, content } = renderChoice(
-      tui,
-      'How will I think?',
-      `Which LLM provider should I use?`,
-      options,
-      selected,
-    );
-
-    const handler = (data: string): InputListenerResult => {
-      if (matchesKey(data, 'up')) {
-        selected = Math.max(0, selected - 1);
-        updateChoice(content, 'How will I think?', `Which LLM provider should I use?`, options, selected);
-        tui.requestRender();
-      } else if (matchesKey(data, 'down')) {
-        selected = Math.min(options.length - 1, selected + 1);
-        updateChoice(content, 'How will I think?', `Which LLM provider should I use?`, options, selected);
-        tui.requestRender();
-      } else if (matchesKey(data, 'enter')) {
-        tui.removeInputListener(outerHandler);
-        state.provider = providers[selected];
-        // Model will be selected in the next step
-        overlay.hide();
-        resolve({ type: 'next' });
-      } else if (matchesKey(data, 'escape')) {
-        tui.removeInputListener(outerHandler);
-        overlay.hide();
-        resolve({ type: 'back' });
-      }
-      return undefined;
-    };
-    const outerHandler = (data: string) => { handler(data); return { consume: true }; };
-    tui.addInputListener(outerHandler);
-    tui.requestRender();
-  });
-}
-
-// ─── Step 6: Model Selection ──────────────────────────────────────────────
-
-async function renderModelSelect(tui: TUI, term: ProcessTerminal, state: OnboardingState): Promise<StepResult> {
-  return new Promise((resolve) => {
-    const models = PROVIDER_INFO[state.provider].models;
-    let selected = models.indexOf(state.model);
-    if (selected === -1) selected = 0;
-
-    const options = models.map(m => ({
-      key: m,
-      label: m,
-      desc: m === models[0] ? '(recommended)' : '',
-      emoji: '🧠',
-    }));
-
-    const { overlay, content } = renderChoice(
-      tui,
-      'Which model should I use?',
-      `${PROVIDER_INFO[state.provider].emoji} ${PROVIDER_INFO[state.provider].name} — pick a model:`,
-      options,
-      selected,
-    );
-
-    const handler = (data: string): InputListenerResult => {
-      if (matchesKey(data, 'up')) {
-        selected = Math.max(0, selected - 1);
-        updateChoice(content, 'Which model should I use?', `${PROVIDER_INFO[state.provider].emoji} ${PROVIDER_INFO[state.provider].name} — pick a model:`, options, selected);
-        tui.requestRender();
-      } else if (matchesKey(data, 'down')) {
-        selected = Math.min(options.length - 1, selected + 1);
-        updateChoice(content, 'Which model should I use?', `${PROVIDER_INFO[state.provider].emoji} ${PROVIDER_INFO[state.provider].name} — pick a model:`, options, selected);
-        tui.requestRender();
-      } else if (matchesKey(data, 'enter')) {
-        tui.removeInputListener(outerHandler);
-        state.model = models[selected];
-        overlay.hide();
-        resolve({ type: 'next' });
-      } else if (matchesKey(data, 'escape')) {
-        tui.removeInputListener(outerHandler);
-        overlay.hide();
-        resolve({ type: 'back' });
-      }
-      return undefined;
-    };
-    const outerHandler = (data: string) => { handler(data); return { consume: true }; };
-    tui.addInputListener(outerHandler);
-    tui.requestRender();
-  });
-}
-
-// ─── Step 7: Review ───────────────────────────────────────────────────────
-
-async function renderReview(tui: TUI, term: ProcessTerminal, state: OnboardingState): Promise<StepResult> {
-  return new Promise((resolve) => {
-    const templateInfo = TEMPLATE_INFO[state.template];
-    const personalityInfo = PERSONALITY_INFO[state.personality];
-    const providerInfo = PROVIDER_INFO[state.provider];
-
-    const content = new Markdown('', 2, 1, mdTheme as any);
-    content.setText([
-      `${B}${fg(P.accent)}Here's your agent:${R}`,
-      '',
-      `${fg(P.accent)}Name:${R}        ${B}${state.agentName}${R}`,
-      `${fg(P.accent)}You:${R}          ${B}${state.userName}${R}`,
-      `${fg(P.accent)}Template:${R}     ${templateInfo.emoji} ${templateInfo.name}`,
-      `${fg(P.accent)}Personality:${R}  ${personalityInfo.emoji} ${personalityInfo.name}`,
-      `${fg(P.accent)}Provider:${R}     ${providerInfo.emoji} ${providerInfo.name}`,
-      `${fg(P.accent)}Model:${R}        ${state.model}`,
-      `${fg(P.accent)}Workspace:${R}    ${state.workspacePath}`,
-      '',
-      `${D}Everything can be changed later in config files.${R}`,
-      '',
-      `${fg(P.success)}Enter${R} to create  ·  ${fg(P.dim)}Esc${R} to go back`,
-    ].join('\n'));
-
-    const box = new Box(2, 2, (line: string) => `${bg('#1E232A')}${line}${R}`);
-    box.addChild(content);
-    const overlay = tui.showOverlay(box, { anchor: 'center', width: 60 });
-
-    const handler = (data: string): InputListenerResult => {
-      if (matchesKey(data, 'enter')) {
-        tui.removeInputListener(outerHandler);
-        // Create workspace
-        try {
-          createWorkspaceFromAnswers({
-            agentName: state.agentName,
-            userName: state.userName,
-            template: state.template,
-            personality: state.personality,
-            provider: state.provider,
-            model: state.model,
-            workspacePath: state.workspacePath,
-          });
-          overlay.hide();
-          resolve({ type: 'done', workspace: state.workspacePath } as any);
-        } catch (err) {
-          content.setText(`${fg(P.error)}**Error creating workspace:** ${err instanceof Error ? err.message : String(err)}${R}\n\nPress Esc to go back.`);
-          tui.requestRender();
-        }
-      } else if (matchesKey(data, 'escape')) {
-        tui.removeInputListener(outerHandler);
-        overlay.hide();
-        resolve({ type: 'back' });
-      }
-      return undefined;
-    };
-    const outerHandler = (data: string) => { handler(data); return { consume: true }; };
-    tui.addInputListener(outerHandler);
-    tui.requestRender();
-  });
-}
-
