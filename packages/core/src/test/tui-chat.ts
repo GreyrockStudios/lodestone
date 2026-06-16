@@ -578,7 +578,7 @@ async function main() {
 
     // Channel status
     let channelLabel = '';
-    if (engine.channelManager && engine.channelManager.isRunning()) {
+    if (engine?.channelManager && engine.channelManager.isRunning()) {
       const channels = engine.channelManager.listChannels();
       if (channels.length > 0) {
         channelLabel = ` ${fg(P.dim)}│${R} ${channels.map(c => `${fg(P.success)}${c.name}✓${R}`).join(' ')}`;
