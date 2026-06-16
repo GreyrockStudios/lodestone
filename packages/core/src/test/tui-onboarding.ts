@@ -55,8 +55,10 @@ export async function runOnboarding(
 
   // Wait for user input via the editor
   const ask = (prompt: string): Promise<string> => new Promise((resolve) => {
-    addMessage({ role: 'assistant', text: prompt, ts: Date.now() });
-    refreshAll();
+    messages.push({ role: 'assistant', text: prompt, ts: Date.now() });
+    addMessage(messages[messages.length - 1]);
+    // Don't call refreshAll() here — it would clear and re-add, which is fine
+    // since we just pushed to messages. But we already added via addMessage.
     const saved = editor.onSubmit;
     editor.onSubmit = async (text: string) => {
       const trimmed = text.trim();
