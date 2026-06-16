@@ -113,7 +113,7 @@ export interface WikiSearchResult {
   slug: string;
   title: string;
   excerpt: string;
-  relevance: number;
+  score: number;
 }
 
 export interface ToolLogger {

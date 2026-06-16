@@ -13,5 +13,10 @@
     "test": "npm run test --workspaces --if-present",
     "lint": "npm run lint --workspaces --if-present",
     "clean": "npm run clean --workspaces --if-present"
+  },
+  "dependencies": {
+    "@ai-sdk/anthropic": "^3.0.84",
+    "@ai-sdk/openai": "^3.0.71",
+    "ai": "^6.0.206"
   }
 }

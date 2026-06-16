@@ -9,7 +9,6 @@
 
 import { LodestoneEngine, type LodestoneConfig } from './engine.js';
 import { AgentLoop } from './agent-loop.js';
-import { MemorySystem } from './memory/memory-system.js';
 import { WikiResolveTool, WikiSearchTool } from './tools/impl/wiki-resolve.js';
 import { SmartRetrieveTool } from './tools/impl/smart-retrieve.js';
 import { DecisionLogTool } from './tools/impl/decision-log.js';
@@ -30,7 +29,7 @@ async function loadConfig(): Promise<LodestoneConfig> {
     const config = parseYaml(raw);
 
     return {
-      workspaceRoot: config.workspace?.root || './workspace',
+      workspaceRoot: config.workspace?.root || process.env.LODESTONE_WORKSPACE || './workspace',
       identityDir: config.identity?.dir || '.',
       wikiRoot: config.memory?.wiki?.path || './memory/wiki',
       memoryDir: config.memory?.vector?.path || './data/lancedb',
@@ -63,7 +62,7 @@ async function loadConfig(): Promise<LodestoneConfig> {
     console.error('[Lodestone] Failed to load config:', err);
     console.error('[Lodestone] Using defaults');
     return {
-      workspaceRoot: './workspace',
+      workspaceRoot: process.env.LODESTONE_WORKSPACE || './workspace',
       identityDir: '.',
       wikiRoot: './memory/wiki',
       memoryDir: './data/lancedb',
@@ -90,81 +89,49 @@ async function main() {
   const config = await loadConfig();
   console.log(`[Lodestone] Config loaded from ${process.env.LODESTONE_CONFIG || './lodestone.config.yaml'}`);
 
-  // 2. Create engine
+  // 2. Create engine (this also initializes memory)
   const engine = new LodestoneEngine(config);
 
   // 3. Initialize memory system
-  const memory = new MemorySystem({
-    wiki: {
-      rootDir: config.wikiRoot,
-      autoIndex: true,
-      autoLint: true,
-      categories: ['entities', 'concepts', 'decisions', 'projects', 'areas', 'research'],
-    },
-    vector: {
-      dbPath: config.memoryDir,
-      embeddingProvider: 'ollama',
-      embeddingModel: 'nomic-embed-text',
-      dimensions: 768,
-      autoRecall: true,
-      autoCapture: false,
-      recallMaxChars: 800,
-    },
-    scratch: {
-      dbPath: resolve(config.workspaceRoot, 'data/scratch.json'),
-      defaultTtlMs: null,
-    },
-  });
-
-  await memory.init();
+  await engine.memory.init();
   console.log('[Lodestone] Memory system initialized');
 
   // 4. Register tools
-  const wikiResolve = new WikiResolveTool();
-  const wikiSearch = new WikiSearchTool();
-  const smartRetrieve = new SmartRetrieveTool();
-  const decisionLog = new DecisionLogTool(resolve(config.workspaceRoot, 'data/decisions.json'));
-  const resumeState = new ResumeStateTool();
-  const watchdog = new WatchdogTool();
-  const businessHours = new BusinessHoursTool();
+  const workspaceRoot = config.workspaceRoot;
+  const decisionLog = new DecisionLogTool(resolve(workspaceRoot, 'data/decisions.json'));
 
-  engine.registerTool(wikiResolve);
-  engine.registerTool(wikiSearch);
-  engine.registerTool(smartRetrieve);
+  engine.registerTool(new WikiResolveTool());
+  engine.registerTool(new WikiSearchTool());
+  engine.registerTool(new SmartRetrieveTool());
   engine.registerTool(decisionLog);
-  engine.registerTool(resumeState);
-  engine.registerTool(watchdog);
-  engine.registerTool(businessHours);
+  engine.registerTool(new ResumeStateTool());
+  engine.registerTool(new WatchdogTool());
+  engine.registerTool(new BusinessHoursTool());
   console.log('[Lodestone] Tools registered: 7 built-in');
 
-  // 5. Register proactive jobs (from config)
-  if (config.llm?.default) {
-    // Sensorium — health check every 30 minutes
-    engine.registerJob({
-      id: 'sensorium',
-      name: 'Lodestone Sensorium',
-      schedule: { kind: 'interval', everyMs: 30 * 60 * 1000 },
-      description: 'Health check — verify all systems operational',
-    });
+  // 5. Register proactive jobs
+  engine.registerJob({
+    id: 'sensorium',
+    name: 'Lodestone Sensorium',
+    schedule: { kind: 'interval', everyMs: 30 * 60 * 1000 },
+    description: 'Health check — verify all systems operational',
+  });
 
-    // Sleep cycle — consolidation at 3am
-    engine.registerJob({
-      id: 'sleep-cycle',
-      name: 'Lodestone Sleep Cycle',
-      schedule: { kind: 'cron', expr: '0 3 * * *', tz: 'America/Toronto' },
-      description: 'Nightly consolidation: harvest, mine, reflect, consolidate',
-    });
+  engine.registerJob({
+    id: 'sleep-cycle',
+    name: 'Lodestone Sleep Cycle',
+    schedule: { kind: 'cron', expr: '0 3 * * *', tz: 'America/Toronto' },
+    description: 'Nightly consolidation: harvest, mine, reflect, consolidate',
+  });
 
-    // Drift detection — weekly
-    engine.registerJob({
-      id: 'drift-detection',
-      name: 'Lodestone Drift Detection',
-      schedule: { kind: 'cron', expr: '0 9 * * 1', tz: 'America/Toronto' },
-      description: 'Weekly check: behavior vs core principles',
-    });
+  engine.registerJob({
+    id: 'drift-detection',
+    name: 'Lodestone Drift Detection',
+    schedule: { kind: 'cron', expr: '0 9 * * 1', tz: 'America/Toronto' },
+    description: 'Weekly check: behavior vs core principles',
+  });
 
-    console.log('[Lodestone] Proactive jobs registered: 3');
-  }
+  console.log('[Lodestone] Proactive jobs registered: 3');
 
   // 6. Start engine
   await engine.start();
@@ -177,37 +144,16 @@ async function main() {
   // 8. Create agent loop
   const loop = new AgentLoop(engine);
 
-  // 9. Run initial proactive check
-  console.log('[Lodestone] Running initial sensorium...');
-  const initialCheck = await engine.tools.execute('decision-log', {
-    action: 'add',
-    decision: 'Lodestone agent booted successfully',
-    rationale: 'All subsystems initialized, identity loaded, tools registered',
-    context: 'Boot sequence',
-    tags: ['boot', 'system'],
-  }, {
-    sessionId,
-    workspaceRoot: config.workspaceRoot,
-    identity: {
-      name: 'Lodestone',
-      soul: 'Proactive, self-improving agent',
-      rules: '',
-      heartbeat: 'Initial boot',
-      user: 'User',
-    },
-    memory,
-    log: {
-      info: console.log,
-      warn: console.warn,
-      error: console.error,
-    },
-  });
-  console.log(`[Lodestone] Boot decision logged: ${initialCheck.summary}`);
+  // 9. Log boot decision
+  const identity = await engine.identity.load();
+  console.log(`[Lodestone] Identity loaded: ${identity.identity.name}`);
+  console.log(`[Lodestone] User: ${identity.user.name}`);
 
-  // 10. Log ready message
+  // 10. Ready
   console.log('');
   console.log('🔮 Lodestone is ready.');
   console.log(`   Model: ${config.llm.default.model}`);
+  console.log(`   Provider: ${config.llm.default.type}`);
   console.log(`   Identity: ${config.identityDir}`);
   console.log(`   Wiki: ${config.wikiRoot}`);
   console.log(`   Memory: ${config.memoryDir}`);
@@ -226,9 +172,6 @@ async function main() {
     process.exit(0);
   });
 
-  // The agent loop is now available for incoming messages
-  // In a full implementation, this would connect to channels (Telegram, Discord, etc.)
-  // For M1, we expose a simple HTTP API
   return { engine, loop, sessionId };
 }
 

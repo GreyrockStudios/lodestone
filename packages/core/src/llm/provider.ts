@@ -45,11 +45,12 @@ export interface ProviderCapabilities {
 
 export class LLMProvider {
   private config: ProviderConfig;
-  private model: LanguageModelV1;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  private modelInstance: any;
 
   constructor(config: ProviderConfig) {
     this.config = config;
-    this.model = this.createModel(config);
+    this.modelInstance = this.createModel(config);
   }
 
   private createModel(config: ProviderConfig): LanguageModelV1 {
@@ -58,7 +59,7 @@ export class LLMProvider {
         const ollama = createOllama({
           baseURL: config.baseUrl || 'http://127.0.0.1:11434',
         });
-        return ollama(config.model);
+        return ollama(config.model) as unknown as LanguageModelV1;
       }
 
       case 'openai': {
@@ -66,7 +67,7 @@ export class LLMProvider {
           baseURL: config.baseUrl,
           apiKey: config.apiKey,
         });
-        return openai(config.model);
+        return openai(config.model) as unknown as LanguageModelV1;
       }
 
       case 'anthropic': {
@@ -74,7 +75,7 @@ export class LLMProvider {
           baseURL: config.baseUrl,
           apiKey: config.apiKey,
         });
-        return anthropic(config.model);
+        return anthropic(config.model) as unknown as LanguageModelV1;
       }
 
       case 'custom': {
@@ -84,7 +85,7 @@ export class LLMProvider {
           apiKey: config.apiKey || 'not-needed',
           headers: config.headers,
         });
-        return custom(config.model);
+        return custom(config.model) as unknown as LanguageModelV1;
       }
 
       default:
@@ -94,7 +95,7 @@ export class LLMProvider {
 
   /** Get the Vercel AI SDK model instance */
   getModel(): LanguageModelV1 {
-    return this.model;
+    return this.modelInstance as LanguageModelV1;
   }
 
   /** Get provider config (safe copy) */

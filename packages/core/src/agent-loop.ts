@@ -14,10 +14,10 @@
  * This is the heart of the engine.
  */
 
-import { generateText, streamText, type CoreMessage, type ToolCallPart, type ToolResultPart } from 'ai';
+import { generateText, streamText } from 'ai';
+import type { CoreMessage } from 'ai';
 import type { LodestoneEngine } from './engine.js';
-import type { SessionMessage } from './session/manager.js';
-import type { StreamHandler, StreamEvent } from './streaming/handler.js';
+import type { StreamHandler } from './streaming/handler.js';
 import type { ToolResult } from './tools/definitions.js';
 
 // ─── Agent Loop Config ────────────────────────────────────────────────────
@@ -114,7 +114,7 @@ export class AgentLoop {
 
       // Add assistant message to history
       messages.push({
-        role: 'assistant',
+        role: 'assistant' as const,
         content: llmResponse.text,
       });
 
@@ -142,13 +142,12 @@ export class AgentLoop {
 
       // Add tool results to message history
       for (const result of toolResults) {
+        const toolContent = result.success
+          ? (typeof result.data === 'string' ? result.data : JSON.stringify(result.data))
+          : `Error: ${result.error}`;
         messages.push({
-          role: 'tool',
-          content: result.success
-            ? (typeof result.data === 'string' ? result.data : JSON.stringify(result.data))
-            : `Error: ${result.error}`,
-          toolCallId: result.toolId,
-          toolName: result.toolName,
+          role: 'user' as const,
+          content: `[Tool: ${result.toolName}] ${toolContent}`,
         });
       }
 
@@ -268,9 +267,9 @@ export class AgentLoop {
     ];
 
     for (const msg of session.messages) {
-      if (msg.compacted) continue; // Skip compacted messages (they're in the system prompt)
+      if (msg.compacted) continue; // Skip compacted messages
       messages.push({
-        role: msg.role as 'user' | 'assistant' | 'tool',
+        role: msg.role as 'user' | 'assistant',
         content: msg.content,
       });
     }
@@ -287,24 +286,11 @@ export class AgentLoop {
     const provider = this.engine.llm.getDefault();
     const model = provider.getModel();
 
-    // Build tool definitions for the LLM
-    const toolDefs = this.engine.tools.listDefinitions();
-
-    // Convert our tool definitions to AI SDK format
-    const tools: Record<string, unknown> = {};
-    for (const def of toolDefs) {
-      tools[def.id] = {
-        description: def.description,
-        parameters: this.convertToolParams(def.parameters),
-      };
-    }
-
     if (this.config.stream && streamHandler) {
       // Streaming mode
       const result = await streamText({
         model,
         messages,
-        tools: Object.keys(tools).length > 0 ? tools : undefined,
         maxTokens: this.config.maxTokens,
         temperature: this.config.temperature,
       });
@@ -320,32 +306,27 @@ export class AgentLoop {
           toolCalls.push({
             toolCallId: event.toolCallId,
             toolName: event.toolName,
-            arguments: event.args,
+            arguments: event.args as Record<string, unknown>,
           });
           streamHandler.emit('tool_call_start', {
             toolCallId: event.toolCallId,
             toolName: event.toolName,
           });
-        } else if (event.type === 'tool-result') {
-          streamHandler.emit('tool_call_end', {
-            toolCallId: event.toolCallId,
-            toolName: event.toolName,
-            arguments: JSON.stringify(event.args),
-          });
         }
       }
+
+      const usage = await result.usage;
 
       return {
         text: fullText,
         toolCalls,
-        tokenCount: result.usage?.totalTokens,
+        tokenCount: usage?.totalTokens,
       };
     } else {
       // Non-streaming mode
       const result = await generateText({
         model,
         messages,
-        tools: Object.keys(tools).length > 0 ? tools : undefined,
         maxTokens: this.config.maxTokens,
         temperature: this.config.temperature,
       });
@@ -353,7 +334,7 @@ export class AgentLoop {
       const toolCalls: ParsedToolCall[] = (result.toolCalls || []).map(tc => ({
         toolCallId: tc.toolCallId || `tc_${Date.now()}`,
         toolName: tc.toolName,
-        arguments: typeof tc.args === 'string' ? JSON.parse(tc.args) : tc.args,
+        arguments: typeof tc.args === 'string' ? JSON.parse(tc.args) : tc.args as Record<string, unknown>,
       }));
 
       return {
@@ -372,13 +353,13 @@ export class AgentLoop {
     streamHandler?: StreamHandler
   ): Promise<ToolCallResult[]> {
     const results: ToolCallResult[] = [];
+    const identity = await this.engine.identity.load();
 
     for (const tc of toolCalls) {
       const startTime = Date.now();
 
       // Build tool context
-      const identity = await this.engine.identity.load();
-      const context: import('../tools/definitions.js').ToolContext = {
+      const context: import('./tools/definitions.js').ToolContext = {
         sessionId,
         workspaceRoot: this.engine.config.workspaceRoot,
         identity: {
@@ -388,7 +369,25 @@ export class AgentLoop {
           heartbeat: identity.heartbeat.raw,
           user: identity.user.name,
         },
-        memory: this.engine.memory,
+        memory: {
+          store: async (key: string, value: string, metadata?: Record<string, unknown>) =>
+            this.engine.memory.vector.store(key, value, metadata),
+          recall: async (query: string, limit?: number) =>
+            this.engine.memory.vector.recall(query, limit),
+          wikiRead: async (slug: string) => {
+            const page = await this.engine.memory.wiki.read(slug);
+            return page ? page.content : null;
+          },
+          wikiWrite: async (slug: string, content: string, frontmatter?: Record<string, unknown>) => {
+            await this.engine.memory.wiki.write(slug, content, frontmatter as any);
+          },
+          wikiSearch: async (query: string, limit?: number) =>
+            this.engine.memory.wiki.search(query, limit),
+          scratchGet: async (key: string) =>
+            this.engine.memory.scratch.scratchGet(key),
+          scratchSet: async (key: string, value: string, ttlMs?: number) =>
+            this.engine.memory.scratch.scratchSet(key, value, ttlMs),
+        },
         log: {
           info: (msg: string, data?: unknown) => console.log(`[Lodestone:${tc.toolName}] ${msg}`, data || ''),
           warn: (msg: string, data?: unknown) => console.warn(`[Lodestone:${tc.toolName}] ${msg}`, data || ''),
@@ -414,14 +413,14 @@ export class AgentLoop {
         type: 'tool.called',
         sessionId,
         toolId: tc.toolName,
-      } as import('./engine.js').EngineEvent);
+      });
 
       this.engine.emit({
         type: 'tool.completed',
         sessionId,
         toolId: tc.toolName,
         durationMs: result.durationMs,
-      } as import('./engine.js').EngineEvent);
+      });
     }
 
     return results;
@@ -430,7 +429,6 @@ export class AgentLoop {
   // ─── Auto-Capture ──────────────────────────────────────────────────────
 
   private async autoCapture(userMessage: string, assistantResponse: string): Promise<void> {
-    // Store the fact that this conversation happened
     const summary = `${userMessage.slice(0, 100)}... → ${assistantResponse.slice(0, 100)}`;
     await this.engine.memory.vector.store(
       `conv_${Date.now()}`,
@@ -443,25 +441,18 @@ export class AgentLoop {
 
   private async compactSession(sessionId: string): Promise<void> {
     await this.engine.sessions.compact(sessionId, async (messages) => {
-      // Build a summary of the compacted messages
       const summaryParts: string[] = [];
       let decisions: string[] = [];
       let keyFacts: string[] = [];
-      let filesModified: string[] = [];
 
       for (const msg of messages) {
         if (msg.role === 'tool') {
-          // Extract tool results
           const content = msg.content.toLowerCase();
           if (content.includes('decision') || content.includes('decided')) {
             decisions.push(msg.content.slice(0, 200));
           }
-          if (content.includes('file') || content.includes('wrote') || content.includes('edited')) {
-            filesModified.push(msg.content.slice(0, 100));
-          }
         }
         if (msg.role === 'assistant') {
-          // Extract key statements
           const sentences = msg.content.split(/[.!?]+/).filter(s => s.trim().length > 20);
           keyFacts.push(...sentences.slice(0, 3));
         }
@@ -473,40 +464,9 @@ export class AgentLoop {
       if (keyFacts.length > 0) {
         summaryParts.push('### Key Facts\n' + keyFacts.join('\n'));
       }
-      if (filesModified.length > 0) {
-        summaryParts.push('### Files Modified\n' + filesModified.join('\n'));
-      }
 
       return summaryParts.join('\n\n') || 'Previous conversation was compacted.';
     });
-  }
-
-  // ─── Helpers ──────────────────────────────────────────────────────────────
-
-  private convertToolParams(params: import('../tools/definitions.js').ToolParameter[]): Record<string, unknown> {
-    const schema: Record<string, unknown> = {
-      type: 'object',
-      properties: {},
-      required: [] as string[],
-    };
-
-    for (const param of params) {
-      (schema.properties as Record<string, unknown>)[param.name] = {
-        type: param.type,
-        description: param.description,
-      };
-      if (param.enum) {
-        (schema.properties as Record<string, unknown>)[param.name] = {
-          ...((schema.properties as Record<string, unknown>)[param.name] as object),
-          enum: param.enum,
-        };
-      }
-      if (param.required) {
-        (schema.required as string[]).push(param.name);
-      }
-    }
-
-    return schema;
   }
 }
 

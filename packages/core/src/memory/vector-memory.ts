@@ -6,7 +6,7 @@
  * memories into every LLM turn.
  */
 
-import { connect, type LanceDb } from '@lancedb/lancedb';
+import { connect, type Connection, type Table } from '@lancedb/lancedb';
 import type { MemoryAccess, MemoryResult } from '../tools/definitions.js';
 
 // ─── Types ──────────────────────────────────────────────────────────────────
@@ -46,7 +46,7 @@ export interface MemoryEntry {
 
 export class VectorMemory implements Partial<MemoryAccess> {
   private config: VectorMemoryConfig;
-  private db: LanceDb | null = null;
+  private db: Connection | null = null;
   private initialized = false;
 
   constructor(config: VectorMemoryConfig) {
@@ -84,7 +84,7 @@ export class VectorMemory implements Partial<MemoryAccess> {
 
     // Insert into LanceDB
     const table = await this.getOrCreateTable();
-    await table.add([entry]);
+    await table.add([entry] as any[]);
   }
 
   /** Recall facts from long-term memory by semantic similarity */
@@ -205,7 +205,7 @@ export class VectorMemory implements Partial<MemoryAccess> {
         metadata: { key: '__schema__', schema_version: 1 },
       };
 
-      return await this.db!.createTable(tableName, [sampleEntry]);
+      return await this.db!.createTable(tableName, [sampleEntry] as any);
     }
   }
 

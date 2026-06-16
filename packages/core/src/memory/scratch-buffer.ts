@@ -35,10 +35,7 @@ export class ScratchBuffer implements Pick<import('../tools/definitions.js').Mem
   private loaded = false;
 
   constructor(config: ScratchConfig) {
-    this.config = {
-      defaultTtlMs: null, // No expiry by default
-      ...config,
-    };
+    this.config = config;
   }
 
   /** Load the scratch buffer from disk */

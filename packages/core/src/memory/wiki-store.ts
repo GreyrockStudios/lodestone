@@ -62,17 +62,17 @@ const DEFAULT_CATEGORIES = [
 // ─── Wiki Store ──────────────────────────────────────────────────────────────
 
 export class WikiStore {
-  private config: WikiConfig;
+  private config: Required<Pick<WikiConfig, 'autoIndex' | 'autoLint' | 'categories'>> & Omit<WikiConfig, 'autoIndex' | 'autoLint' | 'categories'>;
   private cache: Map<string, WikiPage> = new Map();
   private indexCache: Map<string, string> = new Map(); // slug → title
   private loaded = false;
 
   constructor(config: WikiConfig) {
     this.config = {
-      autoIndex: true,
-      autoLint: true,
-      categories: DEFAULT_CATEGORIES,
       ...config,
+      autoIndex: config.autoIndex ?? true,
+      autoLint: config.autoLint ?? true,
+      categories: config.categories ?? DEFAULT_CATEGORIES,
     };
   }
 

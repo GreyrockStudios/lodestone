@@ -80,12 +80,17 @@ export class BusinessHoursTool implements Tool {
       timeZone: tz,
       hour: 'numeric',
       hour12: false,
-      weekday: 'numeric',
+    });
+    const weekdayFormatter = new Intl.DateTimeFormat('en-US', {
+      timeZone: tz,
+      weekday: 'short',
     });
 
     const parts = formatter.formatToParts(now);
     const hour = parseInt(parts.find(p => p.type === 'hour')?.value || '0');
-    const weekday = parseInt(parts.find(p => p.type === 'weekday')?.value || '1');
+    const weekdayStr = weekdayFormatter.format(now);
+    const weekdayMap: Record<string, number> = { Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6, Sun: 7 };
+    const weekday = weekdayMap[weekdayStr] || 1;
 
     const isBusinessDay = this.config.weekdays.includes(weekday);
     const isBusinessHour = hour >= this.config.startHour && hour < this.config.endHour;

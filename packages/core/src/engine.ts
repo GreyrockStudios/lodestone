@@ -11,6 +11,8 @@ import { SessionManager } from './session/manager.js';
 import { StreamHandler } from './streaming/handler.js';
 import { Scheduler, type JobConfig } from './scheduler/scheduler.js';
 import { IdentityLoader, type Identity, type IdentityConfig } from './identity/loader.js';
+import { MemorySystem } from './memory/memory-system.js';
+import { join } from 'path';
 
 // ─── Engine Config ─────────────────────────────────────────────────────────
 
@@ -64,6 +66,8 @@ export class LodestoneEngine {
   readonly scheduler: Scheduler;
   readonly identity: IdentityLoader;
 
+  readonly memory: MemorySystem;
+
   // State
   private running = false;
   private eventHandlers: ((event: EngineEvent) => void)[] = [];
@@ -78,6 +82,27 @@ export class LodestoneEngine {
       thresholdPercent: config.compactionThreshold || 0.5,
     });
     this.scheduler = new Scheduler(config.maxConcurrentJobs || 4);
+    this.memory = new MemorySystem({
+      wiki: {
+        rootDir: config.wikiRoot,
+        autoIndex: true,
+        autoLint: true,
+        categories: ['entities', 'concepts', 'decisions', 'projects', 'areas', 'research'],
+      },
+      vector: {
+        dbPath: config.memoryDir,
+        embeddingProvider: 'ollama',
+        embeddingModel: 'nomic-embed-text',
+        dimensions: 768,
+        recallMaxChars: 800,
+        autoRecall: true,
+        autoCapture: false,
+      },
+      scratch: {
+        dbPath: join(config.workspaceRoot, 'data/scratch.json'),
+        defaultTtlMs: null,
+      },
+    });
     this.identity = new IdentityLoader({
       identityDir: config.identityDir,
     });
@@ -159,7 +184,8 @@ export class LodestoneEngine {
     this.eventHandlers.push(handler);
   }
 
-  private emit(event: EngineEvent): void {
+  /** Emit an engine event to all registered handlers */
+  public emit(event: EngineEvent): void {
     for (const handler of this.eventHandlers) {
       try {
         handler(event);

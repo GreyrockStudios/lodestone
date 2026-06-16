@@ -21,7 +21,8 @@ export { VectorMemory, type VectorMemoryConfig, type MemoryEntry } from './memor
 export { ScratchBuffer, type ScratchConfig, type ScratchEntry } from './memory/scratch-buffer.js';
 
 // Tools
-export { ToolRegistry, type Tool, type ToolDefinition, type ToolResult, type ToolContext, type AgentIdentity, type MemoryAccess, type ToolLogger } from './tools/definitions.js';
+export { ToolRegistry, type Tool, type ToolDefinition, type ToolResult, type ToolContext, type MemoryAccess, type ToolLogger } from './tools/definitions.js';
+export type { AgentIdentity as ToolAgentIdentity } from './tools/definitions.js';
 export { WikiResolveTool, WikiSearchTool } from './tools/impl/wiki-resolve.js';
 export { SmartRetrieveTool } from './tools/impl/smart-retrieve.js';
 export { DecisionLogTool, type DecisionEntry } from './tools/impl/decision-log.js';
