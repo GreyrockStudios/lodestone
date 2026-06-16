@@ -148,6 +148,7 @@ export async function runOnboarding(tui: TUI, term: ProcessTerminal, suggestedPa
     renderTemplate,
     renderPersonality,
     renderProvider,
+    renderModelSelect,
     renderReview,
   ];
 
@@ -533,7 +534,7 @@ async function renderProvider(tui: TUI, term: ProcessTerminal, state: Onboarding
       } else if (data === '\r' || data === '\n') {
         tui.removeInputListener(handler);
         state.provider = providers[selected];
-        state.model = PROVIDER_INFO[state.provider].models[0];
+        // Model will be selected in the next step
         overlay.hide();
         resolve({ type: 'next' });
       } else if (data === '\x1b') {
@@ -548,7 +549,56 @@ async function renderProvider(tui: TUI, term: ProcessTerminal, state: Onboarding
   });
 }
 
-// ─── Step 6: Review ───────────────────────────────────────────────────────
+// ─── Step 6: Model Selection ──────────────────────────────────────────────
+
+async function renderModelSelect(tui: TUI, term: ProcessTerminal, state: OnboardingState): Promise<StepResult> {
+  return new Promise((resolve) => {
+    const models = PROVIDER_INFO[state.provider].models;
+    let selected = models.indexOf(state.model);
+    if (selected === -1) selected = 0;
+
+    const options = models.map(m => ({
+      key: m,
+      label: m,
+      desc: m === models[0] ? '(recommended)' : '',
+      emoji: '🧠',
+    }));
+
+    const { overlay, content } = renderChoice(
+      tui,
+      'Which model should I use?',
+      `${PROVIDER_INFO[state.provider].emoji} ${PROVIDER_INFO[state.provider].name} — pick a model:`,
+      options,
+      selected,
+    );
+
+    const handler = (data: string): InputListenerResult => {
+      if (data === '\x1b[A' || data === '\x1bOA') {
+        selected = Math.max(0, selected - 1);
+        updateChoice(content, 'Which model should I use?', `${PROVIDER_INFO[state.provider].emoji} ${PROVIDER_INFO[state.provider].name} — pick a model:`, options, selected);
+        tui.requestRender();
+      } else if (data === '\x1b[B' || data === '\x1bOB') {
+        selected = Math.min(options.length - 1, selected + 1);
+        updateChoice(content, 'Which model should I use?', `${PROVIDER_INFO[state.provider].emoji} ${PROVIDER_INFO[state.provider].name} — pick a model:`, options, selected);
+        tui.requestRender();
+      } else if (data === '\r' || data === '\n') {
+        tui.removeInputListener(handler);
+        state.model = models[selected];
+        overlay.hide();
+        resolve({ type: 'next' });
+      } else if (data === '\x1b') {
+        tui.removeInputListener(handler);
+        overlay.hide();
+        resolve({ type: 'back' });
+      }
+      return undefined;
+    };
+    tui.addInputListener((data: string) => { handler(data); return { consume: true }; });
+    tui.requestRender();
+  });
+}
+
+// ─── Step 7: Review ───────────────────────────────────────────────────────
 
 async function renderReview(tui: TUI, term: ProcessTerminal, state: OnboardingState): Promise<StepResult> {
   return new Promise((resolve) => {
