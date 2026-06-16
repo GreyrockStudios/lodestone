@@ -183,18 +183,19 @@ async function renderWelcome(tui: TUI, term: ProcessTerminal, state: OnboardingS
 
     const handler = (data: string): InputListenerResult => {
       if (data === '\r' || data === '\n') {
-        tui.removeInputListener(handler);
+        tui.removeInputListener(outerHandler);
         overlay.hide();
         resolve({ type: 'next' });
       }
       if (data === '\x1b') {
-        tui.removeInputListener(handler);
+        tui.removeInputListener(outerHandler);
         overlay.hide();
         resolve({ type: 'quit' });
       }
       return undefined;
     };
-    tui.addInputListener((data: string) => { handler(data); return { consume: true }; });
+    const outerHandler = (data: string) => { handler(data); return { consume: true }; };
+    tui.addInputListener(outerHandler);
     tui.requestRender();
   });
 }
@@ -293,10 +294,10 @@ async function renderAgentName(tui: TUI, term: ProcessTerminal, state: Onboardin
 
     const handler = (data: string): InputListenerResult => {
       if (data === '\r' || data === '\n') {
-        tui.removeInputListener(handler);
+        tui.removeInputListener(outerHandler);
         state.agentName = currentInput || defaultName;
       } else if (data === '\x1b') {
-        tui.removeInputListener(handler);
+        tui.removeInputListener(outerHandler);
         overlay.hide();
         resolve({ type: 'back' });
       } else if (data === '\x7f' || data === '\b') {
@@ -324,7 +325,8 @@ async function renderAgentName(tui: TUI, term: ProcessTerminal, state: Onboardin
       }
       return undefined;
     };
-    tui.addInputListener((data: string) => { handler(data); return { consume: true }; });
+    const outerHandler = (data: string) => { handler(data); return { consume: true }; };
+    tui.addInputListener(outerHandler);
     tui.requestRender();
   });
 }
@@ -355,12 +357,12 @@ async function renderUserName(tui: TUI, term: ProcessTerminal, state: Onboarding
 
     const handler = (data: string): InputListenerResult => {
       if (data === '\r' || data === '\n') {
-        tui.removeInputListener(handler);
+        tui.removeInputListener(outerHandler);
         state.userName = currentInput || 'User';
         overlay.hide();
         resolve({ type: 'next' });
       } else if (data === '\x1b') {
-        tui.removeInputListener(handler);
+        tui.removeInputListener(outerHandler);
         overlay.hide();
         resolve({ type: 'back' });
       } else if (data === '\x7f' || data === '\b') {
@@ -388,7 +390,8 @@ async function renderUserName(tui: TUI, term: ProcessTerminal, state: Onboarding
       }
       return undefined;
     };
-    tui.addInputListener((data: string) => { handler(data); return { consume: true }; });
+    const outerHandler = (data: string) => { handler(data); return { consume: true }; };
+    tui.addInputListener(outerHandler);
     tui.requestRender();
   });
 }
@@ -429,20 +432,21 @@ async function renderTemplate(tui: TUI, term: ProcessTerminal, state: Onboarding
       }
       // Enter
       else if (data === '\r' || data === '\n') {
-        tui.removeInputListener(handler);
+        tui.removeInputListener(outerHandler);
         state.template = AVAILABLE_TEMPLATES[selected];
         overlay.hide();
         resolve({ type: 'next' });
       }
       // Escape
       else if (data === '\x1b') {
-        tui.removeInputListener(handler);
+        tui.removeInputListener(outerHandler);
         overlay.hide();
         resolve({ type: 'back' });
       }
       return undefined;
     };
-    tui.addInputListener((data: string) => { handler(data); return { consume: true }; });
+    const outerHandler = (data: string) => { handler(data); return { consume: true }; };
+    tui.addInputListener(outerHandler);
     tui.requestRender();
   });
 }
@@ -479,18 +483,19 @@ async function renderPersonality(tui: TUI, term: ProcessTerminal, state: Onboard
         updateChoice(content, 'How should I think?', `When I respond, should I be brief or thorough?`, options, selected);
         tui.requestRender();
       } else if (data === '\r' || data === '\n') {
-        tui.removeInputListener(handler);
+        tui.removeInputListener(outerHandler);
         state.personality = personalities[selected];
         overlay.hide();
         resolve({ type: 'next' });
       } else if (data === '\x1b') {
-        tui.removeInputListener(handler);
+        tui.removeInputListener(outerHandler);
         overlay.hide();
         resolve({ type: 'back' });
       }
       return undefined;
     };
-    tui.addInputListener((data: string) => { handler(data); return { consume: true }; });
+    const outerHandler = (data: string) => { handler(data); return { consume: true }; };
+    tui.addInputListener(outerHandler);
     tui.requestRender();
   });
 }
@@ -527,19 +532,20 @@ async function renderProvider(tui: TUI, term: ProcessTerminal, state: Onboarding
         updateChoice(content, 'How will I think?', `Which LLM provider should I use?`, options, selected);
         tui.requestRender();
       } else if (data === '\r' || data === '\n') {
-        tui.removeInputListener(handler);
+        tui.removeInputListener(outerHandler);
         state.provider = providers[selected];
         // Model will be selected in the next step
         overlay.hide();
         resolve({ type: 'next' });
       } else if (data === '\x1b') {
-        tui.removeInputListener(handler);
+        tui.removeInputListener(outerHandler);
         overlay.hide();
         resolve({ type: 'back' });
       }
       return undefined;
     };
-    tui.addInputListener((data: string) => { handler(data); return { consume: true }; });
+    const outerHandler = (data: string) => { handler(data); return { consume: true }; };
+    tui.addInputListener(outerHandler);
     tui.requestRender();
   });
 }
@@ -577,18 +583,19 @@ async function renderModelSelect(tui: TUI, term: ProcessTerminal, state: Onboard
         updateChoice(content, 'Which model should I use?', `${PROVIDER_INFO[state.provider].emoji} ${PROVIDER_INFO[state.provider].name} — pick a model:`, options, selected);
         tui.requestRender();
       } else if (data === '\r' || data === '\n') {
-        tui.removeInputListener(handler);
+        tui.removeInputListener(outerHandler);
         state.model = models[selected];
         overlay.hide();
         resolve({ type: 'next' });
       } else if (data === '\x1b') {
-        tui.removeInputListener(handler);
+        tui.removeInputListener(outerHandler);
         overlay.hide();
         resolve({ type: 'back' });
       }
       return undefined;
     };
-    tui.addInputListener((data: string) => { handler(data); return { consume: true }; });
+    const outerHandler = (data: string) => { handler(data); return { consume: true }; };
+    tui.addInputListener(outerHandler);
     tui.requestRender();
   });
 }
@@ -624,7 +631,7 @@ async function renderReview(tui: TUI, term: ProcessTerminal, state: OnboardingSt
 
     const handler = (data: string): InputListenerResult => {
       if (data === '\r' || data === '\n') {
-        tui.removeInputListener(handler);
+        tui.removeInputListener(outerHandler);
         // Create workspace
         try {
           createWorkspaceFromAnswers({
@@ -643,13 +650,14 @@ async function renderReview(tui: TUI, term: ProcessTerminal, state: OnboardingSt
           tui.requestRender();
         }
       } else if (data === '\x1b') {
-        tui.removeInputListener(handler);
+        tui.removeInputListener(outerHandler);
         overlay.hide();
         resolve({ type: 'back' });
       }
       return undefined;
     };
-    tui.addInputListener((data: string) => { handler(data); return { consume: true }; });
+    const outerHandler = (data: string) => { handler(data); return { consume: true }; };
+    tui.addInputListener(outerHandler);
     tui.requestRender();
   });
 }
