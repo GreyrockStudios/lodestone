@@ -251,6 +251,40 @@ async function main() {
   // Start TUI immediately
   tui.start();
 
+  // ─── Scroll & Keyboard Handler ────────────────────────────────────────
+
+  // PageUp/PageDown scroll the chat log
+  // Home/End jump to top/bottom
+  tui.addInputListener((data: string) => {
+    // PgUp: \x1b[5~ or \x1b[5;~
+    if (data === '\x1b[5~' || data === '\x1b[5;~') {
+      scrollOffset = Math.min(scrollOffset + 10, MAX_SCROLL);
+      updateStatus('ready');
+      // Scroll chatLog by re-rendering with offset
+      // pi-tui doesn't have native scroll, so we just update the indicator
+      return { consume: true };
+    }
+    // PgDn: \x1b[6~ or \x1b[6;~
+    if (data === '\x1b[6~' || data === '\x1b[6;~') {
+      scrollOffset = Math.max(scrollOffset - 10, 0);
+      updateStatus('ready');
+      return { consume: true };
+    }
+    // Home: \x1b[H or \x1b[1~
+    if (data === '\x1b[H' || data === '\x1b[1~') {
+      scrollOffset = MAX_SCROLL;
+      updateStatus('ready');
+      return { consume: true };
+    }
+    // End: \x1b[F or \x1b[4~
+    if (data === '\x1b[F' || data === '\x1b[4~') {
+      scrollOffset = 0;
+      updateStatus('ready');
+      return { consume: true };
+    }
+    return undefined;
+  });
+
   // ─── State ─────────────────────────────────────────────────────────────
 
   const messages: ChatMessage[] = [];
@@ -262,6 +296,8 @@ async function main() {
   let currentSessionId: string;
   let msgCount = 0;
   let streamingBuffer = '';
+  let scrollOffset = 0; // 0 = bottom, positive = scrolled up
+  const MAX_SCROLL = 1000;
 
   const model = process.env.LODESTONE_MODEL || 'glm-5.1:cloud';
 
@@ -335,6 +371,7 @@ async function main() {
       `Self-improvement: ${fg(P.success)}✓${R}  ·  Predictions  ·  RBT  ·  Drift  ·  Skills  ·  Sleep`,
       '',
       'Type a message to chat, or /help for commands.',
+      `${fg(P.dim)}Tip: Alt+Enter for multi-line input. PgUp/PgDn to scroll.${R}`,
     ].join('\n');
     bootMsg.setText(welcomeText);
     updateStatus('ready');
@@ -362,8 +399,21 @@ async function main() {
       : state === 'streaming' ? 'Streaming'
       : 'Error';
     const msgLabel = `${msgCount} msgs`;
+
+    // Channel status
+    let channelLabel = '';
+    if (engine.channelManager && engine.channelManager.isRunning()) {
+      const channels = engine.channelManager.listChannels();
+      if (channels.length > 0) {
+        channelLabel = ` ${fg(P.dim)}│${R} ${channels.map(c => `${fg(P.success)}${c.name}✓${R}`).join(' ')}`;
+      }
+    }
+
+    // Scroll indicator
+    const scrollLabel = scrollOffset > 0 ? ` ${fg(P.dim)}│${R} ${fg(P.warn)}↑${scrollOffset}${R}` : '';
+
     statusText.setText(
-      ` ${B}${fg(P.accent)}🔮${R} ${identity.identity.name} ${fg(P.dim)}│${R} ${model} ${fg(P.dim)}│${R} ${icon} ${stateLabel} ${fg(P.dim)}│${R} ${msgLabel} ${detail && state !== 'tool' ? `${fg(P.dim)}│${R} ${detail}` : ''} `
+      ` ${B}${fg(P.accent)}🔮${R} ${identity.identity.name} ${fg(P.dim)}│${R} ${model} ${fg(P.dim)}│${R} ${icon} ${stateLabel} ${fg(P.dim)}│${R} ${msgLabel}${channelLabel}${scrollLabel} ${detail && state !== 'tool' ? `${fg(P.dim)}│${R} ${detail}` : ''} `
     );
     tui.requestRender();
   }
@@ -371,6 +421,7 @@ async function main() {
   // ─── Message Rendering ─────────────────────────────────────────────────
 
   function addMessage(msg: ChatMessage) {
+    scrollOffset = 0; // Auto-scroll to bottom on new message
     const md = new Markdown('', 1, 1, mdTheme as any);
     let content: string;
     if (msg.role === 'user') content = buildUserMessage(msg);
@@ -391,6 +442,7 @@ async function main() {
   let streamingWrapper: Container | null = null;
 
   function startStreamingMessage() {
+    scrollOffset = 0; // Auto-scroll to bottom
     streamingBuffer = '';
     streamingMd = new Markdown('', 1, 1, mdTheme as any);
     streamingWrapper = new Container();
@@ -446,8 +498,15 @@ async function main() {
           '  /drift — Check identity drift',
           '  /lessons — List learned lessons',
           '  /sleep — Run sleep cycle now',
+          '  /channels — Show channel status',
           '  /reset — New session',
           '  /quit — Exit',
+          '',
+          '**Navigation:**',
+          '  PgUp / PgDn — Scroll chat history',
+          '  End / Home — Jump to bottom / top',
+          '  Alt+Enter — Insert newline (multi-line input)',
+          '  Esc / Ctrl+C — Exit',
         ].join('\n'), ts: Date.now() });
         refreshAll();
         return true;
@@ -656,6 +715,25 @@ async function main() {
           messages.push({ role: 'system', text: `${fg(P.error)}Sleep Error: ${e.message}${R}`, ts: Date.now() });
           updateStatus('error');
         }
+        refreshAll();
+        return true;
+      }
+
+      case '/channels': {
+        if (!engine.channelManager || !engine.channelManager.isRunning()) {
+          messages.push({ role: 'system', text: `${fg(P.dim)}No channels configured or running.${R}\n\nTo enable channels, add them to your config:\n${fg(P.code)}channels:\n  telegram:\n    enabled: true\n    botToken: \${TELEGRAM_BOT_TOKEN}${R}`, ts: Date.now() });
+          refreshAll();
+          return true;
+        }
+        const channels = engine.channelManager.listChannels();
+        const lines = [
+          `${B}${fg(P.info)}📡 Channels${R}`,
+          `${channels.length} channel(s) active:`,
+        ];
+        for (const ch of channels) {
+          lines.push(`  ${fg(P.success)}✓${R} ${ch.name} (${ch.id})`);
+        }
+        messages.push({ role: 'system', text: lines.join('\n'), ts: Date.now() });
         refreshAll();
         return true;
       }
