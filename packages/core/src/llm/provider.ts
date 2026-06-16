@@ -56,8 +56,11 @@ export class LLMProvider {
   private createModel(config: ProviderConfig): LanguageModelV1 {
     switch (config.type) {
       case 'ollama': {
-        const ollama = createOllama({
-          baseURL: config.baseUrl || 'http://127.0.0.1:11434/api',
+        // Use OpenAI-compatible endpoint for all Ollama models
+        // (the ollama-ai-provider has v1/v2 spec issues with AI SDK 5)
+        const ollama = createOpenAI({
+          baseURL: (config.baseUrl || 'http://127.0.0.1:11434/api').replace(/\/api$/, '/v1'),
+          apiKey: config.apiKey || 'unused',
         });
         return ollama(config.model) as unknown as LanguageModelV1;
       }
