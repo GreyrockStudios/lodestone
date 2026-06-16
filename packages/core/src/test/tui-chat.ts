@@ -2,10 +2,11 @@
  * Lodestone — TUI Chat
  *
  * Terminal UI using pi-tui (same framework as OpenClaw).
- * Layout: header, scrollable messages, status bar, editor input.
+ * Layout: message log (top, flex), status bar, editor input (bottom).
+ * Each message is a separate component for efficient rendering.
  */
 
-import { TUI, ProcessTerminal, Text, Editor, Key, matchesKey } from '@earendil-works/pi-tui';
+import { TUI, ProcessTerminal, Text, Box, Markdown, Editor, Container, Spacer } from '@earendil-works/pi-tui';
 import { LodestoneEngine } from '../engine.js';
 import { AgentLoop } from '../agent-loop.js';
 import { WikiResolveTool, WikiSearchTool } from '../tools/impl/wiki-resolve.js';
@@ -18,7 +19,7 @@ import { resolve } from 'path';
 
 const WORKSPACE = process.env.LODESTONE_WORKSPACE || '/tmp/lodestone-test/workspace';
 
-// ─── Colors ────────────────────────────────────────────────────────────────
+// ─── Colors (matching OpenClaw dark theme) ─────────────────────────────────
 
 const P = {
   text: '#E8E3D5', dim: '#7B7F87', accent: '#F6C453', accent2: '#F2A65A',
@@ -29,7 +30,22 @@ const R = '\x1B[0m'; const B = '\x1B[1m'; const D = '\x1B[2m'; const I = '\x1B[3
 function fg(c: string) { return `\x1B[38;2;${parseInt(c.slice(1,3),16)};${parseInt(c.slice(3,5),16)};${parseInt(c.slice(5,7),16)}m`; }
 function bg(c: string) { return `\x1B[48;2;${parseInt(c.slice(1,3),16)};${parseInt(c.slice(3,5),16)};${parseInt(c.slice(5,7),16)}m`; }
 
-// ─── Message type ──────────────────────────────────────────────────────────
+// ─── Markdown theme ────────────────────────────────────────────────────────
+
+const mdTheme = {
+  heading: (s: string) => `${B}${fg(P.accent)}${s}${R}`,
+  bold: (s: string) => `${B}${s}${R}`,
+  italic: (s: string) => `${I}${s}${R}`,
+  code: (s: string) => `${fg(P.code)}${s}${R}`,
+  codeBlock: (s: string) => `${D}${s}${R}`,
+  blockquote: (s: string) => `${fg(P.dim)}│ ${s}${R}`,
+  link: (s: string) => `${fg(P.success)}${s}${R}`,
+  list: (s: string) => `${fg(P.accent)}${s}${R}`,
+  text: (s: string) => `${fg(P.text)}${s}${R}`,
+  hr: (s: string) => `${fg(P.border)}${s}${R}`,
+};
+
+// ─── Message components ───────────────────────────────────────────────────
 
 interface ChatMessage {
   role: 'user' | 'assistant' | 'system';
@@ -40,31 +56,27 @@ interface ChatMessage {
   tools?: string[];
 }
 
-function renderMessages(msgs: ChatMessage[]): string {
-  const lines: string[] = [];
-  for (const m of msgs) {
-    const t = new Date(m.ts).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
-    if (m.role === 'user') {
-      lines.push(`${bg(P.userBg)} ${B}${fg(P.userText)}you${R}${bg(P.userBg)} ${D}${t}${R}`);
-      for (const l of m.text.split('\n')) lines.push(`${bg(P.userBg)} ${l}${R}`);
-      lines.push('');
-    } else if (m.role === 'assistant') {
-      lines.push(`${B}${fg(P.accent)}🔮 lodestone${R} ${D}${t}${R}`);
-      for (const l of m.text.split('\n')) lines.push(`  ${l}`);
-      if (m.ms || m.tokens) {
-        const p: string[] = [];
-        if (m.ms) p.push(`${(m.ms/1000).toFixed(1)}s`);
-        if (m.tokens) p.push(`${m.tokens} tok`);
-        if (m.tools?.length) p.push(`⚡${m.tools.join(',')}`);
-        lines.push(`${D}  ${p.join(' · ')}${R}`);
-      }
-      lines.push('');
-    } else {
-      lines.push(`  ${fg(P.sysText)}${m.text}${R}`);
-      lines.push('');
-    }
-  }
-  return lines.join('\n');
+function formatTimestamp(ts: number): string {
+  return new Date(ts).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+}
+
+function buildUserMessage(msg: ChatMessage): string {
+  const time = formatTimestamp(msg.ts);
+  return `${bg(P.userBg)} ${B}${fg(P.userText)}you${R}${bg(P.userBg)} ${D}${time}${R}\n${msg.text}`;
+}
+
+function buildAssistantMessage(msg: ChatMessage): string {
+  const time = formatTimestamp(msg.ts);
+  const stats: string[] = [];
+  if (msg.ms) stats.push(`${(msg.ms/1000).toFixed(1)}s`);
+  if (msg.tokens) stats.push(`${msg.tokens} tok`);
+  if (msg.tools?.length) stats.push(`⚡${msg.tools.join(',')}`);
+  const statsLine = stats.length > 0 ? `\n${D}[${stats.join(' · ')}]${R}` : '';
+  return `**🔮 lodestone** ${D}${time}${R}\n${msg.text}${statsLine}`;
+}
+
+function buildSystemMessage(msg: ChatMessage): string {
+  return `${fg(P.sysText)}${msg.text}${R}`;
 }
 
 // ─── Boot ──────────────────────────────────────────────────────────────────
@@ -96,15 +108,24 @@ async function main() {
   // ─── TUI ────────────────────────────────────────────────────────────
 
   const messages: ChatMessage[] = [];
+  const messageComponents: Container[] = []; // Track added components for removal
   let isProcessing = false;
   let currentSessionId = sessionId!;
 
   const term = new ProcessTerminal();
   const tui = new TUI(term);
 
-  // Components — status bar shows identity + model + state
-  const statusText = new Text(` ${B}${fg(P.accent)}🔮 Lodestone${R}  ${fg(P.dim)}│${R}  ${identity!.identity.name}  ${fg(P.dim)}│${R}  ${process.env.LODESTONE_MODEL||'qwen3:8b'}  ${fg(P.dim)}│${R}  ${fg(P.success)}✓${R} ${D}Ready · /help${R} `, 1, 0);
-  const logText = new Text('', 1, 0);
+  // ─── Chat log (scrollable message area) ─────────────────────────────
+
+  const chatLog = new Container();
+
+  // ─── Status bar ─────────────────────────────────────────────────────
+
+  const statusText = new Text(` ${B}${fg(P.accent)}🔮${R} ${identity!.identity.name} ${fg(P.dim)}│${R} ${process.env.LODESTONE_MODEL||'qwen3:8b'} ${fg(P.dim)}│${R} ${fg(P.success)}✓${R} Ready ${fg(P.dim)}│${R} /help for commands `, 0, 0);
+  const statusBar = new Box(0, 0, (line: string) => `${bg('#1E232A')}${line}${R}`);
+  statusBar.addChild(statusText);
+
+  // ─── Editor ─────────────────────────────────────────────────────────
 
   const selectListTheme = {
     selectedBg: (s: string) => bg(P.border) + s + R,
@@ -125,14 +146,51 @@ async function main() {
     selectList: selectListTheme as any,
   });
 
-  // Layout: messages fill top, status bar, editor at bottom
-  // Standard chat: see history above, type below
-  (tui as any).addChild(logText, 1); // flex=1 fills remaining space
-  tui.addChild(statusText);
+  // Layout: chatLog (flex) → status bar → editor
+  (tui as any).addChild(chatLog, 1);
+  tui.addChild(statusBar);
   tui.addChild(editor);
   tui.setFocus(editor);
 
-  // Submit handler
+  // ─── Message rendering ─────────────────────────────────────────────
+
+  function addMessage(msg: ChatMessage) {
+    const md = new Markdown('', 1, 1, mdTheme as any);
+    let content: string;
+    if (msg.role === 'user') {
+      content = buildUserMessage(msg);
+    } else if (msg.role === 'assistant') {
+      content = buildAssistantMessage(msg);
+    } else {
+      content = buildSystemMessage(msg);
+    }
+    md.setText(content);
+
+    const wrapper = new Container();
+    wrapper.addChild(md);
+    wrapper.addChild(new Spacer(1)); // Blank line between messages
+
+    chatLog.addChild(wrapper);
+    messageComponents.push(wrapper);
+  }
+
+  function refreshAll() {
+    // Clear and re-add all messages
+    chatLog.clear();
+    messageComponents.length = 0;
+    for (const msg of messages) {
+      addMessage(msg);
+    }
+    tui.requestRender();
+  }
+
+  function setStatus(s: string) {
+    statusText.setText(s);
+    tui.requestRender();
+  }
+
+  // ─── Submit handler ────────────────────────────────────────────────
+
   editor.onSubmit = (text: string) => {
     const trimmed = text.trim();
     if (!trimmed || isProcessing) return;
@@ -143,53 +201,42 @@ async function main() {
 
     if (trimmed === '/quit' || trimmed === '/exit') { tui.stop(); process.exit(0); }
     if (trimmed === '/help') {
-      messages.push({ role:'system', text:'Commands: /help · /tools · /memory · /state · /wiki · /reset · /quit', ts:Date.now() });
-      refresh(); return;
+      messages.push({ role:'system', text:'**Commands:** /help · /tools · /memory · /state · /wiki · /reset · /quit', ts:Date.now() });
+      refreshAll(); return;
     }
     if (trimmed === '/tools') {
       const tools = engine!.tools.listDefinitions();
-      messages.push({ role:'system', text:`${tools.length} tools:\n` + tools.map(t => `  ${fg(P.accent)}${t.name.padEnd(18)}${R} ${t.description}`).join('\n'), ts:Date.now() });
-      refresh(); return;
+      messages.push({ role:'system', text:`**${tools.length} tools:**\n` + tools.map(t => `- \`${t.name}\` — ${t.description}`).join('\n'), ts:Date.now() });
+      refreshAll(); return;
     }
-    if (trimmed === '/memory') { engine!.memory.wiki.list().then(p => { messages.push({role:'system',text:`Wiki: ${p.length} pages`,ts:Date.now()}); refresh(); }); return; }
-    if (trimmed === '/state') { engine!.memory.loadSessionState().then(s => { messages.push({role:'system',text:s?`Task: ${s.currentTask}\nProgress: ${s.progress}`:'No state yet.',ts:Date.now()}); refresh(); }); return; }
-    if (trimmed === '/wiki') { engine!.memory.wiki.list().then(p => { messages.push({role:'system',text:`${p.length} pages:\n`+p.map(x=>`  [[${x.slug}]] — ${x.frontmatter?.title||x.slug}`).join('\n'),ts:Date.now()}); refresh(); }); return; }
-    if (trimmed === '/reset') { currentSessionId = engine!.createSession(); messages.push({role:'system',text:`New session: ${currentSessionId}`,ts:Date.now()}); refresh(); return; }
+    if (trimmed === '/memory') { engine!.memory.wiki.list().then(p => { messages.push({role:'system',text:`Wiki: **${p.length}** pages`,ts:Date.now()}); refreshAll(); }); return; }
+    if (trimmed === '/state') { engine!.memory.loadSessionState().then(s => { messages.push({role:'system',text:s?`**Task:** ${s.currentTask}\n**Progress:** ${s.progress}`:'No state yet.',ts:Date.now()}); refreshAll(); }); return; }
+    if (trimmed === '/wiki') { engine!.memory.wiki.list().then(p => { messages.push({role:'system',text:`**${p.length} pages:**\n`+p.map(x=>`- [[${x.slug}]] — ${x.frontmatter?.title||x.slug}`).join('\n'),ts:Date.now()}); refreshAll(); }); return; }
+    if (trimmed === '/reset') { currentSessionId = engine!.createSession(); messages.push({role:'system',text:`New session: \`${currentSessionId}\``,ts:Date.now()}); refreshAll(); return; }
 
     // ─── LLM ────────────────────────────────────────────────────────
 
     isProcessing = true;
     messages.push({ role:'user', text:trimmed, ts:Date.now() });
-    refresh();
-    setStatus(`${fg(P.accent)}⚡${R} ${D}thinking...${R}`);
+    refreshAll();
+    setStatus(` ${B}${fg(P.accent)}🔮${R} ${identity!.identity.name} ${fg(P.dim)}│${R} ${process.env.LODESTONE_MODEL||'qwen3:8b'} ${fg(P.dim)}│${R} ${fg(P.accent)}⚡${R} thinking... `);
 
     loop!.run(currentSessionId, trimmed).then(result => {
       messages.push({ role:'assistant', text:result.response, ts:Date.now(), tokens:result.totalTokens, ms:result.durationMs, tools:result.toolCalls.map(tc=>tc.toolName) });
       isProcessing = false;
-      refresh();
-      setStatus(` ${fg(P.success)}✓${R} ${D}Ready · ${messages.filter(m=>m.role==='user').length} msgs${R} `);
+      refreshAll();
+      setStatus(` ${B}${fg(P.accent)}🔮${R} ${identity!.identity.name} ${fg(P.dim)}│${R} ${process.env.LODESTONE_MODEL||'qwen3:8b'} ${fg(P.dim)}│${R} ${fg(P.success)}✓${R} ${messages.filter(m=>m.role==='user').length} msgs `);
     }).catch(err => {
-      messages.push({ role:'system', text:`${fg(P.error)}Error: ${err instanceof Error ? err.message : String(err)}${R}`, ts:Date.now() });
+      messages.push({ role:'system', text:`${fg(P.error)}**Error:** ${err instanceof Error ? err.message : String(err)}${R}`, ts:Date.now() });
       isProcessing = false;
-      refresh();
-      setStatus(` ${fg(P.error)}✗${R} ${D}Error${R} `);
+      refreshAll();
+      setStatus(` ${B}${fg(P.accent)}🔮${R} ${identity!.identity.name} ${fg(P.dim)}│${R} ${process.env.LODESTONE_MODEL||'qwen3:8b'} ${fg(P.dim)}│${R} ${fg(P.error)}✗${R} Error `);
     });
   };
 
-  // Escape key → exit
   (editor as any).onEscape = () => { tui.stop(); process.exit(0); };
 
-  function refresh() {
-    logText.setText(renderMessages(messages));
-    tui.requestRender();
-  }
-
-  function setStatus(s: string) {
-    statusText.setText(s);
-    tui.requestRender();
-  }
-
-  // Start the TUI event loop
+  // Start the TUI
   tui.start();
 
   process.on('SIGINT', () => { tui.stop(); process.exit(0); });
