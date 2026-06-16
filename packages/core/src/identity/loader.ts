@@ -160,14 +160,15 @@ export class IdentityLoader {
   private parseIdentityMd(content: string): AgentIdentity {
     const identity: AgentIdentity = { name: 'Agent' };
 
-    // Parse key: value pairs from markdown
+    // Parse key: value pairs from markdown (handles both **Name:** and **Name**\:)
     const lines = content.split('\n');
     for (const line of lines) {
-      const match = line.match(/^\s*[-*]\s*\*\*(\w+)\*[*]:\s*(.+)/);
+      const match = line.match(/^\s*[-*]\s*\*\*([^*]+)\*\*:?\s*(.+)/);
       if (match) {
         const [, key, value] = match;
+        const cleanKey = key.replace(/:$/, '').trim().toLowerCase();
         const cleanValue = value.replace(/\*+/g, '').trim();
-        switch (key.toLowerCase()) {
+        switch (cleanKey) {
           case 'name': identity.name = cleanValue; break;
           case 'emoji': identity.emoji = cleanValue; break;
           case 'creature': identity.creature = cleanValue; break;
