@@ -116,11 +116,18 @@ export class WikiStore {
       tags: frontmatter?.tags || existing?.frontmatter.tags || [],
       agents: frontmatter?.agents || existing?.frontmatter.agents || [],
       source: frontmatter?.source || existing?.frontmatter.source,
-      ...frontmatter,
     };
 
+    // Remove undefined values (gray-matter can't handle them)
+    const cleanFm: Record<string, unknown> = {};
+    for (const [key, value] of Object.entries(fm)) {
+      if (value !== undefined) {
+        cleanFm[key] = value;
+      }
+    }
+
     // Render frontmatter + content
-    const fileContent = matter.stringify(content, fm as Record<string, unknown>);
+    const fileContent = matter.stringify(content, cleanFm);
     await writeFile(filePath, fileContent, 'utf-8');
 
     // Update cache
