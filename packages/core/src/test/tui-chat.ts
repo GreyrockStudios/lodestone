@@ -271,8 +271,10 @@ async function main() {
 
     isProcessing = true;
     msgCount++;
-    messages.push({ role: 'user', text: trimmed, ts: Date.now() });
-    refreshAll();
+    const userMsg = { role: 'user' as const, text: trimmed, ts: Date.now() };
+    messages.push(userMsg);
+    addMessage(userMsg);
+    tui.requestRender();
     updateStatus('thinking', 'waiting for LLM');
 
     // Create stream handler for live updates
@@ -647,6 +649,17 @@ async function main() {
   }
 
   function refreshAll() {
+    // Add any messages that aren't yet visually in chatLog
+    // chatLog.children.length should match messages.length unless streaming
+    // During streaming, there's an extra wrapper — skip adding in that case
+    const currentCount = chatLog.children.length;
+    const expectedCount = messages.length;
+    if (currentCount < expectedCount) {
+      // Add missing messages
+      for (let i = currentCount; i < expectedCount; i++) {
+        addMessage(messages[i]);
+      }
+    }
     tui.requestRender();
   }
 
