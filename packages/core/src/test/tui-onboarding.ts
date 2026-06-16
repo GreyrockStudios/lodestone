@@ -165,11 +165,29 @@ export async function runOnboarding(
         `${B}${fg(P.accent)}What should I call myself?${R}\n\n` +
         `This is my name — I'll use it to introduce myself, sign my work, and address you. Think of it like naming a pet or a project: something you'll want to type and read a lot.\n\n` +
         `Good examples: ${fg(P.success)}Aria${R}, ${fg(P.success)}Atlas${R}, ${fg(P.success)}Nova${R}, ${fg(P.success)}Mochi${R}\n\n` +
+        `${D}Type a name, or "surprise me" to let me pick one.${R}\n\n` +
         `Type a name ${D}(default: ${state.agentName}):${R}`,
         'agent name'
       );
       if (answer === BACK) return 0;
-      state.agentName = answer || state.agentName;
+      if (answer && answer.toLowerCase() !== state.agentName.toLowerCase()) {
+        if (answer.toLowerCase() === 'surprise me' || answer.toLowerCase() === 'surprise') {
+          const names = [
+            'Aria', 'Atlas', 'Nova', 'Mochi', 'Ember', 'Flint', 'Sage', 'Echo',
+            'Lux', 'Onyx', 'Pip', 'Quill', 'Rune', 'Sable', 'Thorn', 'Vex',
+            'Wren', 'Zeph', 'Cinder', 'Drift', 'Glow', 'Haze', 'Jinx', 'Kite',
+            'Lyric', 'Mist', 'Nimbus', 'Opal', 'Pixel', 'Reed', 'Spark', 'Tide',
+            'Vesper', 'Wisp', 'Zephyr', 'Ash', 'Blaze', 'Cobalt', 'Dusk',
+            'Fern', 'Glitch', 'Indigo', 'Jade', 'Karma', 'Lumen', 'Nyx', 'Orion',
+          ];
+          state.agentName = names[Math.floor(Math.random() * names.length)];
+          // Tell the user what name was picked
+          messages.push({ role: 'system', text: `${fg(P.success)}I'll go with ${B}${state.agentName}${R}! 🎲`, ts: Date.now() });
+          addMessage(messages[messages.length - 1]);
+        } else {
+          state.agentName = answer;
+        }
+      }
       return 2;
     },
 
