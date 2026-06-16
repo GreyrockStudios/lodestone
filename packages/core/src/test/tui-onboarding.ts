@@ -20,13 +20,10 @@
 
 import { TUI, ProcessTerminal, Text, Box, Markdown, Editor, Container, Spacer } from '@earendil-works/pi-tui';
 
-type InputListenerResult = { consume?: boolean; data?: string } | undefined;
-import { existsSync, mkdirSync, readFileSync, writeFileSync, cpSync } from 'fs';
-import { resolve, join, dirname } from 'path';
-import { fileURLToPath } from 'url';
+import { createWorkspaceFromAnswers } from '../tui-onboarding/workspace-creator.js';
+import type { WorkspaceConfig } from '../tui-onboarding/workspace-creator.js';
 
-const __dirname = dirname(fileURLToPath(import.meta.url));
-const TEMPLATES_DIR = resolve(__dirname, '../../../templates');
+type InputListenerResult = { consume?: boolean; data?: string } | undefined;
 
 const AVAILABLE_TEMPLATES = ['general', 'developer', 'business', 'creative', 'researcher'] as const;
 type TemplateName = typeof AVAILABLE_TEMPLATES[number];
@@ -632,7 +629,15 @@ async function renderReview(tui: TUI, term: ProcessTerminal, state: OnboardingSt
         tui.removeInputListener(handler);
         // Create workspace
         try {
-          createWorkspace(state);
+          createWorkspaceFromAnswers({
+            agentName: state.agentName,
+            userName: state.userName,
+            template: state.template,
+            personality: state.personality,
+            provider: state.provider,
+            model: state.model,
+            workspacePath: state.workspacePath,
+          });
           overlay.hide();
           resolve({ type: 'done', workspace: state.workspacePath } as any);
         } catch (err) {
@@ -651,229 +656,3 @@ async function renderReview(tui: TUI, term: ProcessTerminal, state: OnboardingSt
   });
 }
 
-// ─── Workspace Creation ────────────────────────────────────────────────────
-
-function createWorkspace(state: OnboardingState): void {
-  const root = state.workspacePath;
-  const templateInfo = TEMPLATE_INFO[state.template];
-
-  // Create directory tree
-  const dirs = [
-    root,
-    join(root, 'workspace'),
-    join(root, 'workspace', 'memory'),
-    join(root, 'workspace', 'memory', 'wiki'),
-    join(root, 'workspace', 'memory', 'wiki', 'entities'),
-    join(root, 'workspace', 'memory', 'wiki', 'concepts'),
-    join(root, 'workspace', 'memory', 'wiki', 'decisions'),
-    join(root, 'workspace', 'memory', 'wiki', 'projects'),
-    join(root, 'workspace', 'memory', 'wiki', 'areas'),
-    join(root, 'workspace', 'memory', 'wiki', 'research'),
-    join(root, 'workspace', 'memory', 'agents'),
-    join(root, 'workspace', 'memory', 'agents', 'agent'),
-    join(root, 'workspace', 'memory', '00-inbox'),
-    join(root, 'workspace', 'data'),
-    join(root, 'workspace', 'data', 'lancedb'),
-    join(root, 'workspace', 'data', 'logs'),
-  ];
-
-  for (const dir of dirs) {
-    mkdirSync(dir, { recursive: true });
-  }
-
-  // Copy template files, replacing placeholders
-  const templateDir = join(TEMPLATES_DIR, state.template);
-  const today = new Date().toISOString().split('T')[0];
-
-  if (existsSync(templateDir)) {
-    const files = ['IDENTITY.md', 'SOUL.md', 'USER.md', 'RULES.md', 'HEARTBEAT.md'];
-    for (const file of files) {
-      const src = join(templateDir, file);
-      if (existsSync(src)) {
-        let content = readFileSync(src, 'utf-8');
-        content = content.replace(/\{\{name\}\}/g, state.agentName);
-        content = content.replace(/\{\{userName\}\}/g, state.userName);
-        content = content.replace(/\{\{date\}\}/g, today);
-        // Inject personality into SOUL.md
-        if (file === 'SOUL.md') {
-          const soulLine = templateInfo.soul.replace(/\{name\}/g, state.agentName);
-          // Add personality directive
-          const personalityDirective = state.personality === 'concise'
-            ? '\n\nBe concise. Short answers. No filler. Get to the point.'
-            : state.personality === 'detailed'
-            ? '\n\nBe thorough. Provide full context and explanations. Over-explain rather than under-explain.'
-            : '\n\nBe balanced. Enough detail to be useful, not so much it drowns.';
-          content = content.replace(/\{\{name\}\}/g, state.agentName) + personalityDirective;
-        }
-        writeFileSync(join(root, 'workspace', file), content);
-      }
-    }
-  }
-
-  // Generate config
-  writeFileSync(join(root, 'lodestone.config.yaml'), generateConfig(state));
-
-  // Generate wiki index
-  writeFileSync(join(root, 'workspace', 'memory', 'wiki', 'index.md'), generateWikiIndex(state));
-
-  // Generate .env
-  writeFileSync(join(root, '.env'), generateEnvFile(state));
-
-  // Generate .gitignore
-  writeFileSync(join(root, '.gitignore'), generateGitignore());
-}
-
-function generateConfig(state: OnboardingState): string {
-  const provider = state.provider;
-  const model = state.model;
-
-  const providerBlock = provider === 'ollama'
-    ? `    type: ollama\n    model: ${model}\n    baseUrl: http://127.0.0.1:11434/api`
-    : provider === 'openai'
-    ? `    type: openai\n    model: ${model}\n    apiKey: \${OPENAI_API_KEY}`
-    : `    type: anthropic\n    model: ${model}\n    apiKey: \${ANTHROPIC_API_KEY}`;
-
-  return `# Lodestone Configuration
-# Generated by lodestone init
-# See https://github.com/greyrockstudios/lodestone for full docs
-
-llm:
-  default:
-${providerBlock}
-    contextWindow: 128000
-    maxTokens: 8192
-
-channels:
-  # Telegram bot (set LODESTONE_TELEGRAM_TOKEN to enable)
-  # telegram:
-  #   enabled: false
-  #   botToken: \${TELEGRAM_BOT_TOKEN}
-
-  # Discord bot (set LODESTONE_DISCORD_TOKEN to enable)
-  # discord:
-  #   enabled: false
-  #   botToken: \${DISCORD_BOT_TOKEN}
-
-  # Web chat (enable for browser-based chat)
-  # webchat:
-  #   enabled: false
-  #   port: 3000
-
-memory:
-  vectorDb:
-    provider: lancedb
-    path: ./workspace/data/lancedb
-    embedding:
-      provider: ollama
-      model: nomic-embed-text
-      dimensions: 768
-    autoRecall: true
-    autoCapture: false
-
-  wiki:
-    path: ./workspace/memory/wiki
-    autoLint: true
-    autoIndex: true
-
-  scratch:
-    path: ./workspace/data/scratch.db
-
-identity:
-  dir: ./workspace
-
-session:
-  compactionThreshold: 0.5
-  keepRecentCount: 10
-  maxEntries: 200
-  pruneAfter: 7d
-
-proactive:
-  sensorium:
-    enabled: true
-    interval: 30m
-  sleep:
-    enabled: true
-    schedule: "0 3 * * *"
-    timezone: "America/Toronto"
-  drift:
-    enabled: true
-    schedule: "0 9 * * 1"
-
-scheduler:
-  maxConcurrent: 4
-
-logging:
-  level: info
-  file: ./workspace/data/logs/lodestone.log
-`;
-}
-
-function generateWikiIndex(state: OnboardingState): string {
-  const today = new Date().toISOString().split('T')[0];
-  return `---
-title: Knowledge Index
-created: ${today}
-updated: ${today}
-status: active
-tags: [index]
----
-
-# Knowledge Index
-
-Welcome to ${state.agentName}'s knowledge base. Pages are organized by category:
-
-## Categories
-
-- [[entities/]] — People, companies, tools, products
-- [[concepts/]] — Ideas, methods, patterns, frameworks
-- [[decisions/]] — Decision records with context and reasoning
-- [[projects/]] — Active project knowledge
-- [[areas/]] — Ongoing responsibilities
-- [[research/]] — Research notes and findings
-
-## Quick Start
-
-Start adding pages by talking to ${state.agentName} or creating files directly.
-`;
-}
-
-function generateEnvFile(state: OnboardingState): string {
-  return `# Lodestone Environment Variables
-# Copy this to .env.local and fill in your API keys
-
-# LLM Provider (uncomment the one you're using)
-# OPENAI_API_KEY=sk-...
-# ANTHROPIC_API_KEY=sk-ant-...
-
-# Channel tokens (uncomment to enable)
-# TELEGRAM_BOT_TOKEN=...
-# DISCORD_BOT_TOKEN=...
-
-# Optional: override default model
-# LODESTONE_MODEL=${state.model}
-`;
-}
-
-function generateGitignore(): string {
-  return `# Dependencies
-node_modules/
-
-# Build output
-dist/
-
-# Environment
-.env
-.env.local
-
-# Data
-workspace/data/
-
-# OS
-.DS_Store
-Thumbs.db
-
-# IDE
-.vscode/
-.idea/
-`;
-}

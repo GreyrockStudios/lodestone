@@ -15,9 +15,12 @@ import { DecisionLogTool } from './tools/impl/decision-log.js';
 import { ResumeStateTool } from './tools/impl/resume-state.js';
 import { WatchdogTool } from './tools/impl/watchdog.js';
 import { BusinessHoursTool } from './tools/impl/business-hours.js';
+import { createWorkspaceFromAnswers, PROVIDER_INFO } from './tui-onboarding/workspace-creator.js';
 import { readFile } from 'fs/promises';
+import { existsSync } from 'fs';
 import { resolve } from 'path';
 import { parse as parseYaml } from 'yaml';
+import { createInterface } from 'readline';
 
 // ─── Config ─────────────────────────────────────────────────────────────────
 
@@ -85,11 +88,83 @@ async function loadConfig(): Promise<LodestoneConfig> {
   }
 }
 
+// ─── Headless Onboarding ──────────────────────────────────────────────────
+
+const HEADLESS_TEMPLATES = ['general', 'developer', 'business', 'creative', 'researcher'] as const;
+const HEADLESS_PROVIDERS = ['ollama', 'openai', 'anthropic'] as const;
+
+async function runHeadlessOnboarding(workspaceRoot: string): Promise<void> {
+  const rl = createInterface({ input: process.stdin, output: process.stdout });
+  const ask = (q: string): Promise<string> => new Promise(r => rl.question(q, r));
+
+  console.log('\n🔮 Welcome to Lodestone!\n');
+  console.log('No workspace found. Let\'s set up your agent.\n');
+  console.log('You can change everything later in your config files.\n');
+
+  const agentName = (await ask('What should your agent be called? [Lodestone]: ')).trim() || 'Lodestone';
+  const userName = (await ask('What\'s your name? [User]: ')).trim() || 'User';
+
+  // Template
+  console.log('\nWhat kind of work will you do?');
+  for (let i = 0; i < HEADLESS_TEMPLATES.length; i++) {
+    const t = PROVIDER_INFO[HEADLESS_TEMPLATES[i] as keyof typeof PROVIDER_INFO] || HEADLESS_TEMPLATES[i];
+    console.log(`  ${i + 1}. ${HEADLESS_TEMPLATES[i]}`);
+  }
+  const tIdx = Math.max(0, Math.min(HEADLESS_TEMPLATES.length - 1, parseInt(await ask(`Choose [1-${HEADLESS_TEMPLATES.length}]: `)) - 1 || 0));
+  const template = HEADLESS_TEMPLATES[tIdx];
+
+  // Provider
+  console.log('\nWhich LLM provider?');
+  for (let i = 0; i < HEADLESS_PROVIDERS.length; i++) {
+    const p = PROVIDER_INFO[HEADLESS_PROVIDERS[i]];
+    console.log(`  ${i + 1}. ${p.emoji} ${p.name} — ${p.desc}`);
+  }
+  const pIdx = Math.max(0, Math.min(HEADLESS_PROVIDERS.length - 1, parseInt(await ask(`Choose [1-${HEADLESS_PROVIDERS.length}]: `)) - 1 || 0));
+  const provider = HEADLESS_PROVIDERS[pIdx];
+
+  // Model
+  const models = PROVIDER_INFO[provider].models;
+  console.log(`\nWhich model?`);
+  for (let i = 0; i < models.length; i++) {
+    console.log(`  ${i + 1}. ${models[i]}${i === 0 ? ' (recommended)' : ''}`);
+  }
+  const mIdx = Math.max(0, Math.min(models.length - 1, parseInt(await ask(`Choose [1-${models.length}]: `)) - 1 || 0));
+  const model = models[mIdx];
+
+  rl.close();
+
+  // Create workspace
+  const identityDir = resolve(workspaceRoot, 'workspace');
+  createWorkspaceFromAnswers({
+    agentName,
+    userName,
+    template,
+    personality: 'balanced',
+    provider,
+    model,
+    workspacePath: identityDir,
+  });
+
+  console.log(`\n✅ Workspace created at ${identityDir}`);
+  console.log(`   Identity files written. Config saved to lodestone.config.yaml`);
+  console.log(`   Run Lodestone again to start.\n`);
+  process.exit(0);
+}
+
 // ─── Boot ───────────────────────────────────────────────────────────────────
 
 async function main() {
   console.log('🔮 Lodestone — Agent Engine');
   console.log('─'.repeat(40));
+
+  // 0. Check if onboarding is needed
+  const workspaceRoot = process.env.LODESTONE_WORKSPACE || './workspace';
+  const identityDir = resolve(workspaceRoot, 'workspace');
+  if (!existsSync(resolve(identityDir, 'IDENTITY.md'))) {
+    await runHeadlessOnboarding(workspaceRoot);
+    // runHeadlessOnboarding calls process.exit(0) after creating workspace
+    // If we reach here, something went wrong — fall through to normal boot
+  }
 
   // 1. Load config
   const config = await loadConfig();
@@ -103,7 +178,6 @@ async function main() {
   console.log('[Lodestone] Memory system initialized');
 
   // 4. Register tools
-  const workspaceRoot = config.workspaceRoot;
   const decisionLog = new DecisionLogTool(resolve(workspaceRoot, 'data/decisions.json'));
 
   engine.registerTool(new WikiResolveTool());
