@@ -202,8 +202,6 @@ async function renderWelcome(tui: TUI, term: ProcessTerminal, state: OnboardingS
     const handler = (data: string): InputListenerResult => {
       if (matchesKey(data, 'enter')) {
         tui.removeInputListener(outerHandler);
-        overlay.hide();
-        resolve({ type: 'next' });
       }
       if (matchesKey(data, 'escape')) {
         tui.removeInputListener(outerHandler);
