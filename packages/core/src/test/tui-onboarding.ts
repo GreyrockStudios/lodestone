@@ -19,11 +19,29 @@
  */
 
 import { TUI, ProcessTerminal, Text, Box, Markdown, Editor, Container, Spacer } from '@earendil-works/pi-tui';
+import { matchesKey } from '@earendil-works/pi-tui/dist/keys.js';
+import { decodeKittyPrintable } from '@earendil-works/pi-tui/dist/keys.js';
 
 import { createWorkspaceFromAnswers } from '../tui-onboarding/workspace-creator.js';
 import type { WorkspaceConfig } from '../tui-onboarding/workspace-creator.js';
 
 type InputListenerResult = { consume?: boolean; data?: string } | undefined;
+
+/** Check if a key event is a printable character (handles both raw and Kitty protocol) */
+function isPrintable(data: string): boolean {
+  // Raw printable character
+  if (data.length === 1 && !data.startsWith('\x1b')) return true;
+  // Kitty protocol printable
+  if (decodeKittyPrintable(data) !== undefined) return true;
+  return false;
+}
+
+/** Decode a printable key event into the character to insert */
+function decodeChar(data: string): string {
+  if (data.length === 1 && !data.startsWith('\x1b')) return data;
+  const decoded = decodeKittyPrintable(data);
+  return decoded ?? data;
+}
 
 const AVAILABLE_TEMPLATES = ['general', 'developer', 'business', 'creative', 'researcher'] as const;
 type TemplateName = typeof AVAILABLE_TEMPLATES[number];
@@ -182,12 +200,12 @@ async function renderWelcome(tui: TUI, term: ProcessTerminal, state: OnboardingS
     const overlay = tui.showOverlay(box, { anchor: 'center', width: 60 });
 
     const handler = (data: string): InputListenerResult => {
-      if (data === '\r' || data === '\n') {
+      if (matchesKey(data, 'enter')) {
         tui.removeInputListener(outerHandler);
         overlay.hide();
         resolve({ type: 'next' });
       }
-      if (data === '\x1b') {
+      if (matchesKey(data, 'escape')) {
         tui.removeInputListener(outerHandler);
         overlay.hide();
         resolve({ type: 'quit' });
@@ -293,14 +311,14 @@ async function renderAgentName(tui: TUI, term: ProcessTerminal, state: Onboardin
     const overlay = tui.showOverlay(box, { anchor: 'center', width: 60 });
 
     const handler = (data: string): InputListenerResult => {
-      if (data === '\r' || data === '\n') {
+      if (matchesKey(data, 'enter')) {
         tui.removeInputListener(outerHandler);
         state.agentName = currentInput || defaultName;
-      } else if (data === '\x1b') {
+      } else if (matchesKey(data, 'escape')) {
         tui.removeInputListener(outerHandler);
         overlay.hide();
         resolve({ type: 'back' });
-      } else if (data === '\x7f' || data === '\b') {
+      } else if (matchesKey(data, 'backspace')) {
         currentInput = currentInput.slice(0, -1) || '';
         content.setText([
           `${B}${fg(P.accent)}What should I call myself?${R}`,
@@ -311,8 +329,8 @@ async function renderAgentName(tui: TUI, term: ProcessTerminal, state: Onboardin
           `${D}Enter confirm  ·  Esc back${R}`,
         ].join('\n'));
         tui.requestRender();
-      } else if (data.length === 1 && !data.startsWith('\x1b')) {
-        currentInput += data;
+      } else if (isPrintable(data)) {
+        currentInput += decodeChar(data);
         content.setText([
           `${B}${fg(P.accent)}What should I call myself?${R}`,
           '', 'This becomes my identity. I\'ll use it when I introduce myself,',
@@ -356,16 +374,16 @@ async function renderUserName(tui: TUI, term: ProcessTerminal, state: Onboarding
     const overlay = tui.showOverlay(box, { anchor: 'center', width: 60 });
 
     const handler = (data: string): InputListenerResult => {
-      if (data === '\r' || data === '\n') {
+      if (matchesKey(data, 'enter')) {
         tui.removeInputListener(outerHandler);
         state.userName = currentInput || 'User';
         overlay.hide();
         resolve({ type: 'next' });
-      } else if (data === '\x1b') {
+      } else if (matchesKey(data, 'escape')) {
         tui.removeInputListener(outerHandler);
         overlay.hide();
         resolve({ type: 'back' });
-      } else if (data === '\x7f' || data === '\b') {
+      } else if (matchesKey(data, 'backspace')) {
         currentInput = currentInput.slice(0, -1);
         content.setText([
           `${B}${fg(P.accent)}And what should I call you?${R}`, '',
@@ -376,8 +394,8 @@ async function renderUserName(tui: TUI, term: ProcessTerminal, state: Onboarding
           `${D}Enter confirm  ·  Esc back${R}`,
         ].join('\n'));
         tui.requestRender();
-      } else if (data.length === 1 && !data.startsWith('\x1b')) {
-        currentInput += data;
+      } else if (isPrintable(data)) {
+        currentInput += decodeChar(data);
         content.setText([
           `${B}${fg(P.accent)}And what should I call you?${R}`, '',
           `I'm **${state.agentName}**. What's your name?`,
@@ -419,26 +437,26 @@ async function renderTemplate(tui: TUI, term: ProcessTerminal, state: Onboarding
 
     const handler = (data: string): InputListenerResult => {
       // Up arrow
-      if (data === '\x1b[A' || data === '\x1bOA') {
+      if (matchesKey(data, 'up')) {
         selected = Math.max(0, selected - 1);
         updateChoice(content, 'What kind of work will we do?', `This sets my personality, rules, and focus areas.`, options, selected);
         tui.requestRender();
       }
       // Down arrow
-      else if (data === '\x1b[B' || data === '\x1bOB') {
+      else if (matchesKey(data, 'down')) {
         selected = Math.min(options.length - 1, selected + 1);
         updateChoice(content, 'What kind of work will we do?', `This sets my personality, rules, and focus areas.`, options, selected);
         tui.requestRender();
       }
       // Enter
-      else if (data === '\r' || data === '\n') {
+      else if (matchesKey(data, 'enter')) {
         tui.removeInputListener(outerHandler);
         state.template = AVAILABLE_TEMPLATES[selected];
         overlay.hide();
         resolve({ type: 'next' });
       }
       // Escape
-      else if (data === '\x1b') {
+      else if (matchesKey(data, 'escape')) {
         tui.removeInputListener(outerHandler);
         overlay.hide();
         resolve({ type: 'back' });
@@ -474,20 +492,20 @@ async function renderPersonality(tui: TUI, term: ProcessTerminal, state: Onboard
     );
 
     const handler = (data: string): InputListenerResult => {
-      if (data === '\x1b[A' || data === '\x1bOA') {
+      if (matchesKey(data, 'up')) {
         selected = Math.max(0, selected - 1);
         updateChoice(content, 'How should I think?', `When I respond, should I be brief or thorough?`, options, selected);
         tui.requestRender();
-      } else if (data === '\x1b[B' || data === '\x1bOB') {
+      } else if (matchesKey(data, 'down')) {
         selected = Math.min(options.length - 1, selected + 1);
         updateChoice(content, 'How should I think?', `When I respond, should I be brief or thorough?`, options, selected);
         tui.requestRender();
-      } else if (data === '\r' || data === '\n') {
+      } else if (matchesKey(data, 'enter')) {
         tui.removeInputListener(outerHandler);
         state.personality = personalities[selected];
         overlay.hide();
         resolve({ type: 'next' });
-      } else if (data === '\x1b') {
+      } else if (matchesKey(data, 'escape')) {
         tui.removeInputListener(outerHandler);
         overlay.hide();
         resolve({ type: 'back' });
@@ -523,21 +541,21 @@ async function renderProvider(tui: TUI, term: ProcessTerminal, state: Onboarding
     );
 
     const handler = (data: string): InputListenerResult => {
-      if (data === '\x1b[A' || data === '\x1bOA') {
+      if (matchesKey(data, 'up')) {
         selected = Math.max(0, selected - 1);
         updateChoice(content, 'How will I think?', `Which LLM provider should I use?`, options, selected);
         tui.requestRender();
-      } else if (data === '\x1b[B' || data === '\x1bOB') {
+      } else if (matchesKey(data, 'down')) {
         selected = Math.min(options.length - 1, selected + 1);
         updateChoice(content, 'How will I think?', `Which LLM provider should I use?`, options, selected);
         tui.requestRender();
-      } else if (data === '\r' || data === '\n') {
+      } else if (matchesKey(data, 'enter')) {
         tui.removeInputListener(outerHandler);
         state.provider = providers[selected];
         // Model will be selected in the next step
         overlay.hide();
         resolve({ type: 'next' });
-      } else if (data === '\x1b') {
+      } else if (matchesKey(data, 'escape')) {
         tui.removeInputListener(outerHandler);
         overlay.hide();
         resolve({ type: 'back' });
@@ -574,20 +592,20 @@ async function renderModelSelect(tui: TUI, term: ProcessTerminal, state: Onboard
     );
 
     const handler = (data: string): InputListenerResult => {
-      if (data === '\x1b[A' || data === '\x1bOA') {
+      if (matchesKey(data, 'up')) {
         selected = Math.max(0, selected - 1);
         updateChoice(content, 'Which model should I use?', `${PROVIDER_INFO[state.provider].emoji} ${PROVIDER_INFO[state.provider].name} — pick a model:`, options, selected);
         tui.requestRender();
-      } else if (data === '\x1b[B' || data === '\x1bOB') {
+      } else if (matchesKey(data, 'down')) {
         selected = Math.min(options.length - 1, selected + 1);
         updateChoice(content, 'Which model should I use?', `${PROVIDER_INFO[state.provider].emoji} ${PROVIDER_INFO[state.provider].name} — pick a model:`, options, selected);
         tui.requestRender();
-      } else if (data === '\r' || data === '\n') {
+      } else if (matchesKey(data, 'enter')) {
         tui.removeInputListener(outerHandler);
         state.model = models[selected];
         overlay.hide();
         resolve({ type: 'next' });
-      } else if (data === '\x1b') {
+      } else if (matchesKey(data, 'escape')) {
         tui.removeInputListener(outerHandler);
         overlay.hide();
         resolve({ type: 'back' });
@@ -630,7 +648,7 @@ async function renderReview(tui: TUI, term: ProcessTerminal, state: OnboardingSt
     const overlay = tui.showOverlay(box, { anchor: 'center', width: 60 });
 
     const handler = (data: string): InputListenerResult => {
-      if (data === '\r' || data === '\n') {
+      if (matchesKey(data, 'enter')) {
         tui.removeInputListener(outerHandler);
         // Create workspace
         try {
@@ -649,7 +667,7 @@ async function renderReview(tui: TUI, term: ProcessTerminal, state: OnboardingSt
           content.setText(`${fg(P.error)}**Error creating workspace:** ${err instanceof Error ? err.message : String(err)}${R}\n\nPress Esc to go back.`);
           tui.requestRender();
         }
-      } else if (data === '\x1b') {
+      } else if (matchesKey(data, 'escape')) {
         tui.removeInputListener(outerHandler);
         overlay.hide();
         resolve({ type: 'back' });
