@@ -1,0 +1,51 @@
+version: '3.8'
+
+services:
+  lodestone:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.core
+    container_name: lodestone
+    restart: unless-stopped
+    ports:
+      - "18789:18789"
+    volumes:
+      - ./workspace:/workspace
+      - ./data:/data
+    environment:
+      - LODESTONE_CONFIG=/workspace/lodestone.config.yaml
+      - LODESTONE_LOG_LEVEL=info
+      # LLM provider config (override in .env)
+      - OLLAMA_BASE_URL=${OLLAMA_BASE_URL:-http://ollama:11434}
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
+    depends_on:
+      - ollama
+    networks:
+      - lodestone
+
+  ollama:
+    image: ollama/ollama:latest
+    container_name: lodestone-ollama
+    restart: unless-stopped
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_data:/root/.ollama
+    # Uncomment for GPU support (NVIDIA)
+    # deploy:
+    #   resources:
+    #     reservations:
+    #       devices:
+    #         - driver: nvidia
+    #           count: 1
+    #           capabilities: [gpu]
+    networks:
+      - lodestone
+
+volumes:
+  ollama_data:
+
+networks:
+  lodestone:
+    driver: bridge

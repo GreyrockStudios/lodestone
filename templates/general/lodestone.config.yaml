@@ -1,0 +1,91 @@
+# Lodestone Configuration
+# This is the main configuration file. Edit it to customize your agent.
+
+llm:
+  # Default model provider
+  default:
+    type: ollama                    # ollama | openai | anthropic | custom
+    model: llama3.1:8b             # Model identifier
+    baseUrl: http://127.0.0.1:11434  # Ollama default
+    contextWindow: 128000           # Context window size in tokens
+    maxTokens: 8192                 # Max output tokens
+
+  # Optional: Route specific tasks to different models
+  # routes:
+  #   fast:
+  #     type: ollama
+  #     model: llama3.1:8b
+  #   smart:
+  #     type: openai
+  #     model: gpt-4o
+  #     apiKey: ${OPENAI_API_KEY}
+
+# Memory system
+memory:
+  vectorDb:
+    provider: lancedb               # lancedb (local) | chroma | qdrant
+    path: ./data/lancedb            # Storage path (relative to workspace)
+    embedding:
+      provider: ollama              # ollama | openai
+      model: nomic-embed-text       # Embedding model
+      dimensions: 768
+    autoRecall: true                 # Auto-inject relevant memories on each turn
+    autoCapture: false              # Auto-store all turns (false = agent decides)
+
+  wiki:
+    path: ./memory/wiki             # Wiki root directory
+    autoLint: true                  # Run lint checks nightly
+    autoIndex: true                  # Auto-generate index.md
+
+  scratch:
+    path: ./data/scratch.db         # Scratch buffer storage
+
+# Identity files (relative to workspace root)
+identity:
+  dir: .                            # Directory containing SOUL.md, IDENTITY.md, etc.
+
+# Session management
+session:
+  compactionThreshold: 0.5          # Compact context at 50% capacity
+  keepRecentCount: 10               # Keep last 10 messages verbatim during compaction
+  maxEntries: 200                   # Max session history entries
+  pruneAfter: 7d                    # Prune sessions older than 7 days
+
+# Proactive systems
+proactive:
+  sensorium:
+    enabled: true
+    interval: 30m                   # Health check every 30 minutes
+
+  sleep:
+    enabled: true
+    schedule: "0 3 * * *"            # 3am daily
+    timezone: "America/Toronto"
+
+  drift:
+    enabled: true
+    schedule: "0 9 * * 1"           # Weekly Monday 9am
+
+  rbt:
+    enabled: true
+    interval: 6h                    # Every 6 hours
+
+  morningBrief:
+    enabled: true
+    schedule: "0 7 * * *"           # 7am daily
+    timezone: "America/Toronto"
+
+  wikiLint:
+    enabled: true
+    schedule: "10 6 * * *"          # 6:10am daily
+
+# Scheduler
+scheduler:
+  maxConcurrent: 4                  # Max concurrent jobs
+
+# Logging
+logging:
+  level: info                       # debug | info | warn | error
+  file: ./data/logs/lodestone.log
+  maxSize: 50mb
+  maxFiles: 5
