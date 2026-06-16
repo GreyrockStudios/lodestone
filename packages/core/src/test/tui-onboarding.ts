@@ -1,8 +1,7 @@
 /**
  * Lodestone — Conversational Onboarding
  *
- * Chat-based setup that uses the TUI's existing message system.
- * No overlays or custom key handling — just conversation.
+ * Chat-based setup with back navigation. Type "back" at any step to go back.
  * Templates support multiple selections.
  */
 
@@ -20,6 +19,8 @@ const P = {
 };
 const R = '\x1B[0m'; const B = '\x1B[1m'; const D = '\x1B[2m'; const I = '\x1B[3m';
 function fg(c: string) { return `\x1B[38;2;${parseInt(c.slice(1,3),16)};${parseInt(c.slice(3,5),16)};${parseInt(c.slice(5,7),16)}m`; }
+
+const BACK = Symbol('back');
 
 // ─── Types ─────────────────────────────────────────────────────────────────
 
@@ -47,8 +48,8 @@ export async function runOnboarding(
   suggestedPath: string,
 ): Promise<{ workspace: string; agentName: string; userName: string; model: string; provider: string } | null> {
   const state: OnboardingState = {
-    agentName: '',
-    userName: '',
+    agentName: 'Lodestone',
+    userName: 'User',
     templates: ['general'],
     personality: 'balanced',
     provider: 'ollama',
@@ -56,8 +57,9 @@ export async function runOnboarding(
     workspacePath: suggestedPath,
   };
 
-  // Wait for user input via the editor
-  const ask = (prompt: string, statusLabel?: string): Promise<string> => new Promise((resolve) => {
+  // ── Input helpers ───────────────────────────────────────────────────────
+
+  const ask = (prompt: string, statusLabel?: string, canGoBack = true): Promise<string | typeof BACK> => new Promise((resolve) => {
     messages.push({ role: 'assistant', text: prompt, ts: Date.now() });
     addMessage(messages[messages.length - 1]);
     if (statusLabel) updateStatus('setup', statusLabel);
@@ -65,17 +67,27 @@ export async function runOnboarding(
     editor.onSubmit = async (text: string) => {
       const trimmed = text.trim();
       if (!trimmed) return;
+      const lower = trimmed.toLowerCase();
+      if (canGoBack && (lower === 'back' || lower === 'b')) {
+        editor.setText('');
+        editor.onSubmit = saved;
+        resolve(BACK);
+        return;
+      }
       editor.setText('');
       editor.onSubmit = saved;
       resolve(trimmed);
     };
   });
 
-  // Ask for a choice — accepts number or name
-  const askChoice = async (prompt: string, options: { key: string; label: string }[], statusLabel?: string): Promise<string> => {
+  const askChoice = async (
+    prompt: string, options: { key: string; label: string }[], statusLabel?: string
+  ): Promise<string | typeof BACK> => {
+    const backHint = `${D}Type a number, name, or "back" to go back.${R}`;
     const optionLines = options.map((o, i) => `  ${B}${i + 1}.${R} ${o.label}`).join('\n');
-    const answer = await ask(`${prompt}\n\n${optionLines}\n\n${D}Type a number or name:${R}`, statusLabel);
-    
+    const answer = await ask(`${prompt}\n\n${optionLines}\n\n${backHint}`, statusLabel);
+    if (answer === BACK) return BACK;
+
     const num = parseInt(answer);
     if (num >= 1 && num <= options.length) return options[num - 1].key;
     const keyMatch = options.find(o => o.key.toLowerCase() === answer.toLowerCase());
@@ -85,17 +97,21 @@ export async function runOnboarding(
     return options[0].key;
   };
 
-  // Ask for multiple choices — accepts comma-separated numbers or names
-  const askMultiChoice = async (prompt: string, options: { key: string; label: string }[], defaults: string[], statusLabel?: string): Promise<string[]> => {
+  const askMultiChoice = async (
+    prompt: string, options: { key: string; label: string }[], defaults: string[], statusLabel?: string
+  ): Promise<string[] | typeof BACK> => {
     const optionLines = options.map((o, i) => `  ${B}${i + 1}.${R} ${o.label}`).join('\n');
     const defaultStr = defaults.map(d => {
       const idx = options.findIndex(o => o.key === d);
       return idx >= 0 ? String(idx + 1) : d;
     }).join(', ');
-    const answer = await ask(`${prompt}\n\n${optionLines}\n\n${D}Type numbers or names, comma-separated (default: ${defaultStr}):${R}`, statusLabel);
-    
+    const answer = await ask(
+      `${prompt}\n\n${optionLines}\n\n${D}Type numbers or names, comma-separated (default: ${defaultStr}). Or "back" to go back.${R}`,
+      statusLabel
+    );
+    if (answer === BACK) return BACK;
     if (!answer || answer.toLowerCase() === 'all') return options.map(o => o.key);
-    
+
     const parts = answer.split(/[,\s]+/).filter(Boolean);
     const results: string[] = [];
     for (const part of parts) {
@@ -114,123 +130,161 @@ export async function runOnboarding(
     return results.length > 0 ? [...new Set(results)] : defaults;
   };
 
-  // ── Step 0: Welcome ──────────────────────────────────────────────────
-
-  await ask(
-    `${B}${fg(P.accent)}🔮 Welcome to Lodestone!${R}\n\n` +
-    `I'll help you set up your agent. Just answer a few questions — you can change everything later in your config files.\n\n` +
-    `Type anything to continue.`,
-    'welcome'
-  );
-
-  // ── Step 1: Agent name ────────────────────────────────────────────────
-
-  state.agentName = await ask(
-    `${B}${fg(P.accent)}What should I call myself?${R}\n\n` +
-    `This becomes my identity. I'll use it when I introduce myself, sign my work, and talk to you.\n\n` +
-    `Type a name ${D}(default: Lodestone):${R}`,
-    'agent name'
-  ) || 'Lodestone';
-
-  // ── Step 2: User name ─────────────────────────────────────────────────
-
-  state.userName = await ask(
-    `${B}${fg(P.accent)}What should I call you?${R}\n\n` +
-    `I'll use this when I greet you and reference our conversations.\n\n` +
-    `Type a name ${D}(default: User):${R}`,
-    'user name'
-  ) || 'User';
-
-  // ── Step 3: Template(s) — multiple selection ──────────────────────────
+  // ── Step definitions (each returns step number to go to, or -1 to cancel) ─
 
   const templateOptions = Object.entries(TEMPLATE_INFO).map(([key, info]) => ({
-    key,
-    label: `${info.emoji} ${info.name} — ${info.desc}`,
+    key, label: `${info.emoji} ${info.name} — ${info.desc}`,
   }));
-  state.templates = await askMultiChoice(
-    `${B}${fg(P.accent)}What kind of work will we do?${R}\n\nYou can pick more than one — I'll blend them together.`,
-    templateOptions,
-    ['general'],
-    'focus areas'
-  );
-  state.templates = state.templates.length > 0 ? state.templates : ['general'];
-
-  // ── Step 4: Personality ───────────────────────────────────────────────
-
   const personalityOptions = Object.entries(PERSONALITY_INFO).map(([key, info]) => ({
-    key,
-    label: `${info.emoji} ${info.name} — ${info.desc}`,
+    key, label: `${info.emoji} ${info.name} — ${info.desc}`,
   }));
-  state.personality = (await askChoice(
-    `${B}${fg(P.accent)}How should I communicate?${R}`,
-    personalityOptions,
-    'personality'
-  )) as 'concise' | 'balanced' | 'detailed';
-
-  // ── Step 5: Provider ───────────────────────────────────────────────────
-
   const providerOptions = Object.entries(PROVIDER_INFO).map(([key, info]) => ({
-    key,
-    label: `${info.emoji} ${info.name} — ${info.desc}`,
+    key, label: `${info.emoji} ${info.name} — ${info.desc}`,
   }));
-  state.provider = (await askChoice(
-    `${B}${fg(P.accent)}Which LLM provider?${R}`,
-    providerOptions,
-    'provider'
-  )) as 'ollama' | 'openai' | 'anthropic';
 
-  // ── Step 6: Model ─────────────────────────────────────────────────────
+  type StepFn = () => Promise<number>;  // returns next step, or -1 to cancel
 
-  const models = PROVIDER_INFO[state.provider].models;
-  const modelOptions = models.map((m, i) => ({
-    key: m,
-    label: `${m}${i === 0 ? ' (recommended)' : ''}`,
-  }));
-  state.model = await askChoice(
-    `${B}${fg(P.accent)}Which model?${R}`,
-    modelOptions,
-    'model'
-  );
+  const steps: Record<number, StepFn> = {
+    0: async () => {
+      // Welcome — can't go back
+      await ask(
+        `${B}${fg(P.accent)}🔮 Welcome to Lodestone!${R}\n\n` +
+        `I'll help you set up your agent. Just answer a few questions — you can change everything later in your config files.\n\n` +
+        `${D}Type "back" at any step to go back. Type anything to continue.${R}`,
+        'welcome',
+        false
+      );
+      return 1;
+    },
 
-  // ── Step 7: Confirm ───────────────────────────────────────────────────
+    1: async () => {
+      const answer = await ask(
+        `${B}${fg(P.accent)}What should I call myself?${R}\n\n` +
+        `This becomes my identity. I'll use it when I introduce myself, sign my work, and talk to you.\n\n` +
+        `Type a name ${D}(default: ${state.agentName}):${R}`,
+        'agent name'
+      );
+      if (answer === BACK) return 0;
+      state.agentName = answer || state.agentName;
+      return 2;
+    },
 
-  const primaryTemplate = state.templates[0];
-  const templateInfo = TEMPLATE_INFO[primaryTemplate];
-  const providerInfo = PROVIDER_INFO[state.provider];
-  const personalityInfo = PERSONALITY_INFO[state.personality];
-  
-  const templatesList = state.templates.length > 1
-    ? state.templates.map(t => `${TEMPLATE_INFO[t]?.emoji || ''} ${TEMPLATE_INFO[t]?.name || t}`).join(' + ')
-    : `${templateInfo.emoji} ${templateInfo.name}`;
+    2: async () => {
+      const answer = await ask(
+        `${B}${fg(P.accent)}What should I call you?${R}\n\n` +
+        `I'll use this when I greet you and reference our conversations.\n\n` +
+        `Type a name ${D}(default: ${state.userName}):${R}`,
+        'user name'
+      );
+      if (answer === BACK) return 1;
+      state.userName = answer || state.userName;
+      return 3;
+    },
 
-  const confirm = await ask(
-    `${B}${fg(P.accent)}Here's your setup:${R}\n\n` +
-    `  ${B}Agent name:${R}   ${state.agentName}\n` +
-    `  ${B}Your name:${R}     ${state.userName}\n` +
-    `  ${B}Focus:${R}        ${templatesList}\n` +
-    `  ${B}Personality:${R}  ${personalityInfo.emoji} ${personalityInfo.name}\n` +
-    `  ${B}Provider:${R}      ${providerInfo.emoji} ${providerInfo.name}\n` +
-    `  ${B}Model:${R}        ${state.model}\n\n` +
-    `${D}Type yes to create, or anything else to cancel:${R}`,
-    'confirm'
-  );
+    3: async () => {
+      const answer = await askMultiChoice(
+        `${B}${fg(P.accent)}What kind of work will we do?${R}\n\nYou can pick more than one — I'll blend them together.`,
+        templateOptions,
+        state.templates.length > 0 ? state.templates : ['general'],
+        'focus areas'
+      );
+      if (answer === BACK) return 2;
+      state.templates = (answer as string[]).length > 0 ? (answer as string[]) : ['general'];
+      return 4;
+    },
 
-  if (confirm.toLowerCase() !== 'yes' && confirm.toLowerCase() !== 'y') {
-    // User cancelled — say goodbye
-    messages.push({ role: 'system', text: `${fg(P.dim)}Setup cancelled. Run Lodestone again to start over.${R}`, ts: Date.now() });
-    addMessage(messages[messages.length - 1]);
-    updateStatus('error', 'cancelled');
-    return null;
+    4: async () => {
+      const answer = await askChoice(
+        `${B}${fg(P.accent)}How should I communicate?${R}`,
+        personalityOptions,
+        'personality'
+      );
+      if (answer === BACK) return 3;
+      state.personality = answer as 'concise' | 'balanced' | 'detailed';
+      return 5;
+    },
+
+    5: async () => {
+      const answer = await askChoice(
+        `${B}${fg(P.accent)}Which LLM provider?${R}`,
+        providerOptions,
+        'provider'
+      );
+      if (answer === BACK) return 4;
+      state.provider = answer as 'ollama' | 'openai' | 'anthropic';
+      return 6;
+    },
+
+    6: async () => {
+      const models = PROVIDER_INFO[state.provider].models;
+      const modelOptions = models.map((m, i) => ({
+        key: m, label: `${m}${i === 0 ? ' (recommended)' : ''}`,
+      }));
+      const answer = await askChoice(
+        `${B}${fg(P.accent)}Which model?${R}`,
+        modelOptions,
+        'model'
+      );
+      if (answer === BACK) return 5;
+      state.model = answer;
+      return 7;
+    },
+
+    7: async () => {
+      // Confirm
+      const primaryTemplate = state.templates[0] || 'general';
+      const templateInfo = TEMPLATE_INFO[primaryTemplate];
+      const providerInfo = PROVIDER_INFO[state.provider];
+      const personalityInfo = PERSONALITY_INFO[state.personality];
+
+      const templatesList = state.templates.length > 1
+        ? state.templates.map(t => `${TEMPLATE_INFO[t]?.emoji || ''} ${TEMPLATE_INFO[t]?.name || t}`).join(' + ')
+        : `${templateInfo.emoji} ${templateInfo.name}`;
+
+      const answer = await ask(
+        `${B}${fg(P.accent)}Here's your setup:${R}\n\n` +
+        `  ${B}Agent name:${R}   ${state.agentName}\n` +
+        `  ${B}Your name:${R}     ${state.userName}\n` +
+        `  ${B}Focus:${R}        ${templatesList}\n` +
+        `  ${B}Personality:${R}  ${personalityInfo.emoji} ${personalityInfo.name}\n` +
+        `  ${B}Provider:${R}      ${providerInfo.emoji} ${providerInfo.name}\n` +
+        `  ${B}Model:${R}        ${state.model}\n\n` +
+        `${D}Type "yes" to create, "back" to change something, or anything else to cancel:${R}`,
+        'confirm',
+        true
+      );
+
+      if (answer === BACK) return 1;  // Go back to step 1 with current values as defaults
+      if (answer.toLowerCase() !== 'yes' && answer.toLowerCase() !== 'y') {
+        // Cancel
+        messages.push({ role: 'system', text: `${fg(P.dim)}Setup cancelled. Run Lodestone again to start over.${R}`, ts: Date.now() });
+        addMessage(messages[messages.length - 1]);
+        updateStatus('error', 'cancelled');
+        return -1;
+      }
+      return 8; // Create workspace
+    },
+  };
+
+  // ── Run steps ───────────────────────────────────────────────────────────
+
+  let currentStep = 0;
+  while (currentStep >= 0 && currentStep <= 7) {
+    const nextStep = await steps[currentStep]();
+    if (nextStep === -1) return null;  // Cancelled
+    currentStep = nextStep;
   }
 
-  // ── Step 8: Create workspace ───────────────────────────────────────────
+  // ── Create workspace ────────────────────────────────────────────────────
+
+  if (currentStep !== 8) return null;  // Shouldn't happen but safety check
 
   updateStatus('setup', 'creating workspace');
   try {
     createWorkspaceFromAnswers({
       agentName: state.agentName,
       userName: state.userName,
-      template: primaryTemplate as any,
+      template: (state.templates[0] || 'general') as any,
       templates: state.templates,
       personality: state.personality,
       provider: state.provider,
@@ -244,7 +298,7 @@ export async function runOnboarding(
     return null;
   }
 
-  // ── Step 9: Done ───────────────────────────────────────────────────────
+  // ── Done ────────────────────────────────────────────────────────────────
 
   await ask(
     `${fg(P.success)}✅ Workspace created!${R}\n\n` +
@@ -252,7 +306,8 @@ export async function runOnboarding(
     `Workspace: ${D}${state.workspacePath}${R}\n` +
     `Config: ${D}lodestone.config.yaml${R}\n\n` +
     `Type anything to start chatting.`,
-    'ready'
+    'ready',
+    false
   );
 
   return {
