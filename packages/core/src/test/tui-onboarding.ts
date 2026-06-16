@@ -34,6 +34,7 @@ interface OnboardingState {
 }
 
 type ChatMessage = { role: 'user' | 'assistant' | 'system' | 'tool'; text: string; ts: number };
+type StatusType = 'ready' | 'thinking' | 'tool' | 'streaming' | 'error' | 'setup';
 
 // ─── Conversational Onboarding ─────────────────────────────────────────────
 
@@ -42,7 +43,7 @@ export async function runOnboarding(
   addMessage: (msg: ChatMessage) => void,
   editor: any,
   refreshAll: () => void,
-  updateStatus: (status: string, detail?: string) => void,
+  updateStatus: (status: StatusType, detail?: string) => void,
   suggestedPath: string,
 ): Promise<{ workspace: string; agentName: string; userName: string; model: string; provider: string } | null> {
   const state: OnboardingState = {
@@ -71,9 +72,9 @@ export async function runOnboarding(
   });
 
   // Ask for a choice — accepts number or name
-  const askChoice = async (prompt: string, options: { key: string; label: string }[]): Promise<string> => {
+  const askChoice = async (prompt: string, options: { key: string; label: string }[], statusLabel?: string): Promise<string> => {
     const optionLines = options.map((o, i) => `  ${B}${i + 1}.${R} ${o.label}`).join('\n');
-    const answer = await ask(`${prompt}\n\n${optionLines}\n\n${D}Type a number or name:${R}`);
+    const answer = await ask(`${prompt}\n\n${optionLines}\n\n${D}Type a number or name:${R}`, statusLabel);
     
     const num = parseInt(answer);
     if (num >= 1 && num <= options.length) return options[num - 1].key;
@@ -85,13 +86,13 @@ export async function runOnboarding(
   };
 
   // Ask for multiple choices — accepts comma-separated numbers or names
-  const askMultiChoice = async (prompt: string, options: { key: string; label: string }[], defaults: string[]): Promise<string[]> => {
+  const askMultiChoice = async (prompt: string, options: { key: string; label: string }[], defaults: string[], statusLabel?: string): Promise<string[]> => {
     const optionLines = options.map((o, i) => `  ${B}${i + 1}.${R} ${o.label}`).join('\n');
     const defaultStr = defaults.map(d => {
       const idx = options.findIndex(o => o.key === d);
       return idx >= 0 ? String(idx + 1) : d;
     }).join(', ');
-    const answer = await ask(`${prompt}\n\n${optionLines}\n\n${D}Type numbers or names, comma-separated (default: ${defaultStr}):${R}`);
+    const answer = await ask(`${prompt}\n\n${optionLines}\n\n${D}Type numbers or names, comma-separated (default: ${defaultStr}):${R}`, statusLabel);
     
     if (!answer || answer.toLowerCase() === 'all') return options.map(o => o.key);
     
@@ -113,7 +114,8 @@ export async function runOnboarding(
     return results.length > 0 ? [...new Set(results)] : defaults;
   };
 
-  // Step 0: Welcome
+  // ── Step 0: Welcome ──────────────────────────────────────────────────
+
   await ask(
     `${B}${fg(P.accent)}🔮 Welcome to Lodestone!${R}\n\n` +
     `I'll help you set up your agent. Just answer a few questions — you can change everything later in your config files.\n\n` +
@@ -121,7 +123,8 @@ export async function runOnboarding(
     'welcome'
   );
 
-  // Step 1: Agent name
+  // ── Step 1: Agent name ────────────────────────────────────────────────
+
   state.agentName = await ask(
     `${B}${fg(P.accent)}What should I call myself?${R}\n\n` +
     `This becomes my identity. I'll use it when I introduce myself, sign my work, and talk to you.\n\n` +
@@ -129,7 +132,8 @@ export async function runOnboarding(
     'agent name'
   ) || 'Lodestone';
 
-  // Step 2: User name
+  // ── Step 2: User name ─────────────────────────────────────────────────
+
   state.userName = await ask(
     `${B}${fg(P.accent)}What should I call you?${R}\n\n` +
     `I'll use this when I greet you and reference our conversations.\n\n` +
@@ -137,7 +141,8 @@ export async function runOnboarding(
     'user name'
   ) || 'User';
 
-  // Step 3: Template(s) — multiple selection
+  // ── Step 3: Template(s) — multiple selection ──────────────────────────
+
   const templateOptions = Object.entries(TEMPLATE_INFO).map(([key, info]) => ({
     key,
     label: `${info.emoji} ${info.name} — ${info.desc}`,
@@ -146,11 +151,12 @@ export async function runOnboarding(
     `${B}${fg(P.accent)}What kind of work will we do?${R}\n\nYou can pick more than one — I'll blend them together.`,
     templateOptions,
     ['general'],
+    'focus areas'
   );
-  // Use the first template as primary, others influence personality
   state.templates = state.templates.length > 0 ? state.templates : ['general'];
 
-  // Step 4: Personality
+  // ── Step 4: Personality ───────────────────────────────────────────────
+
   const personalityOptions = Object.entries(PERSONALITY_INFO).map(([key, info]) => ({
     key,
     label: `${info.emoji} ${info.name} — ${info.desc}`,
@@ -158,9 +164,11 @@ export async function runOnboarding(
   state.personality = (await askChoice(
     `${B}${fg(P.accent)}How should I communicate?${R}`,
     personalityOptions,
+    'personality'
   )) as 'concise' | 'balanced' | 'detailed';
 
-  // Step 5: Provider
+  // ── Step 5: Provider ───────────────────────────────────────────────────
+
   const providerOptions = Object.entries(PROVIDER_INFO).map(([key, info]) => ({
     key,
     label: `${info.emoji} ${info.name} — ${info.desc}`,
@@ -168,9 +176,11 @@ export async function runOnboarding(
   state.provider = (await askChoice(
     `${B}${fg(P.accent)}Which LLM provider?${R}`,
     providerOptions,
+    'provider'
   )) as 'ollama' | 'openai' | 'anthropic';
 
-  // Step 6: Model
+  // ── Step 6: Model ─────────────────────────────────────────────────────
+
   const models = PROVIDER_INFO[state.provider].models;
   const modelOptions = models.map((m, i) => ({
     key: m,
@@ -179,9 +189,11 @@ export async function runOnboarding(
   state.model = await askChoice(
     `${B}${fg(P.accent)}Which model?${R}`,
     modelOptions,
+    'model'
   );
 
-  // Step 7: Confirm
+  // ── Step 7: Confirm ───────────────────────────────────────────────────
+
   const primaryTemplate = state.templates[0];
   const templateInfo = TEMPLATE_INFO[primaryTemplate];
   const providerInfo = PROVIDER_INFO[state.provider];
@@ -204,29 +216,41 @@ export async function runOnboarding(
   );
 
   if (confirm.toLowerCase() !== 'yes' && confirm.toLowerCase() !== 'y') {
+    // User cancelled — say goodbye
+    messages.push({ role: 'system', text: `${fg(P.dim)}Setup cancelled. Run Lodestone again to start over.${R}`, ts: Date.now() });
+    addMessage(messages[messages.length - 1]);
+    updateStatus('error', 'cancelled');
     return null;
   }
 
-  // Create workspace
+  // ── Step 8: Create workspace ───────────────────────────────────────────
+
+  updateStatus('setup', 'creating workspace');
   try {
     createWorkspaceFromAnswers({
       agentName: state.agentName,
       userName: state.userName,
       template: primaryTemplate as any,
+      templates: state.templates,
       personality: state.personality,
       provider: state.provider,
       model: state.model,
       workspacePath: state.workspacePath,
     });
   } catch (err: any) {
-    await ask(`${fg(P.error)}Error creating workspace: ${err.message}${R}`, 'error');
+    messages.push({ role: 'system', text: `${fg(P.error)}Error creating workspace: ${err.message}${R}\n\nCheck the path and permissions, then try again.`, ts: Date.now() });
+    addMessage(messages[messages.length - 1]);
+    updateStatus('error', 'workspace error');
     return null;
   }
 
+  // ── Step 9: Done ───────────────────────────────────────────────────────
+
   await ask(
     `${fg(P.success)}✅ Workspace created!${R}\n\n` +
-    `Your workspace is at ${D}${state.workspacePath}${R}\n` +
-    `Config saved to ${D}lodestone.config.yaml${R}\n\n` +
+    `${B}${state.agentName}${R} is ready to go.\n\n` +
+    `Workspace: ${D}${state.workspacePath}${R}\n` +
+    `Config: ${D}lodestone.config.yaml${R}\n\n` +
     `Type anything to start chatting.`,
     'ready'
   );

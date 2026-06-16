@@ -442,10 +442,10 @@ async function main() {
   let onboardingResult: { workspace: string; agentName: string; userName: string; model: string; provider: string } | null = null;
 
   if (!workspaceExists) {
-    bootMsg.setText(`${B}${fg(P.accent)}🔮 Lodestone${R}\n\nNo workspace found. Let\u2019s set one up!`);
+    bootMsg.setText(`${B}${fg(P.accent)}🔮 ${displayName}${R}\n\nNo workspace found. Let\u2019s set one up!`);
     tui.requestRender();
 
-    onboardingResult = await runOnboarding(messages, addMessage, editor, refreshAll, updateStatus as (status: string, detail?: string) => void, WORKSPACE);
+    onboardingResult = await runOnboarding(messages, addMessage, editor, refreshAll, updateStatus, WORKSPACE);
 
     if (!onboardingResult) {
       // User cancelled onboarding
@@ -458,7 +458,7 @@ async function main() {
     process.env.LODESTONE_WORKSPACE = onboardingResult.workspace;
     process.env.LODESTONE_MODEL = onboardingResult.model;
 
-    bootMsg.setText(`${B}${fg(P.accent)}🔮 ${onboardingResult.agentName}${R}\n\nWorkspace created! Booting...`);
+    bootMsg.setText(`${B}${fg(P.accent)}🔮 ${displayName}${R}\n\nWorkspace created! Booting...`);
     tui.requestRender();
   }
 
@@ -476,7 +476,7 @@ async function main() {
       ? (process.env.OLLAMA_BASE_URL || 'http://127.0.0.1:11434/api')
       : undefined; // OpenAI/Anthropic use default endpoints
 
-    bootMsg.setText(`${B}${fg(P.accent)}🔮 Lodestone${R}\nCreating engine...`);
+    bootMsg.setText(`${B}${fg(P.accent)}🔮 ${displayName}${R}\nCreating engine...`);
     tui.requestRender();
 
     const llmConfig: any = {
@@ -503,17 +503,17 @@ async function main() {
       llm: llmConfig,
     });
 
-    bootMsg.setText(`${B}${fg(P.accent)}🔮 Lodestone${R}\nInitializing memory...`);
+    bootMsg.setText(`${B}${fg(P.accent)}🔮 ${displayName}${R}\nInitializing memory...`);
     tui.requestRender();
     await engine.memory.init();
 
     // Init improvement system
-    bootMsg.setText(`${B}${fg(P.accent)}🔮 Lodestone${R}\nInitializing self-improvement...`);
+    bootMsg.setText(`${B}${fg(P.accent)}🔮 ${displayName}${R}\nInitializing self-improvement...`);
     tui.requestRender();
     await engine.improvement.init();
 
     // Register tools
-    bootMsg.setText(`${B}${fg(P.accent)}🔮 Lodestone${R}\nRegistering tools...`);
+    bootMsg.setText(`${B}${fg(P.accent)}🔮 ${displayName}${R}\nRegistering tools...`);
     tui.requestRender();
     engine.registerTool(new WikiResolveTool());
     engine.registerTool(new WikiSearchTool());
@@ -529,13 +529,13 @@ async function main() {
     }
 
     // Load identity
-    bootMsg.setText(`${B}${fg(P.accent)}🔮 Lodestone${R}\nLoading identity...`);
+    bootMsg.setText(`${B}${fg(P.accent)}🔮 ${displayName}${R}\nLoading identity...`);
     tui.requestRender();
     identity = await engine.identity.load();
     displayName = identity?.identity?.name || displayName;
 
     // Create session
-    bootMsg.setText(`${B}${fg(P.accent)}🔮 Lodestone${R}\nCreating session...`);
+    bootMsg.setText(`${B}${fg(P.accent)}🔮 ${displayName}${R}\nCreating session...`);
     tui.requestRender();
     sessionId = engine.createSession();
     currentSessionId = sessionId;
@@ -547,9 +547,9 @@ async function main() {
     // Boot complete
     const toolCount = engine.tools.listDefinitions().length;
     const welcomeText = [
-      `${B}${fg(P.accent)}🔮 Lodestone${R} ready.`,
-      `**Identity:** ${identity.identity.name}  ·  **Model:** ${model}  ·  **Tools:** ${toolCount}`,
-      `Self-improvement: ${fg(P.success)}✓${R}  ·  Predictions  ·  RBT  ·  Drift  ·  Skills  ·  Sleep`,
+      `${B}${fg(P.accent)}🔮 ${displayName} ready.${R}`,
+      `**Identity:** ${identity.identity.name}  \u00b7  **Model:** ${effectiveModel}  \u00b7  **Tools:** ${toolCount}`,
+      `Self-improvement: ${fg(P.success)}\u2713${R}  \u00b7  Predictions  \u00b7  RBT  \u00b7  Drift  \u00b7  Skills  \u00b7  Sleep`,
       '',
       'Type a message to chat, or /help for commands.',
       `${fg(P.dim)}Tip: Alt+Enter for multi-line input. PgUp/PgDn to scroll.${R}`,
@@ -568,16 +568,18 @@ async function main() {
 
   // ─── Status Bar ────────────────────────────────────────────────────────
 
-  function updateStatus(state: 'ready' | 'thinking' | 'tool' | 'streaming' | 'error', detail?: string) {
+  function updateStatus(state: 'ready' | 'thinking' | 'tool' | 'streaming' | 'error' | 'setup', detail?: string) {
     const icon = state === 'ready' ? `${fg(P.success)}✓${R}`
       : state === 'thinking' ? `${fg(P.accent)}⚡${R} ${spinner()}`
       : state === 'tool' ? `${fg(P.tool)}⚙${R} ${spinner()}`
       : state === 'streaming' ? `${fg(P.accent)}🔮${R} ${spinner()}`
+      : state === 'setup' ? `${fg(P.accent)}🔮${R} ${spinner()}`
       : `${fg(P.error)}✗${R}`;
     const stateLabel = state === 'ready' ? 'Ready'
       : state === 'thinking' ? 'Thinking'
       : state === 'tool' ? `Tool: ${detail || '...'}`
       : state === 'streaming' ? 'Streaming'
+      : state === 'setup' ? (detail || 'Setup')
       : 'Error';
     const msgLabel = `${msgCount} msgs`;
 
@@ -925,6 +927,19 @@ async function main() {
           lines.push(`  ${fg(P.success)}✓${R} ${ch.name} (${ch.id})`);
         }
         messages.push({ role: 'system', text: lines.join('\n'), ts: Date.now() });
+        refreshAll();
+        return true;
+      }
+
+      case '/setup': {
+        messages.push({ role: 'system', text: `${fg(P.info)}Restarting setup...${R}\nType anything to begin.`, ts: Date.now() });
+        refreshAll();
+        const setupResult = await runOnboarding(messages, addMessage, editor, refreshAll, updateStatus, WORKSPACE);
+        if (setupResult) {
+          displayName = setupResult.agentName || displayName;
+          updateStatus('setup', 'workspace created');
+          messages.push({ role: 'system', text: `${fg(P.success)}Setup complete!${R} Restart to apply all changes.`, ts: Date.now() });
+        }
         refreshAll();
         return true;
       }
