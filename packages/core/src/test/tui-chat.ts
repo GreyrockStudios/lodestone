@@ -589,7 +589,7 @@ async function main() {
     const scrollLabel = scrollOffset > 0 ? ` ${fg(P.dim)}│${R} ${fg(P.warn)}↑${scrollOffset}${R}` : '';
 
     statusText.setText(
-      ` ${B}${fg(P.accent)}🔮${R} ${identity.identity.name} ${fg(P.dim)}│${R} ${model} ${fg(P.dim)}│${R} ${icon} ${stateLabel} ${fg(P.dim)}│${R} ${msgLabel}${channelLabel}${scrollLabel} ${detail && state !== 'tool' ? `${fg(P.dim)}│${R} ${detail}` : ''} `
+      ` ${B}${fg(P.accent)}🔮${R} ${identity?.identity?.name || 'Lodestone'} ${fg(P.dim)}│${R} ${model || '...'} ${fg(P.dim)}│${R} ${icon} ${stateLabel} ${fg(P.dim)}│${R} ${msgLabel}${channelLabel}${scrollLabel} ${detail && state !== 'tool' ? `${fg(P.dim)}│${R} ${detail}` : ''} `
     );
     tui.requestRender();
   }
