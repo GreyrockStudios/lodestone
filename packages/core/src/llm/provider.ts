@@ -57,12 +57,12 @@ export class LLMProvider {
     switch (config.type) {
       case 'ollama': {
         // Use OpenAI-compatible endpoint for all Ollama models
-        // (the ollama-ai-provider has v1/v2 spec issues with AI SDK 5)
+        // Must use .chat() — default uses Responses API which Ollama doesn't support
         const ollama = createOpenAI({
           baseURL: (config.baseUrl || 'http://127.0.0.1:11434/api').replace(/\/api$/, '/v1'),
           apiKey: config.apiKey || 'unused',
         });
-        return ollama(config.model) as unknown as LanguageModelV1;
+        return ollama.chat(config.model) as unknown as LanguageModelV1;
       }
 
       case 'openai': {
@@ -88,7 +88,7 @@ export class LLMProvider {
           apiKey: config.apiKey || 'not-needed',
           headers: config.headers,
         });
-        return custom(config.model) as unknown as LanguageModelV1;
+        return custom.chat(config.model) as unknown as LanguageModelV1;
       }
 
       default:
