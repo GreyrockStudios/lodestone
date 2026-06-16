@@ -177,9 +177,9 @@ export class IdentityLoader {
       }
     }
 
-    // Try to find name from heading
+    // Try to find name from heading as fallback (only if not parsed above)
     const headingMatch = content.match(/^#\s+(.+)/m);
-    if (headingMatch && !identity.name.includes('Agent')) {
+    if (headingMatch && identity.name === 'Agent') {
       identity.name = headingMatch[1].replace(/[^a-zA-Z\s]/g, '').trim();
     }
 
