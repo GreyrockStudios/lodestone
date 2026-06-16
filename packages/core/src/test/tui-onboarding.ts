@@ -295,8 +295,6 @@ async function renderAgentName(tui: TUI, term: ProcessTerminal, state: Onboardin
       if (data === '\r' || data === '\n') {
         tui.removeInputListener(handler);
         state.agentName = currentInput || defaultName;
-        overlay.hide();
-        resolve({ type: 'next' });
       } else if (data === '\x1b') {
         tui.removeInputListener(handler);
         overlay.hide();
