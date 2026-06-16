@@ -25,24 +25,30 @@ const P = {
   text: '#E8E3D5', dim: '#7B7F87', accent: '#F6C453', accent2: '#F2A65A',
   border: '#3C414B', userBg: '#2B2F36', userText: '#F3EEE0', sysText: '#9BA3B2',
   tool: '#F6C453', code: '#F0C987', error: '#DC2626', success: '#7DD3A5',
+  quote: '#8CC8FF', quoteBorder: '#3B4D6B',
 };
 const R = '\x1B[0m'; const B = '\x1B[1m'; const D = '\x1B[2m'; const I = '\x1B[3m';
 function fg(c: string) { return `\x1B[38;2;${parseInt(c.slice(1,3),16)};${parseInt(c.slice(3,5),16)};${parseInt(c.slice(5,7),16)}m`; }
 function bg(c: string) { return `\x1B[48;2;${parseInt(c.slice(1,3),16)};${parseInt(c.slice(3,5),16)};${parseInt(c.slice(5,7),16)}m`; }
 
-// ─── Markdown theme ────────────────────────────────────────────────────────
+// ─── Markdown theme (matching OpenClaw) ──────────────────────────────────
 
 const mdTheme = {
   heading: (s: string) => `${B}${fg(P.accent)}${s}${R}`,
   bold: (s: string) => `${B}${s}${R}`,
   italic: (s: string) => `${I}${s}${R}`,
-  code: (s: string) => `${fg(P.code)}${s}${R}`,
-  codeBlock: (s: string) => `${D}${s}${R}`,
-  blockquote: (s: string) => `${fg(P.dim)}│ ${s}${R}`,
+  strikethrough: (s: string) => `\x1B[9m${s}${R}`,
+  underline: (s: string) => `\x1B[4m${s}${R}`,
   link: (s: string) => `${fg(P.success)}${s}${R}`,
-  list: (s: string) => `${fg(P.accent)}${s}${R}`,
-  text: (s: string) => `${fg(P.text)}${s}${R}`,
+  linkUrl: (s: string) => `${D}${s}${R}`,
+  code: (s: string) => `${fg(P.code)}${s}${R}`,
+  codeBlock: (s: string) => `${fg(P.code)}${s}${R}`,
+  codeBlockBorder: (s: string) => `${fg(P.border)}${s}${R}`,
+  quote: (s: string) => `${fg(P.quote)}${s}${R}`,
+  quoteBorder: (s: string) => `${fg('#3B4D6B')}${s}${R}`,
   hr: (s: string) => `${fg(P.border)}${s}${R}`,
+  listBullet: (s: string) => `${fg(P.accent2)}${s}${R}`,
+  highlightCode: (code: string) => code.split('\n').map((line: string) => `${fg(P.code)}${line}`),
 };
 
 // ─── Message components ───────────────────────────────────────────────────
