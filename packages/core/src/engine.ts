@@ -14,6 +14,7 @@ import { IdentityLoader, type Identity, type IdentityConfig } from './identity/l
 import { MemorySystem } from './memory/memory-system.js';
 import { ImprovementSystem, type ImprovementConfig } from './improvement/index.js';
 import { ChannelManager, type ChannelManagerConfig } from './channels/index.js';
+import { SafetySystem, type SafetyConfig } from './safety/index.js';
 import { join } from 'path';
 
 // ─── Engine Config ─────────────────────────────────────────────────────────
@@ -40,6 +41,8 @@ export interface LodestoneConfig {
   compactionThreshold?: number;
   /** Channel configuration */
   channels?: ChannelManagerConfig;
+  /** Safety configuration (capability tiers, behavioral learning, memory promotion) */
+  safety?: SafetyConfig;
 }
 
 // ─── Engine Events ──────────────────────────────────────────────────────────
@@ -69,6 +72,7 @@ export class LodestoneEngine {
   readonly sessions: SessionManager;
   readonly scheduler: Scheduler;
   readonly identity: IdentityLoader;
+  readonly safety: SafetySystem;
 
   readonly memory: MemorySystem;
   readonly improvement: ImprovementSystem;
@@ -119,6 +123,12 @@ export class LodestoneEngine {
       sleepCycleEnabled: true,
     });
 
+    // Safety subsystem
+    this.safety = new SafetySystem({
+      dataDir: join(config.workspaceRoot, 'data/safety'),
+      customTiers: config.safety?.customTiers,
+    });
+
     // Initialize channels (only if configured)
     this.channelManager = config.channels
       ? new ChannelManager(config.channels)
@@ -139,6 +149,9 @@ export class LodestoneEngine {
 
     // Initialize improvement subsystem
     await this.improvement.init();
+
+    // Initialize safety subsystem
+    await this.safety.init();
 
     // Register improvement tools
     for (const tool of this.improvement.getTools()) {

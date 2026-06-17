@@ -48,6 +48,12 @@ export { SkillEvolver, type Lesson, type Skill, type EvolveResult } from './impr
 export { SleepCycle, type SleepStage, type SleepCycleResult, type HarvestResult, type MineResult, type ReflectionResult, type ConsolidationResult, type ValidationResult, type PreparationResult } from './improvement/sleep-cycle.js';
 export { PredictionJournalTool, DriftCheckTool, RBTDiagnoseTool, SkillLearnTool } from './improvement/index.js';
 
+// Safety
+export { SafetySystem, type SafetyConfig } from './safety/index.js';
+export { CapabilityManager, type CapabilityTier, type TierConfig, type SimulationResult } from './safety/capability-tiers.js';
+export { BehavioralLearning, type BehavioralRule, type CorrectionInput, type BehavioralLearningConfig } from './safety/behavioral-learning.js';
+export { MemoryPromotion, type VerificationLevel, type MemoryCandidate, type VerificationResult, type ConflictEntry, type MemoryPromotionConfig } from './safety/memory-promotion.js';
+
 // Identity
 export { IdentityLoader, type Identity, type AgentIdentity, type UserIdentity, type AgentRules, type HeartbeatState, type IdentityConfig } from './identity/loader.js';
 

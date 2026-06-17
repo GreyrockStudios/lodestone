@@ -8,6 +8,8 @@
 import { Theme, fg, R, B, D } from './theme.js';
 import { ChatMessage, formatDuration } from './messages.js';
 import { buildImproveDashboard } from './dashboard.js';
+import type { CapabilityManager } from '../safety/capability-tiers.js';
+import type { BehavioralLearning } from '../safety/behavioral-learning.js';
 
 export interface CommandContext {
   engine: any;
@@ -17,6 +19,8 @@ export interface CommandContext {
   model: string;
   scrollOffset: number;
   theme: Theme;
+  capabilities?: CapabilityManager;
+  behavioralLearning?: BehavioralLearning;
   refreshAll: () => void;
   updateStatus: (state: 'ready' | 'thinking' | 'tool' | 'streaming' | 'error' | 'setup', detail?: string) => void;
   runOnboarding: () => Promise<any>;
@@ -61,6 +65,8 @@ export async function handleCommand(input: string, ctx: CommandContext): Promise
         '  /lessons — List learned lessons',
         '  /sleep — Run sleep cycle now',
         '  /theme [name] — Show/set theme (dark, midnight, forest, light, cyber)',
+        '  /capabilities — Show tool capability tiers',
+        '  /rules — Show learned behavioral rules',
         '  /channels — Show channel status',
         '  /reset — New session',
         '  /quit — Exit',
@@ -324,6 +330,55 @@ export async function handleCommand(input: string, ctx: CommandContext): Promise
         ctx.updateStatus('setup', 'workspace created');
         ctx.messages.push({ role: 'system', text: `${fg(P.success)}Setup complete!${R} Restart to apply all changes.`, ts: Date.now() });
       }
+      ctx.refreshAll();
+      return { handled: true };
+    }
+
+    case '/capabilities': {
+      if (!ctx.capabilities) {
+        ctx.messages.push({ role: 'system', text: `${fg(P.warn)}Capability tiers not available${R}`, ts: Date.now() });
+        ctx.refreshAll();
+        return { handled: true };
+      }
+      const summary = ctx.capabilities.getTierSummary();
+      const capLines = [
+        `${B}${fg(P.accent)}🛡️ Capability Tiers${R}`,
+      ];
+      for (const [tier, info] of Object.entries(summary)) {
+        const icon = tier === 'public' ? `${fg(P.success)}✓${R}` : tier === 'controlled' ? `${fg(P.info)}◆${R}` : tier === 'restricted' ? `${fg(P.warn)}▲${R}` : `${fg(P.error)}●${R}`;
+        const tools = info.tools.length > 0 ? info.tools.join(', ') : '(none)';
+        capLines.push(`  ${icon} ${B}${tier}${R} (${info.count}) — ${tools}`);
+      }
+      ctx.messages.push({ role: 'system', text: capLines.join('\n'), ts: Date.now() });
+      ctx.refreshAll();
+      return { handled: true };
+    }
+
+    case '/rules': {
+      if (!ctx.behavioralLearning) {
+        ctx.messages.push({ role: 'system', text: `${fg(P.warn)}Behavioral learning not available${R}`, ts: Date.now() });
+        ctx.refreshAll();
+        return { handled: true };
+      }
+      const rules = ctx.behavioralLearning.getActiveRules();
+      const stats = ctx.behavioralLearning.getStats();
+      if (rules.length === 0) {
+        ctx.messages.push({ role: 'system', text: `${B}${fg(P.accent)}📚 Behavioral Rules${R}\nNo rules learned yet. Rules are extracted from user corrections.`, ts: Date.now() });
+        ctx.refreshAll();
+        return { handled: true };
+      }
+      const ruleLines = [
+        `${B}${fg(P.accent)}📚 Behavioral Rules${R} (${stats.active} active, avg confidence ${(stats.avgConfidence * 100).toFixed(0)}%)`,
+      ];
+      for (const rule of rules.slice(0, 15)) {
+        const conf = `${fg(rule.confidence >= 0.8 ? P.success : rule.confidence >= 0.5 ? P.warn : P.error)}${(rule.confidence * 100).toFixed(0)}%${R}`;
+      const source = rule.source === 'explicit-correction' ? '📌' : rule.source === 'implicit-correction' ? '💡' : rule.source === 'manual' ? '✍️' : '🔄';
+        ruleLines.push(`  ${source} ${conf} When ${rule.trigger}, ${rule.correctBehavior}${rule.incorrectBehavior ? ` (not ${rule.incorrectBehavior})` : ''}`);
+      }
+      if (rules.length > 15) {
+        ruleLines.push(`  ${D}... and ${rules.length - 15} more${R}`);
+      }
+      ctx.messages.push({ role: 'system', text: ruleLines.join('\n'), ts: Date.now() });
       ctx.refreshAll();
       return { handled: true };
     }
