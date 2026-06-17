@@ -21,12 +21,14 @@ export interface CommandContext {
   updateStatus: (state: 'ready' | 'thinking' | 'tool' | 'streaming' | 'error' | 'setup', detail?: string) => void;
   runOnboarding: () => Promise<any>;
   createSession: () => string;
+  setTheme: (name: string) => void;
   cleanup: () => void;
 }
 
 export interface CommandResult {
   handled: boolean;
   newSessionId?: string;
+  themeChanged?: string;
 }
 
 /**
@@ -58,6 +60,7 @@ export async function handleCommand(input: string, ctx: CommandContext): Promise
         '  /drift — Check identity drift',
         '  /lessons — List learned lessons',
         '  /sleep — Run sleep cycle now',
+        '  /theme [name] — Show/set theme (dark, midnight, forest, light, cyber)',
         '  /channels — Show channel status',
         '  /reset — New session',
         '  /quit — Exit',
@@ -273,6 +276,25 @@ export async function handleCommand(input: string, ctx: CommandContext): Promise
       }
       ctx.refreshAll();
       return { handled: true };
+    }
+
+    case '/theme': {
+      const { THEME_NAMES } = await import('./theme.js');
+      const themeName = args[0]?.toLowerCase();
+      if (!themeName) {
+        // Show current theme and available themes
+        const current = ctx.theme.name;
+        const available = THEME_NAMES.map(n => n === current ? `${B}${fg(P.accent)}${n} (current)${R}` : n).join(', ');
+        ctx.messages.push({ role: 'system', text: `${B}${fg(P.accent)}🎨 Themes${R}\nCurrent: ${B}${current}${R}\nAvailable: ${available}`, ts: Date.now() });
+        ctx.refreshAll();
+        return { handled: true };
+      }
+      if (!THEME_NAMES.includes(themeName)) {
+        ctx.messages.push({ role: 'system', text: `${fg(P.error)}Unknown theme: ${themeName}${R}\nAvailable: ${THEME_NAMES.join(', ')}`, ts: Date.now() });
+        ctx.refreshAll();
+        return { handled: true };
+      }
+      return { handled: true, themeChanged: themeName };
     }
 
     case '/channels': {

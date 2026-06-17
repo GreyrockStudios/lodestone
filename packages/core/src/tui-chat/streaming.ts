@@ -8,6 +8,7 @@
 import { TUI, Container, Spacer, Markdown, Text } from '@earendil-works/pi-tui';
 import { ChatMessage, buildUserMessage, buildAssistantMessage, buildToolMessage, buildSystemMessage } from './messages.js';
 import { Theme, getTheme, DEFAULT_THEME } from './theme.js';
+import { ScrollViewport } from './scroll-viewport.js';
 
 const R = '\x1B[0m';
 
@@ -17,12 +18,13 @@ export type StatusState = 'ready' | 'thinking' | 'tool' | 'streaming' | 'error' 
  * Manages the chat log, message rendering, and streaming state.
  */
 export class ChatRenderer {
-  private chatLog: Container;
+  private chatLog: Container | ScrollViewport;
   private tui: TUI;
   private theme: Theme;
   private messages: ChatMessage[] = [];
   private msgCount: number = 0;
-  private scrollOffset: number = 0;
+  private _scrollViewport?: ScrollViewport;
+  private _getChannelInfo?: () => string | undefined;
 
   // Streaming state
   private streamingMd: Markdown | null = null;
@@ -34,8 +36,11 @@ export class ChatRenderer {
   private displayName: string = 'Lodestone';
   private modelName: string = '';
 
-  constructor(chatLog: Container, statusText: Text, tui: TUI, themeName?: string) {
+  constructor(chatLog: Container | ScrollViewport, statusText: Text, tui: TUI, themeName?: string) {
     this.chatLog = chatLog;
+    if (chatLog instanceof ScrollViewport) {
+      this._scrollViewport = chatLog;
+    }
     this.statusText = statusText;
     this.tui = tui;
     this.theme = getTheme(themeName || DEFAULT_THEME);
@@ -44,12 +49,14 @@ export class ChatRenderer {
   get Theme(): Theme { return this.theme; }
   get Messages(): ChatMessage[] { return this.messages; }
   get MsgCount(): number { return this.msgCount; }
-  get ScrollOffset(): number { return this.scrollOffset; }
   get IsStreaming(): boolean { return this.streamingMd !== null; }
   get StreamingBuffer(): string { return this.streamingBuffer; }
+  get TotalLines(): number { return this._scrollViewport?.getTotalLines() ?? 0; }
 
   setDisplayName(name: string) { this.displayName = name; }
   setModelName(name: string) { this.modelName = name; }
+  setTheme(theme: Theme) { this.theme = theme; }
+  setChannelInfoProvider(fn: () => string | undefined) { this._getChannelInfo = fn; }
 
   incrementMsgCount(): number {
     this.msgCount = this.messages.filter(m => m.role === 'user').length;
@@ -60,7 +67,7 @@ export class ChatRenderer {
    * Add a message to the messages array and render it.
    */
   addMessage(msg: ChatMessage): void {
-    this.scrollOffset = 0; // Auto-scroll to bottom on new message
+    this._scrollViewport?.scrollToBottom(); // Auto-scroll to bottom on new message
     this.messages.push(msg);
     this._renderMessage(msg);
   }
@@ -80,7 +87,7 @@ export class ChatRenderer {
    * Start a new streaming assistant message.
    */
   startStreamingMessage(): void {
-    this.scrollOffset = 0;
+    this._scrollViewport?.scrollToBottom();
     this.streamingBuffer = '';
     this.streamingMd = new Markdown('', 1, 1, this.theme.markdown as any);
     this.streamingWrapper = new Container();
@@ -128,7 +135,7 @@ export class ChatRenderer {
   /**
    * Update the status bar with current state.
    */
-  updateStatus(state: StatusState, detail?: string, channelInfo?: string): void {
+  updateStatus(state: StatusState, detail?: string): void {
     const P = this.theme.colors;
     const B = '\x1B[1m';
     const D = '\x1B[2m';
@@ -151,11 +158,13 @@ export class ChatRenderer {
     const msgLabel = `${this.msgCount} msgs`;
 
     let channelLabel = '';
+    const channelInfo = this._getChannelInfo?.();
     if (channelInfo) {
       channelLabel = ` ${D}${'\x1B[38;2;123;127;135m'}│${R} ${channelInfo}`;
     }
 
-    const scrollLabel = this.scrollOffset > 0 ? ` ${D}${'\x1B[38;2;123;127;135m'}│${R} ${'\x1B[38;2;251;191;36m'}↑${this.scrollOffset}${R}` : '';
+    const scrollOffset = this._scrollViewport?.scrollOffset ?? 0;
+    const scrollLabel = scrollOffset > 0 ? ` ${D}${'\x1B[38;2;123;127;135m'}│${R} ${'\x1B[38;2;251;191;36m'}↑${scrollOffset}${R}` : '';
 
     this.statusText.setText(
       ` ${B}${'\x1B[38;2;246;196;83m'}${this.theme.statusBar.icon}${R} ${this.displayName} ${D}${'\x1B[38;2;123;127;135m'}│${R} ${this.modelName || '...'} ${D}${'\x1B[38;2;123;127;135m'}│${R} ${icon} ${stateLabel} ${D}${'\x1B[38;2;123;127;135m'}│${R} ${msgLabel}${channelLabel}${scrollLabel} ${detail && state !== 'tool' ? `${D}${'\x1B[38;2;123;127;135m'}│${R} ${detail}` : ''} `
@@ -181,19 +190,28 @@ export class ChatRenderer {
    * Scroll the chat view.
    */
   scrollUp(lines: number = 10): void {
-    this.scrollOffset = Math.min(this.scrollOffset + lines, 1000);
+    this._scrollViewport?.scrollUp(lines);
+    this.tui.requestRender();
   }
 
   scrollDown(lines: number = 10): void {
-    this.scrollOffset = Math.max(this.scrollOffset - lines, 0);
+    this._scrollViewport?.scrollDown(lines);
+    this.tui.requestRender();
   }
 
   scrollToTop(): void {
-    this.scrollOffset = 1000;
+    // Scroll viewport up by a large amount
+    this._scrollViewport?.scrollUp(1000);
+    this.tui.requestRender();
   }
 
   scrollToBottom(): void {
-    this.scrollOffset = 0;
+    this._scrollViewport?.scrollToBottom();
+    this.tui.requestRender();
+  }
+
+  get ScrollOffset(): number {
+    return this._scrollViewport?.scrollOffset ?? 0;
   }
 
   // ─── Private ──────────────────────────────────────────────────────────────

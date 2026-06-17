@@ -6,13 +6,14 @@
  * onboarding, and boot sequence.
  */
 
-import { TUI, ProcessTerminal, Text, Box, Markdown, Editor, Container, Spacer } from '@earendil-works/pi-tui';
+import { TUI, ProcessTerminal, Text, Box, Markdown, Editor, Spacer } from '@earendil-works/pi-tui';
 import { LodestoneEngine } from '../engine.js';
 import { AgentLoop } from '../agent-loop.js';
 import { StreamHandler } from '../streaming/handler.js';
 import { ChatRenderer, StatusState } from './streaming.js';
 import { ChatMessage } from './messages.js';
-import { getTheme, DEFAULT_THEME, THEMES, THEME_NAMES } from './theme.js';
+import { getTheme, DEFAULT_THEME, THEMES, THEME_NAMES, fg } from './theme.js';
+import { ScrollViewport } from './scroll-viewport.js';
 import { handleCommand, CommandContext } from './commands.js';
 import { boot, generateSurpriseName, applyAgentName } from './boot.js';
 import { runOnboarding } from '../test/tui-onboarding.js';
@@ -33,9 +34,9 @@ export async function startTUI(workspace?: string, model?: string): Promise<void
 
   const term = new ProcessTerminal();
   const tui = new TUI(term);
-  const theme = getTheme(DEFAULT_THEME);
+  let theme = getTheme(DEFAULT_THEME);
 
-  const chatLog = new Container();
+  const chatLog = new ScrollViewport();
 
   const bootMsg = new Markdown('', 1, 1, theme.markdown as any);
   bootMsg.setText(`${B}${'\x1B[38;2;246;196;83m'}${theme.statusBar.icon} Lodestone${R}  Booting...`);
@@ -77,6 +78,7 @@ export async function startTUI(workspace?: string, model?: string): Promise<void
   // ─── Create renderer ─────────────────────────────────────────────────
 
   const renderer = new ChatRenderer(chatLog, statusText, tui, DEFAULT_THEME);
+  renderer.setChannelInfoProvider(getChannelInfo);
   let isProcessing = false;
   let engine: LodestoneEngine;
   let loop: AgentLoop;
@@ -221,11 +223,24 @@ export async function startTUI(workspace?: string, model?: string): Promise<void
           });
           return newId;
         },
+        setTheme: (name: string) => {
+          theme = getTheme(name);
+          renderer.setTheme(theme);
+          bootMsg.setText(`${B}${fg(theme.colors.accent)}${theme.statusBar.icon} ${displayName}${R}  Theme changed to ${B}${theme.name}${R}`);
+          tui.requestRender();
+        },
         cleanup,
       };
 
       const result = await handleCommand(trimmed, ctx);
-      if (result.handled) return;
+      if (result.handled) {
+        if (result.themeChanged) {
+          ctx.setTheme(result.themeChanged);
+          renderer.addMessage({ role: 'system', text: `Theme changed to ${B}${result.themeChanged}${R}`, ts: Date.now() });
+          renderer.refreshAll();
+        }
+        return;
+      }
     }
 
     // ─── LLM with streaming ─────────────────────────────────────────
@@ -315,7 +330,19 @@ export async function startTUI(workspace?: string, model?: string): Promise<void
     }
   };
 
-  // ─── Keyboard Handler (Scroll) ──────────────────────────────────────
+  // ─── Channel info helper ─────────────────────────────────────────────
+
+  function getChannelInfo(): string | undefined {
+    if (engine?.channelManager?.isRunning()) {
+      const channels = engine.channelManager.listChannels();
+      if (channels.length > 0) {
+        return channels.map(c => `${fg(theme.colors.success)}${c.name}✓${R}`).join(' ');
+      }
+    }
+    return undefined;
+  }
+
+  // ─── Keyboard Handler (Scroll) ──────────────────────────────────────────
 
   tui.addInputListener((data: string) => {
     if (data === '\x1b[5~' || data === '\x1b[5;~') {
