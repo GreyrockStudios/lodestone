@@ -8,6 +8,7 @@
  */
 
 import { LodestoneEngine, type LodestoneConfig } from './engine.js';
+import type { ChannelConfig } from './channels/channel.js';
 import { AgentLoop } from './agent-loop.js';
 import { WikiResolveTool, WikiSearchTool } from './tools/impl/wiki-resolve.js';
 import { SmartRetrieveTool } from './tools/impl/smart-retrieve.js';
@@ -21,6 +22,7 @@ import { existsSync } from 'fs';
 import { resolve } from 'path';
 import { parse as parseYaml } from 'yaml';
 import { createInterface } from 'readline';
+import { ConfigValidator, lodestoneSchema } from './utils/config-validator.js';
 
 // ─── Config ─────────────────────────────────────────────────────────────────
 
@@ -30,6 +32,21 @@ async function loadConfig(): Promise<LodestoneConfig> {
   try {
     const raw = await readFile(configPath, 'utf-8');
     const config = parseYaml(raw);
+
+    // Validate config before using it
+    const validator = new ConfigValidator(lodestoneSchema);
+    const result = validator.validate(config);
+    if (!result.valid) {
+      console.error('[Lodestone] Config validation failed:');
+      for (const err of result.errors) {
+        console.error(`  ❌ ${err.path}: ${err.message}`);
+      }
+      console.error('[Lodestone] Fix the config or use defaults.');
+      // Continue with defaults rather than crashing — the agent should be resilient
+    }
+    for (const warn of result.warnings) {
+      console.warn(`  ⚠️  ${warn.path}: ${warn.message}`);
+    }
 
     return {
       workspaceRoot: config.workspace?.root || process.env.LODESTONE_WORKSPACE || './workspace',
@@ -48,23 +65,30 @@ async function loadConfig(): Promise<LodestoneConfig> {
           contextWindow: config.llm?.default?.contextWindow || 128000,
           maxTokens: config.llm?.default?.maxTokens || 8192,
         },
-        routes: Object.entries(config.llm?.routes || {}).map(([name, route]: [string, any]) => ({
-          name,
-          provider: {
-            type: route.type || 'ollama',
-            model: route.model,
-            baseUrl: route.baseUrl,
-            apiKey: route.apiKey,
-            contextWindow: route.contextWindow || 128000,
-            maxTokens: route.maxTokens || 8192,
-          },
-        })),
+        routes: Object.entries(config.llm?.routes || {}).map(([name, route]) => {
+          const r = route as Record<string, unknown>;
+          return {
+            name,
+            provider: {
+              type: ((r.type as string) || 'ollama') as 'ollama' | 'openai' | 'anthropic' | 'custom',
+              model: r.model as string,
+              baseUrl: r.baseUrl as string | undefined,
+              apiKey: r.apiKey as string | undefined,
+              contextWindow: (r.contextWindow as number) || 128000,
+              maxTokens: (r.maxTokens as number) || 8192,
+            },
+          };
+        }),
       },
       channels: config.channels ? {
-        channels: Object.entries(config.channels || {}).map(([name, ch]: [string, any]) => ({
-          ...ch,
-          // name is used as key in config but channels array doesn't need it
-        })).filter((ch: any) => ch.enabled !== false),
+        channels: Object.entries(config.channels || {}).map(([, ch]) => ch as Record<string, unknown>).filter((ch: Record<string, unknown>) => ch.enabled !== false) as unknown as ChannelConfig[],
+      } : undefined,
+      dashboard: config.dashboard ? {
+        port: config.dashboard.port || 3002,
+        host: config.dashboard.host || '127.0.0.1',
+        dashboardDir: config.dashboard.dashboardDir || './packages/core/src/dashboard',
+        apiToken: config.dashboard.apiToken,
+        corsOrigin: config.dashboard.corsOrigin || '*',
       } : undefined,
     };
   } catch (err) {
@@ -159,18 +183,16 @@ async function main() {
   console.log('🔮 Lodestone — Agent Engine');
   console.log('─'.repeat(40));
 
-  // 0. Check if onboarding is needed
-  const workspaceRoot = process.env.LODESTONE_WORKSPACE || './workspace';
-  const identityDir = resolve(workspaceRoot, 'workspace');
-  if (!existsSync(resolve(identityDir, 'IDENTITY.md'))) {
-    await runHeadlessOnboarding(workspaceRoot);
-    // runHeadlessOnboarding calls process.exit(0) after creating workspace
-    // If we reach here, something went wrong — fall through to normal boot
-  }
-
-  // 1. Load config
+  // 1. Load config first (needed for paths)
   const config = await loadConfig();
   console.log(`[Lodestone] Config loaded from ${process.env.LODESTONE_CONFIG || './lodestone.config.yaml'}`);
+
+  // 0. Check if onboarding is needed (using config paths)
+  const identityPath = resolve(config.identityDir, 'IDENTITY.md');
+  if (!existsSync(identityPath)) {
+    await runHeadlessOnboarding(config.workspaceRoot);
+    // runHeadlessOnboarding calls process.exit(0) after creating workspace
+  }
 
   // 2. Create engine (this also initializes memory)
   const engine = new LodestoneEngine(config);
@@ -180,7 +202,7 @@ async function main() {
   console.log('[Lodestone] Memory system initialized');
 
   // 4. Register tools
-  const decisionLog = new DecisionLogTool(resolve(workspaceRoot, 'data/decisions.json'));
+  const decisionLog = new DecisionLogTool(resolve(config.workspaceRoot, 'data/decisions.json'));
 
   engine.registerTool(new WikiResolveTool());
   engine.registerTool(new WikiSearchTool());
@@ -231,7 +253,7 @@ async function main() {
   console.log(`[Lodestone] Identity loaded: ${identity.identity.name}`);
   console.log(`[Lodestone] User: ${identity.user.name}`);
 
-  // 10. Wire channels to agent loop
+  // 10. Wire channels to agent loop (with streaming support)
   if (engine.channelManager) {
     engine.channelManager.onMessage(async (message) => {
       try {
@@ -256,8 +278,23 @@ async function main() {
           }
         }
 
-        // Run the agent loop
-        const result = await loop.run(sessionId, message.content);
+        // Create a stream handler that bridges to the channel's streaming methods
+        const { StreamHandler } = await import('./streaming/handler.js');
+        const stream = new StreamHandler();
+        let streamedText = '';
+        stream.on('text_delta', (event: { data: unknown }) => {
+          const data = event.data as { text?: string };
+          if (data.text) {
+            streamedText += data.text;
+            // Send streaming delta to the channel
+            engine.channelManager?.streamDelta(message.sessionId, streamedText);
+          }
+        });
+
+        // Run the agent loop with streaming
+        const result = await loop.run(sessionId, message.content, stream);
+
+        // Send final response (channel may also have received streamed text)
         return result.response;
       } catch (err) {
         console.error('[Lodestone] Channel message error:', err);
@@ -298,3 +335,8 @@ main().catch(err => {
   console.error('[Lodestone] Fatal error:', err);
   process.exit(1);
 });
+
+// Exported boot function for CLI usage
+export async function boot(): Promise<void> {
+  await main();
+}
