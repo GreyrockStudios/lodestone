@@ -31,6 +31,8 @@
     "start": "node packages/core/dist/main.js",
     "dev": "npm run dev --workspace=@lodestone/core",
     "test": "npm run test --workspaces --if-present",
+    "test:dogfood": "npm run test:dogfood --workspace=@lodestone/core --if-present",
+    "test:all": "npm run test --workspaces --if-present && npm run test:dogfood --workspace=@lodestone/core --if-present",
     "lint": "npm run lint --workspaces --if-present",
     "clean": "npm run clean --workspaces --if-present"
   },
