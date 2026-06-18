@@ -24,6 +24,7 @@ import { UndoSystem, type UndoableAction, type UndoableActionType, type UndoResu
 import { UserManager, type UserConfig, type User } from './auth/user-manager.js';
 import { MigrationSystem } from './migration/migration-system.js';
 import { DashboardServer, type DashboardConfig } from './dashboard/server.js';
+import { ProactiveIntelligence, type ProactiveConfig } from './improvement/proactive-intelligence.js';
 import { join } from 'path';
 
 // ─── Engine Config ─────────────────────────────────────────────────────────
@@ -68,6 +69,8 @@ export interface LodestoneConfig {
   auth?: { users: UserConfig[]; tokens: Record<string, string> };
   /** Dashboard configuration */
   dashboard?: DashboardConfig;
+  /** Proactive intelligence configuration */
+  proactive?: ProactiveConfig;
   /** Config version for migrations */
   configVersion?: number;
 }
@@ -116,6 +119,7 @@ export class LodestoneEngine {
   readonly userManager: UserManager | null;
   readonly migrationSystem: MigrationSystem;
   readonly dashboard: DashboardServer | null;
+  readonly proactiveIntelligence: ProactiveIntelligence | null;
 
   // State
   private running = false;
@@ -218,6 +222,11 @@ export class LodestoneEngine {
     this.dashboard = config.dashboard
       ? new DashboardServer(config.dashboard)
       : null;
+
+    // Proactive intelligence (only if configured)
+    this.proactiveIntelligence = config.proactive
+      ? new ProactiveIntelligence(config.proactive)
+      : null;
   }
 
   // ─── Lifecycle ──────────────────────────────────────────────────────────
@@ -296,9 +305,27 @@ export class LodestoneEngine {
         wikiPages: (await this.memory.wiki.list()).length,
         scratchKeys: this.memory.scratch.list(),
       }));
+      this.dashboard.registerProvider('proactive', async () => {
+        if (!this.proactiveIntelligence) return { opportunities: [] };
+        const result = await this.proactiveIntelligence.check();
+        return { opportunities: result.opportunities, lastCheck: result.timestamp };
+      });
 
       await this.dashboard.start();
       console.log(`[Lodestone] Dashboard started on port ${this.config.dashboard?.port}`);
+    }
+
+    // Init proactive intelligence (if configured)
+    if (this.proactiveIntelligence) {
+      await this.proactiveIntelligence.init();
+      const checkIntervalMs = this.config.proactive?.checkIntervalMs || 30 * 60 * 1000;
+      this.scheduler.register({
+        id: 'proactive-check',
+        name: 'Proactive Intelligence Check',
+        schedule: { kind: 'interval', everyMs: checkIntervalMs },
+        description: 'Scan for proactive opportunities',
+      });
+      console.log('[Lodestone] Proactive intelligence initialized');
     }
 
     this.running = true;
