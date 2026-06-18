@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any -- TUI code uses dynamic types throughout */
 /**
  * Lodestone — TUI Chat Streaming & Message Rendering
  *

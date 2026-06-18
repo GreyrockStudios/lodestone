@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any -- TUI code uses dynamic types throughout */
 /**
  * Lodestone — TUI Chat Index
  *
@@ -67,7 +68,7 @@ export async function startTUI(workspace?: string, model?: string): Promise<void
   });
 
   // Layout: chatLog (flex) → status bar → editor (bottom)
-  (tui as any).addChild(chatLog, 1);
+  (tui as unknown as { addChild: (child: unknown, weight: number) => void }).addChild(chatLog, 1);
   tui.addChild(statusBar);
   tui.addChild(editor);
   tui.setFocus(editor);
@@ -138,11 +139,11 @@ export async function startTUI(workspace?: string, model?: string): Promise<void
     renderer.setModelName(bootResult.model);
 
     // Handle "surprise me" name
-    if ((bootResult as any).onboardingResult?.agentName === '__surprise__') {
+    if ((bootResult as unknown as { onboardingResult?: { agentName?: string; userName?: string; templates?: string[] } }).onboardingResult?.agentName === '__surprise__') {
       const chosenName = await generateSurpriseName(
         engine,
-        (bootResult as any).onboardingResult?.userName || 'User',
-        (bootResult as any).onboardingResult?.templates || [],
+        (bootResult as unknown as { onboardingResult?: { agentName?: string; userName?: string; templates?: string[] } }).onboardingResult?.userName || 'User',
+        (bootResult as unknown as { onboardingResult?: { agentName?: string; userName?: string; templates?: string[] } }).onboardingResult?.templates || [],
         (msg: string) => {
           bootMsg.setText(`${B}${'\x1B[38;2;246;196;83m'}${theme.statusBar.icon} ${displayName}${R}\n${msg}`);
           tui.requestRender();
@@ -370,7 +371,7 @@ export async function startTUI(workspace?: string, model?: string): Promise<void
 
   // ─── Cleanup ────────────────────────────────────────────────────────
 
-  (editor as any).onEscape = () => { cleanup(); };
+  (editor as unknown as { onEscape: () => void }).onEscape = () => { cleanup(); };
   process.on('SIGINT', () => { cleanup(); });
   process.on('SIGTERM', () => { cleanup(); });
 

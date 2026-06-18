@@ -21,12 +21,20 @@ import { DriftDetector, type IdentityRule, type DecisionRecord, type DriftReport
 import { RBTDiagnosis, type ActivityEntry, type RBTReport } from './rbt-diagnosis.js';
 import { SkillEvolver, type Lesson, type Skill, type EvolveResult } from './skill-evolver.js';
 import { SleepCycle, type SleepCycleResult } from './sleep-cycle.js';
+import { SelfPatching, type SelfPatch, type PatchValidation, type PatchCheck, type PatchTestResult, type PatchStatus, type SelfPatchingConfig } from './self-patching.js';
+import { ProactiveIntelligence, HeartbeatEnhancer, type ProactiveConfig } from './proactive-intelligence.js';
+import { CalibrationLoop, type CalibrationLoopConfig, type CalibrationInsight, type CalibrationLoopResult } from './calibration-loop.js';
+import { DriftCorrector, DEFAULT_PRINCIPLES, type Principle, type DriftCorrection, type DriftCorrectionResult, type DriftCorrectionConfig } from './drift-correction.js';
+import { MultiAgentCoordinator, ReviewSubagent, type SubagentConfig, type SubagentTask, type SubagentResult, type SubagentHandoff, type SubagentStatus } from './multi-agent.js';
+import { PatchAutomation, type PatchAutomationConfig, type PatchProposal, type PatchReview, type AutomationStats } from './patch-automation.js';
 
 // ─── Config ─────────────────────────────────────────────────────────────────
 
 export interface ImprovementConfig {
   /** Root directory for improvement data files */
   dataDir: string;
+  /** Workspace root (for proactive intelligence scanning) */
+  workspaceRoot?: string;
   /** Whether the sleep cycle is enabled */
   sleepCycleEnabled?: boolean;
   /** Cron expression for the sleep cycle (default: 3am daily) */
@@ -43,6 +51,14 @@ export class ImprovementSystem {
   readonly rbtDiagnosis: RBTDiagnosis;
   readonly skillEvolver: SkillEvolver;
   readonly sleepCycle: SleepCycle;
+  readonly selfPatching: SelfPatching;
+  readonly proactive: ProactiveIntelligence;
+  readonly heartbeatEnhancer: HeartbeatEnhancer;
+  readonly calibrationLoop: CalibrationLoop;
+  readonly driftCorrector: DriftCorrector;
+  readonly multiAgent: MultiAgentCoordinator;
+  readonly reviewSubagent: ReviewSubagent;
+  readonly patchAutomation: PatchAutomation;
 
   private config: ImprovementConfig;
 
@@ -56,6 +72,34 @@ export class ImprovementSystem {
     this.rbtDiagnosis = new RBTDiagnosis(join(dataDir, 'rbt-reports.json'));
     this.skillEvolver = new SkillEvolver(dataDir);
     this.sleepCycle = new SleepCycle(dataDir, config.memory);
+    this.selfPatching = new SelfPatching({
+      projectRoot: process.cwd(),
+      dataDir: join(dataDir, 'patches'),
+      requireHumanApproval: true,
+    });
+    this.proactive = new ProactiveIntelligence({
+      dataDir: join(dataDir, 'proactive'),
+      workspaceRoot: config.workspaceRoot || process.cwd(),
+    });
+    this.heartbeatEnhancer = new HeartbeatEnhancer(this.proactive);
+    this.calibrationLoop = new CalibrationLoop({
+      dataDir: join(dataDir, 'calibration'),
+      journal: this.predictionJournal,
+    });
+    this.driftCorrector = new DriftCorrector({
+      dataDir: join(dataDir, 'drift-corrections'),
+      detector: this.driftDetector,
+      principles: DEFAULT_PRINCIPLES,
+    });
+    this.multiAgent = new MultiAgentCoordinator({
+      dataDir: join(dataDir, 'multi-agent'),
+    });
+    this.reviewSubagent = new ReviewSubagent(this.multiAgent);
+    this.patchAutomation = new PatchAutomation({
+      dataDir: join(dataDir, 'patch-automation'),
+      patchSystem: this.selfPatching,
+      projectRoot: process.cwd(),
+    });
   }
 
   /** Initialize all subsystems */
@@ -65,7 +109,20 @@ export class ImprovementSystem {
       this.driftDetector.init(),
       this.rbtDiagnosis.init(),
       this.skillEvolver.init(),
+      this.selfPatching.init(),
+      this.proactive.init(),
+      this.calibrationLoop.init(),
+      this.driftCorrector.init(),
+      this.multiAgent.init(),
+      this.patchAutomation.init(),
     ]);
+
+    // Wire post-cycle modules into the sleep cycle
+    this.sleepCycle.setPostCycleModules({
+      calibrationLoop: this.calibrationLoop,
+      driftCorrector: this.driftCorrector,
+      patchAutomation: this.patchAutomation,
+    });
   }
 
   /** Get the scheduled job config for the sleep cycle */
@@ -81,6 +138,21 @@ export class ImprovementSystem {
       },
       enabled: this.config.sleepCycleEnabled !== false,
       timeoutSeconds: 600, // 10 minutes max
+    };
+  }
+
+  /** Get the scheduled job config for the proactive heartbeat */
+  getHeartbeatJob(): JobConfig {
+    return {
+      id: 'improvement-heartbeat',
+      name: 'Proactive Intelligence Heartbeat',
+      description: 'Periodic heartbeat: scans for proactive opportunities (stale wiki, empty memory, unfinished tasks, unresolved predictions).',
+      schedule: {
+        kind: 'interval',
+        everyMs: 30 * 60 * 1000, // 30 minutes
+      },
+      enabled: true,
+      timeoutSeconds: 60, // 1 minute max
     };
   }
 

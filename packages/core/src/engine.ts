@@ -13,6 +13,7 @@ import { Scheduler, type JobConfig } from './scheduler/scheduler.js';
 import { IdentityLoader, type Identity, type IdentityConfig } from './identity/loader.js';
 import { MemorySystem } from './memory/memory-system.js';
 import { ImprovementSystem, type ImprovementConfig } from './improvement/index.js';
+import { MultiAgentCoordinator } from './improvement/multi-agent.js';
 import { ChannelManager, type ChannelManagerConfig } from './channels/index.js';
 import { SafetySystem, type SafetyConfig } from './safety/index.js';
 import { CostTracker, type TokenUsage, type CostReport, type SessionCost, type BudgetAlert, type BudgetStatus, type CostBreakdown, type CostExport } from './llm/cost-tracker.js';
@@ -25,6 +26,7 @@ import { UserManager, type UserConfig, type User } from './auth/user-manager.js'
 import { MigrationSystem } from './migration/migration-system.js';
 import { DashboardServer, type DashboardConfig } from './dashboard/server.js';
 import { ProactiveIntelligence, type ProactiveConfig } from './improvement/proactive-intelligence.js';
+import { PluginManager, type Plugin, type PluginHookName } from './plugin-system.js';
 import { join } from 'path';
 import { getLogger } from './utils/logger.js';
 
@@ -90,6 +92,7 @@ export type EngineEvent =
   | { type: 'memory.recalled'; query: string; count: number }
   | { type: 'job.started'; jobId: string }
   | { type: 'job.completed'; jobId: string; status: string }
+  | { type: 'heartbeat'; context: string }
   | { type: 'error'; error: string; context?: string };
 
 // ─── Lodestone Engine ──────────────────────────────────────────────────────
@@ -121,6 +124,7 @@ export class LodestoneEngine {
   readonly migrationSystem: MigrationSystem;
   readonly dashboard: DashboardServer | null;
   readonly proactiveIntelligence: ProactiveIntelligence | null;
+  readonly pluginManager: PluginManager;
 
   // State
   private running = false;
@@ -229,6 +233,20 @@ export class LodestoneEngine {
     this.proactiveIntelligence = config.proactive
       ? new ProactiveIntelligence(config.proactive)
       : null;
+
+    // Plugin system
+    this.pluginManager = new PluginManager({
+      workspaceRoot: config.workspaceRoot,
+      getToolDefinitions: () => this.tools.listDefinitions(),
+      logger: getLogger('plugin-manager'),
+    });
+  }
+
+  // ─── Convenience Accessors ──────────────────────────────────────────────
+
+  /** Access the multi-agent coordinator for spawning sub-agents */
+  get coordinator(): MultiAgentCoordinator {
+    return this.improvement.multiAgent;
   }
 
   // ─── Lifecycle ──────────────────────────────────────────────────────────
@@ -362,6 +380,9 @@ export class LodestoneEngine {
 
     this.logger.info('Stopping engine...');
 
+    // Unregister all plugins
+    await this.pluginManager.unregisterAll();
+
     // Stop dashboard
     if (this.dashboard) {
       await this.dashboard.stop();
@@ -390,6 +411,27 @@ export class LodestoneEngine {
   /** Register a tool */
   registerTool(tool: Tool): void {
     this.tools.register(tool);
+  }
+
+  // ─── Plugin Registration ─────────────────────────────────────────────────
+
+  /** Register a plugin with the engine's plugin manager */
+  async registerPlugin(plugin: Plugin, config: Record<string, unknown> = {}): Promise<void> {
+    await this.pluginManager.register(plugin, config);
+  }
+
+  /** Execute a plugin hook at a given point in the lifecycle */
+  async executePluginHook(
+    hook: PluginHookName,
+    sessionId: string,
+    payload: unknown,
+  ) {
+    return this.pluginManager.executeHook({
+      hook,
+      sessionId,
+      timestamp: new Date().toISOString(),
+      payload: payload as never,
+    });
   }
 
   // ─── Job Registration ───────────────────────────────────────────────────

@@ -63,3 +63,15 @@ export { TelegramChannel, type TelegramConfig } from './channels/telegram.js';
 export { DiscordChannel, type DiscordConfig } from './channels/discord.js';
 export { WebChatChannel, type WebChatConfig } from './channels/webchat.js';
 export { ChannelManager, type ChannelManagerConfig } from './channels/manager.js';
+
+// Utils — Error types
+export { LodestoneError, LodestoneConfigError, LLMError, ToolError, ChannelError, MemoryError, SafetyError, isLodestoneError, errorMessage, errorContext } from './utils/errors.js';
+
+// Sprint 6: Knowledge Transfer
+export { KnowledgeTransfer, type TransferPackage, type TransferItem, type ReceiveResult, type ApplyResult, type KnowledgeType } from './memory/knowledge-transfer.js';
+
+// Sprint 6: Undo System
+export { UndoSystem, type UndoableAction, type UndoableActionType, type UndoResult, type ReverseHandler } from './safety/undo-system.js';
+
+// Sprint 6: Multi-User Auth
+export { UserManager, type UserConfig, type User } from './auth/user-manager.js';

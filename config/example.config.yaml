@@ -1,0 +1,199 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# Lodestone Example Configuration
+# ─────────────────────────────────────────────────────────────────────────────
+#
+# Copy to lodestone.config.yaml and customize.
+# Generate a fresh config with: lodestone config init
+#
+# Every section is optional — Lodestone uses sensible defaults if sections
+# are missing. Commented sections show available options.
+#
+# ─────────────────────────────────────────────────────────────────────────────
+
+# ─── Workspace ──────────────────────────────────────────────────────────────
+# Root directory for all agent data. Identity files, wiki, memory, and logs
+# live under this path. Can be relative (./workspace) or absolute.
+workspace:
+  root: ./workspace
+
+# ─── Identity ────────────────────────────────────────────────────────────────
+# Directory containing IDENTITY.md, SOUL.md, USER.md, RULES.md, HEARTBEAT.md.
+# These files define your agent's personality, rules, and behavior.
+identity:
+  dir: ./workspace
+
+# ─── LLM Configuration ──────────────────────────────────────────────────────
+# Your primary language model. This is the brain of your agent.
+# Options: ollama (local, free), openai (cloud, paid), anthropic (cloud, paid)
+llm:
+  default:
+    type: ollama                    # ollama | openai | anthropic
+    model: glm-5.1:cloud            # Model name (check provider for available models)
+    baseUrl: http://127.0.0.1:11434/api  # Ollama API URL (ollama only)
+    # apiKey: ${OPENAI_API_KEY}     # Required for openai/anthropic
+    contextWindow: 128000           # Max context tokens (check model spec)
+    maxTokens: 8192                 # Max output tokens per response
+
+  # ── Model Routes ──────────────────────────────────────────────────────────
+  # Route different tasks to different models for cost/speed optimization.
+  # E.g., use a fast model for simple tasks, a smart model for complex ones.
+  #
+  # routes:
+  #   fast:
+  #     type: ollama
+  #     model: qwen3:4b
+  #     baseUrl: http://127.0.0.1:11434/api
+  #     contextWindow: 32768
+  #     maxTokens: 2048
+  #   smart:
+  #     type: anthropic
+  #     model: claude-sonnet-4-20250514
+  #     apiKey: ${ANTHROPIC_API_KEY}
+  #     contextWindow: 200000
+  #     maxTokens: 16384
+
+  # ── Fallback Provider ────────────────────────────────────────────────────
+  # Used when the primary provider fails after all retries.
+  # fallback:
+  #   type: ollama
+  #   model: qwen3:4b
+  #   baseUrl: http://127.0.0.1:11434/api
+
+  # ── Retry Configuration ──────────────────────────────────────────────────
+  # retry:
+  #   maxRetries: 3
+  #   initialDelayMs: 1000
+  #   maxDelayMs: 30000
+  #   backoffMultiplier: 2
+
+  # ── Rate Limiting ────────────────────────────────────────────────────────
+  # rateLimit:
+  #   tokensPerMinute: 100000
+  #   requestsPerMinute: 50
+  #   burstSize: 10
+
+  # ── Circuit Breaker ──────────────────────────────────────────────────────
+  # circuitBreaker:
+  #   failureThreshold: 5
+  #   failureWindowMs: 60000
+  #   openDurationMs: 30000
+
+# ─── Memory ──────────────────────────────────────────────────────────────────
+# Two memory systems: vector DB (semantic search) and wiki (structured KB).
+memory:
+  # ── Vector Database ──────────────────────────────────────────────────────
+  # LanceDB runs locally, no setup required. Stores embeddings for semantic recall.
+  vectorDb:
+    provider: lancedb
+    path: ./workspace/data/lancedb
+    embedding:
+      provider: ollama              # ollama | openai
+      model: nomic-embed-text       # Embedding model
+      dimensions: 768               # Must match model output dimensions
+      # For OpenAI embeddings:
+      # provider: openai
+      # model: text-embedding-3-small
+      # dimensions: 1536
+    autoRecall: true                # Automatically search memory on each message
+    autoCapture: false              # Automatically store conversation turns
+
+  # ── Wiki (Knowledge Base) ──────────────────────────────────────────────────
+  # Markdown files organized by category. The agent reads and writes here.
+  wiki:
+    path: ./workspace/memory/wiki
+    autoLint: true                  # Nightly lint: check broken links, missing frontmatter
+    autoIndex: true                 # Auto-maintain wiki/index.md
+
+  # ── Scratch Buffer ────────────────────────────────────────────────────────
+  # Key-value store for temporary state. Survives context compaction.
+  scratch:
+    path: ./workspace/data/scratch.db
+
+# ─── Session Management ──────────────────────────────────────────────────────
+session:
+  compactionThreshold: 0.5          # Compact at 50% context capacity (0-1)
+  keepRecentCount: 10               # Always keep last N entries
+  maxEntries: 200                   # Max entries before forced pruning
+  pruneAfter: 7d                     # Prune entries older than 7 days
+
+# ─── Proactive Jobs ──────────────────────────────────────────────────────────
+# The agent runs periodic jobs automatically.
+proactive:
+  # Sensorium: health check — verifies all systems are operational.
+  sensorium:
+    enabled: true
+    interval: 30m                    # Run every 30 minutes
+
+  # Sleep Cycle: nightly consolidation — harvest, mine, reflect, consolidate.
+  # This is when the agent "thinks" about its day and consolidates memory.
+  sleep:
+    enabled: true
+    schedule: "0 3 * * *"            # 3 AM daily (cron format)
+    timezone: "America/Toronto"
+
+  # Drift Detection: weekly check — behavior vs core principles.
+  # Catches slow drift from intended behavior over time.
+  drift:
+    enabled: true
+    schedule: "0 9 * * 1"            # 9 AM every Monday
+
+# ─── Scheduler ────────────────────────────────────────────────────────────────
+scheduler:
+  maxConcurrent: 4                   # Max concurrent jobs and tool calls
+
+# ─── Channels ────────────────────────────────────────────────────────────────
+# Each channel is optional. Only enabled channels boot.
+# Telegram and Discord require their npm packages installed separately.
+# WebChat uses built-in HTTP + WebSocket (no extra deps).
+channels:
+  # ── Telegram Bot ──────────────────────────────────────────────────────────
+  # Create a bot via @BotFather, set TELEGRAM_BOT_TOKEN in .env
+  telegram:
+    type: telegram
+    enabled: false
+    botToken: ${TELEGRAM_BOT_TOKEN}
+    streaming: true
+
+  # ── Discord Bot ────────────────────────────────────────────────────────────
+  # Create a bot at discord.com/developers, set DISCORD_BOT_TOKEN in .env
+  discord:
+    type: discord
+    enabled: false
+    botToken: ${DISCORD_BOT_TOKEN}
+    channelId: ""                    # Channel ID to listen in
+    streaming: true
+
+  # ── Web Chat ────────────────────────────────────────────────────────────────
+  # Browser-based chat UI at http://localhost:PORT
+  webchat:
+    type: webchat
+    enabled: false
+    port: 3000
+    corsOrigin: "*"                  # Restrict to your domain in production
+
+# ─── Safety ──────────────────────────────────────────────────────────────────
+# Controls the agent's safety systems. Disable with caution.
+# safety:
+  # capabilityTiers:
+  #   enabled: true
+  # behavioralLearning:
+  #   enabled: true
+  # memoryPromotion:
+  #   enabled: true
+
+# ─── Dashboard ────────────────────────────────────────────────────────────────
+# Web dashboard for monitoring your agent.
+# dashboard:
+#   enabled: false
+#   port: 8080
+#   auth:
+#     type: basic
+#     username: admin
+#     password: ${DASHBOARD_PASSWORD}
+
+# ─── Logging ──────────────────────────────────────────────────────────────────
+logging:
+  level: info                        # trace | debug | info | warn | error | fatal
+  file: ./workspace/data/logs/lodestone.log
+  # format: text                     # text | json
+  # stdout: true                      # Also log to console

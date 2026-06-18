@@ -12,6 +12,7 @@
     "test": "npx tsx src/test/e2e-all-gaps.ts && npx tsx src/test/e2e-phase3.ts && npx tsx src/test/e2e-sprint6.ts && npx tsx src/test/e2e-compounding.ts",
     "test:dogfood": "npx tsx src/test/dogfood.ts && npx tsx src/test/dogfood2.ts && npx tsx src/test/dogfood3.ts && npx tsx src/test/dogfood4.ts",
     "test:all": "npm run test && npm run test:dogfood",
+    "test:e2e": "npx tsx src/test/e2e-all-gaps.ts && npx tsx src/test/e2e-phase3.ts && npx tsx src/test/e2e-sprint6.ts && npx tsx src/test/e2e-compounding.ts",
     "lint": "eslint src/",
     "clean": "rm -rf dist"
   },

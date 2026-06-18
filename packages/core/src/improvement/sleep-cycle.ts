@@ -17,6 +17,9 @@ import { PredictionJournal, type PredictionEntry, type CalibrationReport } from 
 import { DriftDetector, type IdentityRule, type DecisionRecord, type DriftReport } from './drift-detector.js';
 import { RBTDiagnosis, type ActivityEntry, type RBTReport } from './rbt-diagnosis.js';
 import { SkillEvolver, type Lesson, type EvolveResult } from './skill-evolver.js';
+import { CalibrationLoop, type CalibrationLoopResult } from './calibration-loop.js';
+import { DriftCorrector, type DriftCorrectionResult } from './drift-correction.js';
+import { PatchAutomation } from './patch-automation.js';
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -94,6 +97,18 @@ export interface PreparationResult {
   focusAreas: string[];
 }
 
+/** Results from running calibration, drift correction, and patch automation */
+export interface PostCycleResult {
+  /** Calibration loop result */
+  calibration?: CalibrationLoopResult;
+  /** Drift correction result */
+  driftCorrection?: DriftCorrectionResult;
+  /** Patch automation result */
+  patchAutomation?: { processed: number; pending: number; rolledBack: number };
+  /** Errors from post-cycle modules */
+  errors: string[];
+}
+
 export interface SleepCycleResult {
   /** When this cycle started */
   startedAt: string;
@@ -112,6 +127,8 @@ export interface SleepCycleResult {
   errors: string[];
   /** Stage that completed */
   stagesCompleted: SleepStage[];
+  /** Post-cycle module results (calibration, drift, patches) */
+  postCycle?: PostCycleResult;
 }
 
 // ─── Sleep Cycle ────────────────────────────────────────────────────────────
@@ -124,6 +141,11 @@ export class SleepCycle {
   private memory?: MemoryAccess;
   private dataDir: string;
 
+  // Post-cycle modules (optional — injected by ImprovementSystem)
+  private calibrationLoop?: CalibrationLoop;
+  private driftCorrector?: DriftCorrector;
+  private patchAutomation?: PatchAutomation;
+
   constructor(dataDir: string, memory?: MemoryAccess) {
     this.dataDir = dataDir;
     this.memory = memory;
@@ -132,6 +154,17 @@ export class SleepCycle {
     this.driftDetector = new DriftDetector(join(dataDir, 'drift-reports.json'));
     this.rbtDiagnosis = new RBTDiagnosis(join(dataDir, 'rbt-reports.json'));
     this.skillEvolver = new SkillEvolver(dataDir);
+  }
+
+  /** Wire post-cycle modules from ImprovementSystem */
+  setPostCycleModules(modules: {
+    calibrationLoop: CalibrationLoop;
+    driftCorrector: DriftCorrector;
+    patchAutomation: PatchAutomation;
+  }): void {
+    this.calibrationLoop = modules.calibrationLoop;
+    this.driftCorrector = modules.driftCorrector;
+    this.patchAutomation = modules.patchAutomation;
   }
 
   /** Initialize all subsystems */
@@ -214,6 +247,14 @@ export class SleepCycle {
       errors.push(`Prepare failed: ${err instanceof Error ? err.message : String(err)}`);
     }
 
+    // Post-cycle: Calibration, Drift Correction, Patch Automation
+    let postCycle: PostCycleResult | undefined;
+    try {
+      postCycle = await this.runPostCycle();
+    } catch (err) {
+      errors.push(`Post-cycle failed: ${err instanceof Error ? err.message : String(err)}`);
+    }
+
     // Persist the cycle result
     const result: SleepCycleResult = {
       startedAt,
@@ -227,6 +268,7 @@ export class SleepCycle {
       prepare,
       errors,
       stagesCompleted,
+      postCycle,
     };
 
     await this.persistCycleResult(result);
@@ -513,6 +555,48 @@ export class SleepCycle {
       pendingPredictions,
       focusAreas,
     };
+  }
+
+  // ─── Post-Cycle Modules ─────────────────────────────────────────────
+
+  /**
+   * Run post-cycle modules: calibration, drift correction, patch automation.
+   * These run after the main 6 stages to keep the agent tuned and patched.
+   */
+  async runPostCycle(): Promise<PostCycleResult> {
+    const errors: string[] = [];
+    let calibration: CalibrationLoopResult | undefined;
+    let driftCorrection: DriftCorrectionResult | undefined;
+    let patchAutomationResult: { processed: number; pending: number; rolledBack: number } | undefined;
+
+    // 1. Calibration loop — expire predictions and adjust confidence
+    if (this.calibrationLoop) {
+      try {
+        calibration = await this.calibrationLoop.run();
+      } catch (err) {
+        errors.push(`Calibration loop failed: ${err instanceof Error ? err.message : String(err)}`);
+      }
+    }
+
+    // 2. Drift correction — detect and correct behavior drift
+    if (this.driftCorrector) {
+      try {
+        driftCorrection = await this.driftCorrector.checkAndCorrect();
+      } catch (err) {
+        errors.push(`Drift correction failed: ${err instanceof Error ? err.message : String(err)}`);
+      }
+    }
+
+    // 3. Patch automation — process pending patch proposals
+    if (this.patchAutomation) {
+      try {
+        patchAutomationResult = await this.patchAutomation.runCycle();
+      } catch (err) {
+        errors.push(`Patch automation failed: ${err instanceof Error ? err.message : String(err)}`);
+      }
+    }
+
+    return { calibration, driftCorrection, patchAutomation: patchAutomationResult, errors };
   }
 
   // ─── Individual Stage Runners (for running stages separately) ───────

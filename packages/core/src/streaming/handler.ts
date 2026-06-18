@@ -5,6 +5,10 @@
  * Designed for real-time UI updates and progressive tool execution.
  */
 
+import { getLogger } from '../utils/logger.js';
+
+const log = getLogger('stream-handler');
+
 // ─── Stream Event Types ────────────────────────────────────────────────────
 
 export type StreamEventType =
@@ -113,7 +117,7 @@ export class StreamHandler {
         try {
           handler(event);
         } catch (err) {
-          console.error(`Stream handler error for ${eventType}:`, err);
+          log.error(`Stream handler error for ${eventType}`, { error: err instanceof Error ? err.message : String(err) });
         }
       }
     }

@@ -9,6 +9,7 @@
 import { createOllama } from 'ollama-ai-provider';
 import { createOpenAI } from '@ai-sdk/openai';
 import { createAnthropic } from '@ai-sdk/anthropic';
+import { LLMError } from '../utils/errors.js';
 
 // ─── Provider Types ────────────────────────────────────────────────────────
 
@@ -44,7 +45,7 @@ export interface ProviderCapabilities {
 
 export class LLMProvider {
   private config: ProviderConfig;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- AI SDK model instance is opaque
   private modelInstance: any;
 
   constructor(config: ProviderConfig) {
@@ -91,7 +92,7 @@ export class LLMProvider {
       }
 
       default:
-        throw new Error(`Unknown provider type: ${config.type}`);
+        throw new LLMError(`Unknown provider type: ${config.type}`, { context: { type: config.type } });
     }
   }
 

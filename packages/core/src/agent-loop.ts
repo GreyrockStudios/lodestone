@@ -22,6 +22,7 @@ import type { WikiFrontmatter } from './memory/wiki-store.js';
 import type { ToolResult } from './tools/definitions.js';
 import type { CorrectionInput } from './safety/behavioral-learning.js';
 import type { GateOutputType } from './safety/quality-gates.js';
+import type { PluginHookEvent } from './plugin-system.js';
 import { getLogger } from './utils/logger.js';
 
 // ─── Agent Loop Config ────────────────────────────────────────────────────
@@ -90,6 +91,18 @@ export class AgentLoop {
     const startTime = Date.now();
     let totalTokens = 0;
     let toolCallsMade: ToolCallRecord[] = [];
+
+    // ─── Plugin Hook: onMessage ──────────────────────────────────────────
+    try {
+      await this.engine.executePluginHook('onMessage', sessionId, {
+        content: userMessage,
+        senderId: '',
+        senderName: '',
+        channelId: '',
+      });
+    } catch {
+      // Plugin hooks are best-effort — never block the loop
+    }
 
     // 1. Add user message to session
     this.engine.sessions.addMessage(sessionId, {
@@ -194,7 +207,7 @@ export class AgentLoop {
           durationMs: result.durationMs,
         });
       }
-    }
+      }
     } catch (err) {
       // Graceful degradation — if LLM fails completely, return a meaningful message
       const errorMsg = err instanceof Error ? err.message : String(err);
@@ -490,13 +503,46 @@ export class AgentLoop {
     const results: ToolCallResult[] = [];
     const identity = await this.engine.identity.load();
 
-    for (const tc of toolCalls) {
+    for (const tcOriginal of toolCalls) {
+      let tc = tcOriginal;
       const startTime = Date.now();
 
       // Check capability tier — log warning if not auto-approved
       if (!this.engine.safety.canAutoApprove(tc.toolName)) {
         this.logger.warn('Tool requires confirmation but auto-approval not available — proceeding (log only)', { tool: tc.toolName });
       }
+
+      // ─── Plugin Hook: beforeTool — allow plugins to modify params or block ──
+      let pluginBlocked = false;
+      try {
+        const beforeHook = await this.engine.executePluginHook('beforeTool', sessionId, {
+          toolId: tc.toolName,
+          params: tc.arguments as Record<string, unknown>,
+        });
+        if (beforeHook.action === 'block') {
+          const reason = beforeHook.blockReason ?? 'Blocked by plugin';
+          results.push({
+            toolId: tc.toolCallId,
+            toolName: tc.toolName,
+            success: false,
+            data: null,
+            summary: `Blocked by plugin: ${reason}`,
+            error: reason,
+            durationMs: Date.now() - startTime,
+          });
+          pluginBlocked = true;
+        }
+        // If modified, update the arguments for execution
+        if (beforeHook.action === 'modify' && beforeHook.modifiedPayload) {
+          const modified = beforeHook.modifiedPayload as { params?: Record<string, unknown> };
+          if (modified.params) {
+            tc = { ...tc, arguments: modified.params };
+          }
+        }
+      } catch {
+        // Plugin hooks are best-effort — never block the loop
+      }
+      if (pluginBlocked) continue;
 
       // Build tool context
       const toolLogger = getLogger(`Tool:${tc.toolName}`);

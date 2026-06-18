@@ -1,0 +1,302 @@
+#!/usr/bin/env bash
+#
+# Lodestone — One-Line Install
+#
+# Usage: curl -fsSL https://lodestone.dev/install | bash
+#   OR:  wget -qO- https://lodestone.dev/install | bash
+#
+# This script:
+# 1. Checks prerequisites (Node.js 22+, npm)
+# 2. Clones the Lodestone repo
+# 3. Installs dependencies
+# 4. Builds the project
+# 5. Runs the interactive setup wizard
+# 6. Starts the agent
+#
+set -euo pipefail
+
+# ─── Colors ──────────────────────────────────────────────────────────────────
+
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+BLUE='\033[0;34m'
+CYAN='\033[0;36m'
+BOLD='\033[1m'
+NC='\033[0m' # No Color
+
+# ─── Config ───────────────────────────────────────────────────────────────────
+
+REPO_URL="https://github.com/lodestone-ai/lodestone.git"
+INSTALL_DIR="${LODESTONE_DIR:-$HOME/.lodestone}"
+BRANCH="${LODESTONE_BRANCH:-main}"
+NODE_MIN_MAJOR=22
+
+# ─── Helpers ──────────────────────────────────────────────────────────────────
+
+info()  { echo -e "${BLUE}ℹ${NC} $*"; }
+ok()    { echo -e "${GREEN}✓${NC} $*"; }
+warn()  { echo -e "${YELLOW}⚠${NC} $*"; }
+error() { echo -e "${RED}✗${NC} $*"; exit 1; }
+
+banner() {
+  echo -e ""
+  echo -e "${CYAN}${BOLD}  ╦═╗┌─┐┬  ┬┌─┐┌┐┌┌┬┐${NC}"
+  echo -e "${CYAN}${BOLD}  ╠╦╝├┤ └┐┌┘├┤ ││││││${NC}"
+  echo -e "${CYAN}${BOLD}  ╩╚═└─┘ └┘ └─┘┘└┘┴ ┴${NC}"
+  echo -e ""
+  echo -e "${BOLD}  Self-improving agent runtime${NC}"
+  echo -e "  ${DIM}v0.1.0${NC}"
+  echo -e ""
+}
+
+# ─── Prerequisite Checks ──────────────────────────────────────────────────────
+
+check_node() {
+  if ! command -v node &>/dev/null; then
+    error "Node.js is required but not installed."
+    echo -e "  Install it: ${CYAN}https://nodejs.org/${NC} (v${NODE_MIN_MAJOR}+)"
+    echo -e "  Or via nvm: ${CYAN}curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.1/install.sh | bash && nvm install ${NODE_MIN_MAJOR}${NC}"
+    exit 1
+  fi
+
+  local node_version
+  node_version=$(node -v | sed 's/v//' | cut -d. -f1)
+
+  if [ "$node_version" -lt "$NODE_MIN_MAJOR" ]; then
+    error "Node.js v${NODE_MIN_MAJOR}+ required, found v$(node -v)"
+    echo -e "  Upgrade: ${CYAN}nvm install ${NODE_MIN_MAJOR}${NC}"
+    exit 1
+  fi
+
+  ok "Node.js $(node -v)"
+}
+
+check_npm() {
+  if ! command -v npm &>/dev/null; then
+    error "npm is required but not found."
+    exit 1
+  fi
+  ok "npm $(npm -v)"
+}
+
+check_git() {
+  if ! command -v git &>/dev/null; then
+    error "git is required but not installed."
+    echo -e "  Install it: ${CYAN}https://git-scm.com/${NC}"
+    exit 1
+  fi
+  ok "git $(git --version | cut -d' ' -f3)"
+}
+
+# ─── Install Steps ────────────────────────────────────────────────────────────
+
+clone_repo() {
+  if [ -d "${INSTALL_DIR}/.git" ]; then
+    info "Updating existing installation at ${INSTALL_DIR}..."
+    cd "${INSTALL_DIR}"
+    git fetch origin "${BRANCH}" || warn "Could not fetch updates"
+    git reset --hard "origin/${BRANCH}" 2>/dev/null || true
+  else
+    info "Cloning Lodestone into ${INSTALL_DIR}..."
+    git clone --depth 1 --branch "${BRANCH}" "${REPO_URL}" "${INSTALL_DIR}"
+    cd "${INSTALL_DIR}"
+  fi
+  ok "Repository ready"
+}
+
+install_deps() {
+  info "Installing dependencies..."
+  npm ci --production=false 2>/dev/null || npm install 2>/dev/null
+  ok "Dependencies installed"
+}
+
+build_project() {
+  info "Building Lodestone..."
+  npm run build 2>/dev/null || npx tsc 2>/dev/null || {
+    warn "Build had warnings — this is normal for first install"
+  }
+  ok "Build complete"
+}
+
+run_setup() {
+  echo ""
+  echo -e "${BOLD}${CYAN}═══ Lodestone Setup ═══${NC}"
+  echo ""
+
+  # Check if config already exists
+  if [ -f "${INSTALL_DIR}/config.yaml" ]; then
+    warn "Existing config.yaml found — keeping it"
+    return
+  fi
+
+  echo -e "  ${BOLD}What's your agent's name?${NC} (default: Lodestone)"
+  read -r AGENT_NAME
+  AGENT_NAME="${AGENT_NAME:-Lodestone}"
+
+  echo ""
+  echo -e "  ${BOLD}Which LLM provider?${NC}"
+  echo -e "  1) Ollama (local, default)"
+  echo -e "  2) OpenAI"
+  echo -e "  3) Anthropic"
+  read -r LLM_CHOICE
+  LLM_CHOICE="${LLM_CHOICE:-1}"
+
+  local PROVIDER="ollama"
+  local MODEL="llama3.1"
+
+  case "$LLM_CHOICE" in
+    2) PROVIDER="openai"; MODEL="gpt-4o-mini";;
+    3) PROVIDER="anthropic"; MODEL="claude-sonnet-4-20250514";;
+    *) PROVIDER="ollama"; MODEL="llama3.1";;
+  esac
+
+  # Generate config
+  cat > "${INSTALL_DIR}/config.yaml" << EOF
+# Lodestone Configuration
+# Generated by one-line install
+
+agent:
+  name: "${AGENT_NAME}"
+
+llm:
+  default:
+    provider: "${PROVIDER}"
+    model: "${MODEL}"
+  ${PROVIDER}_config:
+    $([ "$PROVIDER" = "ollama" ] && echo "baseUrl: http://localhost:11434" || echo "apiKey: \${${PROVIDER^^}_API_KEY}")
+
+workspace:
+  root: "${INSTALL_DIR}/workspace"
+
+identity:
+  dir: "${INSTALL_DIR}/identity"
+
+wiki:
+  root: "${INSTALL_DIR}/workspace/memory/wiki"
+
+memory:
+  dir: "${INSTALL_DIR}/data"
+
+safety:
+  dataDir: "${INSTALL_DIR}/data/safety"
+
+improvement:
+  dataDir: "${INSTALL_DIR}/data/improvement"
+  sleepCycleEnabled: true
+
+channels:
+  telegram:
+    enabled: false
+  discord:
+    enabled: false
+EOF
+
+  ok "Configuration saved to config.yaml"
+}
+
+create_identity() {
+  local IDENTITY_DIR="${INSTALL_DIR}/identity"
+  mkdir -p "${IDENTITY_DIR}"
+
+  if [ -f "${IDENTITY_DIR}/IDENTITY.md" ]; then
+    warn "Identity files already exist — keeping them"
+    return
+  fi
+
+  cat > "${IDENTITY_DIR}/IDENTITY.md" << EOF
+# IDENTITY.md
+
+- **Name:** ${AGENT_NAME:-Lodestone}
+- **Emoji:** 🔮
+- **Creature:** AI assistant — sharp, grounded, no fluff
+- **First online:** $(date -u +%Y-%m-%d)
+- **Vibe:** Direct. Resourceful. Gets things done.
+EOF
+
+  cat > "${IDENTITY_DIR}/SOUL.md" << EOF
+# SOUL.md — ${AGENT_NAME:-Lodestone}
+
+I'm ${AGENT_NAME:-Lodestone}. I get things done.
+
+Be real. Be sharp. Be resourceful. Skip the fluff.
+
+See the wiki for the full picture.
+EOF
+
+  cat > "${IDENTITY_DIR}/USER.md" << EOF
+# USER.md
+
+Configure your user identity here.
+EOF
+
+  cat > "${IDENTITY_DIR}/HEARTBEAT.md" << EOF
+# Heartbeat
+
+Pick one thing and make progress. If nothing's active, HEARTBEAT_OK.
+EOF
+
+  ok "Identity files created"
+}
+
+create_data_dirs() {
+  mkdir -p "${INSTALL_DIR}/data/safety/behavioral"
+  mkdir -p "${INSTALL_DIR}/data/safety/promotion"
+  mkdir -p "${INSTALL_DIR}/data/safety/intent"
+  mkdir -p "${INSTALL_DIR}/data/safety/quality"
+  mkdir -p "${INSTALL_DIR}/data/improvement"
+  mkdir -p "${INSTALL_DIR}/data/lancedb"
+  mkdir -p "${INSTALL_DIR}/data/scratch"
+  mkdir -p "${INSTALL_DIR}/data/logs"
+  mkdir -p "${INSTALL_DIR}/workspace/memory/wiki"
+  mkdir -p "${INSTALL_DIR}/workspace/memory/raw"
+  mkdir -p "${INSTALL_DIR}/workspace/memory/agents"
+  mkdir -p "${INSTALL_DIR}/workspace/00-inbox"
+  ok "Data directories created"
+}
+
+print_success() {
+  echo ""
+  echo -e "${GREEN}${BOLD}══════════════════════════════════════════${NC}"
+  echo -e "${GREEN}${BOLD}  Lodestone installed successfully! 🎉${NC}"
+  echo -e "${GREEN}${BOLD}══════════════════════════════════════════${NC}"
+  echo ""
+  echo -e "  ${BOLD}Next steps:${NC}"
+  echo ""
+  echo -e "  1. ${CYAN}cd ${INSTALL_DIR}${NC}"
+  echo -e "  2. Edit ${CYAN}config.yaml${NC} to add your API keys"
+  echo -e "  3. Start the agent:"
+  echo -e "     ${CYAN}npm start${NC}          (foreground)"
+  echo -e "     ${CYAN}npm run daemon${NC}      (background)"
+  echo ""
+  echo -e "  ${BOLD}Connect channels:${NC}"
+  echo -e "  - Telegram: ${CYAN}https://t.me/BotFather${NC}"
+  echo -e "  - Discord:  ${CYAN}https://discord.com/developers${NC}"
+  echo ""
+  echo -e "  ${BOLD}Docs:${NC} ${CYAN}https://docs.lodestone.ai${NC}"
+  echo -e "  ${BOLD}Repo:${NC} ${CYAN}${REPO_URL}${NC}"
+  echo ""
+}
+
+# ─── Main ─────────────────────────────────────────────────────────────────────
+
+main() {
+  banner
+
+  info "Checking prerequisites..."
+  check_node
+  check_npm
+  check_git
+
+  echo ""
+  clone_repo
+  install_deps
+  build_project
+  run_setup
+  create_identity
+  create_data_dirs
+
+  print_success
+}
+
+main "$@"

@@ -4,6 +4,9 @@
  * Uses grammy for Telegram Bot API interaction.
  * Polling mode — no webhook server needed for MVP.
  * Supports streaming responses (edit messages as text arrives).
+ *
+ * Retry, rate limiting, and message splitting are handled by the Channel base class.
+ * This implementation only provides sendRaw() and getMaxMessageLength().
  */
 
 import { Channel, type ChannelConfig, type ChannelMessage, type ChannelHealth } from './channel.js';
@@ -17,16 +20,10 @@ export interface TelegramConfig extends ChannelConfig {
   botToken: string;
   /** Polling interval in ms (default: 1000) */
   pollingInterval?: number;
-  /** Maximum message length before splitting (Telegram limit: 4096) */
-  maxMessageLength?: number;
   /** Enable streaming responses (edit messages as text arrives) */
   streaming?: boolean;
   /** Streaming edit interval in ms (default: 500) */
   streamingInterval?: number;
-  /** Max retries for failed API calls (default: 3) */
-  maxRetries?: number;
-  /** Base delay for retry backoff in ms (default: 500) */
-  retryBaseDelay?: number;
   /** Min delay between sends to same chat in ms (default: 1000 = 1 msg/sec) */
   perChatRateLimitMs?: number;
 }
@@ -41,23 +38,19 @@ export class TelegramChannel extends Channel {
   private streamingBuffers: Map<string, string> = new Map(); // sessionId → accumulated text
   private streamingTimers: Map<string, ReturnType<typeof setInterval>> = new Map(); // sessionId → interval
 
-  private readonly maxMessageLength: number;
   private readonly streamingEnabled: boolean;
   private readonly streamingInterval: number;
-  private readonly maxRetries: number;
-  private readonly retryBaseDelay: number;
   private readonly perChatRateLimitMs: number;
   private lastSendTime: Map<string, number> = new Map(); // chatId → last send timestamp
   private logger = getLogger('Channel:Telegram');
 
   constructor(config: TelegramConfig) {
     super(config);
-    this.maxMessageLength = config.maxMessageLength || 4096;
     this.streamingEnabled = config.streaming ?? true;
     this.streamingInterval = config.streamingInterval || 500;
-    this.maxRetries = config.maxRetries ?? 3;
-    this.retryBaseDelay = config.retryBaseDelay ?? 500;
     this.perChatRateLimitMs = config.perChatRateLimitMs ?? 1000;
+    // Set base class rate limit: Telegram allows ~30 msgs/sec
+    this.setRateLimit(30);
   }
 
   get id(): string {
@@ -66,6 +59,10 @@ export class TelegramChannel extends Channel {
 
   get name(): string {
     return 'Telegram';
+  }
+
+  getMaxMessageLength(): number {
+    return 4096;
   }
 
   async start(): Promise<void> {
@@ -135,7 +132,6 @@ export class TelegramChannel extends Channel {
       // Create or find session
       let sessionId = this.sessionMap.get(chatId);
       if (!sessionId) {
-        // The ChannelManager will handle session creation via the message handler
         sessionId = `telegram-${chatId}`;
         this.sessionMap.set(chatId, sessionId);
       }
@@ -167,7 +163,6 @@ export class TelegramChannel extends Channel {
         this.sessionMap.set(chatId, sessionId);
       }
 
-      // Get the highest resolution photo
       const photos = ctx.message.photo;
       const largest = photos[photos.length - 1];
       const caption = ctx.message.caption || '(no caption)';
@@ -266,7 +261,7 @@ export class TelegramChannel extends Channel {
       allowed_updates: ['message'],
     });
 
-    this.running = true;
+    this.onStart();
     this.logger.info('Started polling', { id: this.id });
   }
 
@@ -284,69 +279,39 @@ export class TelegramChannel extends Channel {
       this.bot.stop();
     }
 
-    this.running = false;
+    this.onStop();
     this.logger.info('Stopped', { id: this.id });
   }
 
-  async send(sessionId: string, message: string): Promise<void> {
+  /** Send a raw message — base class handles retry, rate limiting, and splitting */
+  protected async sendRaw(sessionId: string, message: string): Promise<void> {
     if (!this.bot) {
-      this.logger.error('Bot not initialized — cannot send');
-      return;
+      throw new Error('Bot not initialized — cannot send');
     }
 
     const chatId = this.getChatId(sessionId);
     if (!chatId) {
-      this.logger.error('No chat ID for session', { sessionId });
-      return;
+      throw new Error(`No chat ID for session: ${sessionId}`);
     }
 
-    // Rate limit: ensure min delay between sends to same chat
+    // Per-chat rate limit (additional to base class rate limiting)
     await this.enforceRateLimit(chatId);
 
-    // Split message if it exceeds Telegram's limit
-    const chunks = this.splitMessage(message);
-    for (const chunk of chunks) {
-      await this.enforceRateLimit(chatId);
-      await this.sendWithRetry(chatId, chunk);
-    }
-  }
-
-  /** Send a message with retry logic (exponential backoff) */
-  private async sendWithRetry(chatId: string, text: string, attempt = 1): Promise<void> {
+    // Try with HTML first, fall back to plain text
     try {
-      await this.bot.api.sendMessage(chatId, text, { parse_mode: 'HTML' });
+      await this.bot.api.sendMessage(chatId, message, { parse_mode: 'HTML' });
     } catch (err: any) {
-      // Check if it's a parse error — retry without HTML
-      if (attempt === 1 && err?.message?.includes('parse')) {
-        try {
-          await this.bot.api.sendMessage(chatId, text);
-          return;
-        } catch (fallbackErr) {
-          // Fall through to retry logic
-          err = fallbackErr;
-        }
-      }
-
-      // Check if it's a rate limit error (429) — respect retry_after
-      if (err?.error_code === 429 && err?.parameters?.retry_after) {
+      if (err?.message?.includes('parse')) {
+        // Parse error — retry without HTML
+        await this.bot.api.sendMessage(chatId, message);
+      } else if (err?.error_code === 429 && err?.parameters?.retry_after) {
+        // Telegram rate limit — respect retry_after
         const delayMs = (err.parameters.retry_after + 1) * 1000;
         this.logger.warn('Rate limited by Telegram, waiting', { delayMs, chatId });
         await new Promise(r => setTimeout(r, delayMs));
-        return this.sendWithRetry(chatId, text, attempt);
-      }
-
-      if (attempt < this.maxRetries) {
-        const delay = this.retryBaseDelay * Math.pow(2, attempt - 1);
-        this.logger.warn('Send failed, retrying', { attempt, delay, error: err?.message });
-        await new Promise(r => setTimeout(r, delay));
-        return this.sendWithRetry(chatId, text, attempt + 1);
-      }
-
-      // Final attempt failed — try without HTML as last resort
-      try {
-        await this.bot.api.sendMessage(chatId, text);
-      } catch (finalErr) {
-        this.logger.error('Failed to send message after retries', { error: finalErr, attempts: attempt });
+        await this.bot.api.sendMessage(chatId, message);
+      } else {
+        throw err; // Let base class handle retry
       }
     }
   }
@@ -371,7 +336,6 @@ export class TelegramChannel extends Channel {
     const chatId = this.getChatId(sessionId);
     if (!chatId) return;
 
-    // Send initial "thinking" message
     try {
       const msg = await this.bot.api.sendMessage(chatId, '🔮 _thinking..._', { parse_mode: 'Markdown' });
       this.streamingMessages.set(sessionId, msg.message_id);
@@ -391,7 +355,6 @@ export class TelegramChannel extends Channel {
     const existing = this.streamingBuffers.get(sessionId) || '';
     this.streamingBuffers.set(sessionId, existing + text);
 
-    // Throttle edits — start a timer if one isn't running
     if (!this.streamingTimers.has(sessionId)) {
       const timer = setInterval(() => this.flushStream(sessionId), this.streamingInterval);
       this.streamingTimers.set(sessionId, timer);
@@ -405,14 +368,12 @@ export class TelegramChannel extends Channel {
   async streamEnd(sessionId: string): Promise<void> {
     if (!this.streamingEnabled || !this.bot) return;
 
-    // Stop the streaming timer
     const timer = this.streamingTimers.get(sessionId);
     if (timer) {
       clearInterval(timer);
       this.streamingTimers.delete(sessionId);
     }
 
-    // Flush remaining buffer
     await this.flushStream(sessionId);
     this.streamingMessages.delete(sessionId);
     this.streamingBuffers.delete(sessionId);
@@ -420,15 +381,14 @@ export class TelegramChannel extends Channel {
 
   /** Get detailed channel health status */
   getHealth(): ChannelHealth {
-    let status: ChannelHealth['status'] = 'healthy';
-    if (!this.running) {
-      status = 'down';
-    } else if (!this.bot) {
+    const base = super.getHealth();
+    let status: ChannelHealth['status'] = base.status;
+    if (this.running && !this.bot) {
       status = 'degraded';
     }
     return {
+      ...base,
       status,
-      active: this.running,
       details: {
         botInitialized: this.bot !== null,
         activeStreams: this.streamingTimers.size,
@@ -446,57 +406,32 @@ export class TelegramChannel extends Channel {
 
     if (!messageId || !buffer || !chatId) return;
 
-    // Truncate for Telegram edit limit
-    const text = buffer.length > this.maxMessageLength
-      ? buffer.slice(0, this.maxMessageLength - 3) + '...'
+    const maxLen = this.getMaxMessageLength();
+    const text = buffer.length > maxLen
+      ? buffer.slice(0, maxLen - 3) + '...'
       : buffer;
 
     try {
       await this.bot.api.editMessageText(chatId, messageId, text);
     } catch (err: any) {
-      // "message is not modified" is harmless — skip
       if (err?.description?.includes('not modified')) return;
-      // Retry once on network errors
       if (!err?.description?.includes('chat not found')) {
         try {
           await this.bot.api.editMessageText(chatId, messageId, text);
         } catch {
-          // Second failure — give up on this edit, don't crash
+          // Second failure — give up on this edit
         }
       }
     }
   }
 
   private getChatId(sessionId: string): string | null {
-    // Reverse-lookup: find chatId by sessionId
     for (const [chatId, sid] of this.sessionMap.entries()) {
       if (sid === sessionId) return chatId;
     }
-    // Fallback: extract from sessionId format "telegram-<chatId>"
     if (sessionId.startsWith('telegram-')) {
       return sessionId.replace('telegram-', '');
     }
     return null;
-  }
-
-  private splitMessage(text: string): string[] {
-    if (text.length <= this.maxMessageLength) return [text];
-
-    const chunks: string[] = [];
-    let remaining = text;
-    while (remaining.length > 0) {
-      let splitAt = this.maxMessageLength;
-      // Try to split at a newline or space near the limit
-      const lastNewline = remaining.lastIndexOf('\n', this.maxMessageLength);
-      const lastSpace = remaining.lastIndexOf(' ', this.maxMessageLength);
-      if (lastNewline > this.maxMessageLength * 0.5) {
-        splitAt = lastNewline + 1;
-      } else if (lastSpace > this.maxMessageLength * 0.5) {
-        splitAt = lastSpace + 1;
-      }
-      chunks.push(remaining.slice(0, splitAt));
-      remaining = remaining.slice(splitAt);
-    }
-    return chunks;
   }
 }

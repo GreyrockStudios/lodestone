@@ -6,6 +6,7 @@
  */
 
 import { z } from 'zod';
+import { jsonSchema, tool as aiTool } from 'ai';
 
 // ─── Tool Definition ───────────────────────────────────────────────────────
 
@@ -180,5 +181,35 @@ export class ToolRegistry {
   requiresApproval(toolId: string): boolean {
     const tool = this.tools.get(toolId);
     return tool?.definition.requiresApproval ?? true; // Default to requiring approval
+  }
+
+  /** Convert all registered tools to AI SDK v6 tool format (for LLM discovery only — execution stays in Lodestone) */
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- AI SDK ToolSet requires flexible typing
+  toAISDKTools(): Record<string, any> {
+    const result: Record<string, any> = {};
+    for (const [id, tool] of this.tools) {
+      const def = tool.definition;
+      // Build JSON Schema from parameters
+      const properties: Record<string, { type: 'string' | 'number' | 'boolean' | 'array' | 'object'; description: string }> = {};
+      const required: string[] = [];
+      for (const param of def.parameters) {
+        properties[param.name] = {
+          type: param.type as 'string' | 'number' | 'boolean' | 'array' | 'object',
+          description: param.description,
+        };
+        if (param.required) required.push(param.name);
+      }
+      // No execute() — Lodestone's executeToolCalls handles execution with safety checks
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      result[id] = {
+        description: def.description,
+        inputSchema: jsonSchema({
+          type: 'object' as const,
+          properties,
+          required: required.length > 0 ? required : undefined,
+        }),
+      } as any;
+    }
+    return result;
   }
 }

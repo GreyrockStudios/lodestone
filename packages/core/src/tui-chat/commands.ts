@@ -12,8 +12,10 @@ import type { CapabilityManager } from '../safety/capability-tiers.js';
 import type { BehavioralLearning } from '../safety/behavioral-learning.js';
 
 export interface CommandContext {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- TUI engine type varies
   engine: any;
   messages: ChatMessage[];
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- identity loaded at runtime
   identity: any;
   displayName: string;
   model: string;
@@ -23,6 +25,7 @@ export interface CommandContext {
   behavioralLearning?: BehavioralLearning;
   refreshAll: () => void;
   updateStatus: (state: 'ready' | 'thinking' | 'tool' | 'streaming' | 'error' | 'setup', detail?: string) => void;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- onboarding returns vary
   runOnboarding: () => Promise<any>;
   createSession: () => string;
   setTheme: (name: string) => void;
@@ -82,7 +85,7 @@ export async function handleCommand(input: string, ctx: CommandContext): Promise
 
     case '/tools': {
       const tools = ctx.engine.tools.listDefinitions();
-      ctx.messages.push({ role: 'system', text: `**${tools.length} tools:**\n` + tools.map((t: any) => `- \`${t.name}\` — ${t.description}`).join('\n'), ts: Date.now() });
+      ctx.messages.push({ role: 'system', text: `**${tools.length} tools:**\n` + tools.map((t: { name: string; description: string }) => `- \`${t.name}\` — ${t.description}`).join('\n'), ts: Date.now() });
       ctx.refreshAll();
       return { handled: true };
     }
@@ -103,12 +106,13 @@ export async function handleCommand(input: string, ctx: CommandContext): Promise
 
     case '/wiki': {
       const pages = await ctx.engine.memory.wiki.list();
-      ctx.messages.push({ role: 'system', text: `**${pages.length} pages:**\n` + pages.map((x: any) => `- [[${x.slug}]] — ${x.frontmatter?.title || x.slug}`).join('\n'), ts: Date.now() });
+      ctx.messages.push({ role: 'system', text: `**${pages.length} pages:**\n` + pages.map((x: { slug: string; frontmatter?: { title?: string } }) => `- [[${x.slug}]] — ${x.frontmatter?.title || x.slug}`).join('\n'), ts: Date.now() });
       ctx.refreshAll();
       return { handled: true };
     }
 
     case '/improve': {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- theme not in CommandContext type
       const theme = (ctx as any).theme;
       const dashboard = await buildImproveDashboard(ctx.engine, theme);
       ctx.messages.push({ role: 'system', text: dashboard, ts: Date.now() });
@@ -138,8 +142,8 @@ export async function handleCommand(input: string, ctx: CommandContext): Promise
           ['tui']
         );
         ctx.messages.push({ role: 'system', text: `${fg(P.success)}✓${R} Prediction logged: \`${pred.id}\`\n**Task:** ${task}\n**Expected:** ${expected}\n**Confidence:** ${(confidence * 100).toFixed(0)}%\nResolve with: ask me "resolve prediction ${pred.id} as <outcome>"`, ts: Date.now() });
-      } catch (e: any) {
-        ctx.messages.push({ role: 'system', text: `${fg(P.error)}Error: ${e.message}${R}`, ts: Date.now() });
+      } catch (e: unknown) {
+        ctx.messages.push({ role: 'system', text: `${fg(P.error)}Error: ${e instanceof Error ? e.message : String(e)}${R}`, ts: Date.now() });
       }
       ctx.refreshAll();
       return { handled: true };
@@ -162,14 +166,14 @@ export async function handleCommand(input: string, ctx: CommandContext): Promise
         const report = await ctx.engine.improvement.rbtDiagnosis.diagnose(activities);
         const lines = [
           `${B}${fg(P.success)}🌹 RBT Diagnosis${R}`,
-          `**Roses (${report.roses.length}):** ${report.roses.map((r: any) => r.action || r.description || 'unknown').join(', ') || 'none'}`,
-          `**Buds (${report.buds.length}):** ${report.buds.map((b: any) => b.action || b.description || 'unknown').join(', ') || 'none'}`,
-          `**Thorns (${report.thorns.length}):** ${report.thorns.map((t: any) => t.action || t.description || 'unknown').join(', ') || 'none'}`,
+          `**Roses (${report.roses.length}):** ${report.roses.map((r: { action?: string; description?: string }) => r.action || r.description || 'unknown').join(', ') || 'none'}`,
+          `**Buds (${report.buds.length}):** ${report.buds.map((b: { action?: string; description?: string }) => b.action || b.description || 'unknown').join(', ') || 'none'}`,
+          `**Thorns (${report.thorns.length}):** ${report.thorns.map((t: { action?: string; description?: string }) => t.action || t.description || 'unknown').join(', ') || 'none'}`,
           `**Summary:** ${report.summary}`,
         ];
         ctx.messages.push({ role: 'system', text: lines.join('\n'), ts: Date.now() });
-      } catch (e: any) {
-        ctx.messages.push({ role: 'system', text: `${fg(P.error)}RBT Error: ${e.message}${R}`, ts: Date.now() });
+      } catch (e: unknown) {
+        ctx.messages.push({ role: 'system', text: `${fg(P.error)}RBT Error: ${e instanceof Error ? e.message : String(e)}${R}`, ts: Date.now() });
       }
       ctx.refreshAll();
       return { handled: true };
@@ -225,8 +229,8 @@ export async function handleCommand(input: string, ctx: CommandContext): Promise
           }
         }
         ctx.messages.push({ role: 'system', text: lines.join('\n'), ts: Date.now() });
-      } catch (e: any) {
-        ctx.messages.push({ role: 'system', text: `${fg(P.error)}Drift Error: ${e.message}${R}`, ts: Date.now() });
+      } catch (e: unknown) {
+        ctx.messages.push({ role: 'system', text: `${fg(P.error)}Drift Error: ${e instanceof Error ? e.message : String(e)}${R}`, ts: Date.now() });
       }
       ctx.refreshAll();
       return { handled: true };
@@ -249,8 +253,8 @@ export async function handleCommand(input: string, ctx: CommandContext): Promise
           }
         }
         ctx.messages.push({ role: 'system', text: lines.join('\n'), ts: Date.now() });
-      } catch (e: any) {
-        ctx.messages.push({ role: 'system', text: `${fg(P.error)}Lessons Error: ${e.message}${R}`, ts: Date.now() });
+      } catch (e: unknown) {
+        ctx.messages.push({ role: 'system', text: `${fg(P.error)}Lessons Error: ${e instanceof Error ? e.message : String(e)}${R}`, ts: Date.now() });
       }
       ctx.refreshAll();
       return { handled: true };
@@ -276,8 +280,8 @@ export async function handleCommand(input: string, ctx: CommandContext): Promise
         }
         ctx.messages.push({ role: 'system', text: lines.join('\n'), ts: Date.now() });
         ctx.updateStatus('ready');
-      } catch (e: any) {
-        ctx.messages.push({ role: 'system', text: `${fg(P.error)}Sleep Error: ${e.message}${R}`, ts: Date.now() });
+      } catch (e: unknown) {
+        ctx.messages.push({ role: 'system', text: `${fg(P.error)}Sleep Error: ${e instanceof Error ? e.message : String(e)}${R}`, ts: Date.now() });
         ctx.updateStatus('error');
       }
       ctx.refreshAll();

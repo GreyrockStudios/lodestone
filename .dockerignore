@@ -1,0 +1,62 @@
+# Dependencies (installed fresh in builder)
+node_modules
+
+# Git
+.git
+.gitignore
+
+# Build artifacts (rebuilt in builder)
+dist
+*.tsbuildinfo
+
+# Test files
+**/*.test.ts
+**/*.test.js
+**/*.spec.ts
+**/*.spec.js
+coverage
+vitest.config.*
+
+# Documentation
+*.md
+!README.md
+!LICENSE
+docs/
+
+# Source (only dist needed in final image)
+packages/*/src
+
+# IDE / OS
+.vscode
+.idea
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+
+# Docker
+docker/
+docker-compose.yml
+.dockerignore
+
+# Environment / data
+.env
+.env.*
+data/
+*.db
+*.sqlite
+
+# Scripts (dev only)
+scripts/
+
+# Templates (not needed in image, mounted at runtime)
+templates/
+
+# Misc
+ADRS.md
+CHANGELOG.md
+GAP_PROGRESS.md
+PLAN.md
+RECOVERY.md
+chat.sh

@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any -- TUI code uses dynamic types throughout */
 /**
  * Lodestone — TUI Boot & Engine Initialization
  *
@@ -51,12 +52,13 @@ export async function boot(
 
   onBootStatus(`Creating engine...`);
 
-  const llmConfig: any = {
+  const llmConfig = {
     default: {
-      type: 'ollama',
+      type: 'ollama' as const,
       model: model,
       contextWindow: 32768,
       maxTokens: 4096,
+      baseUrl: '' as string | undefined,
     },
   };
 
