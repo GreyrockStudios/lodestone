@@ -23,6 +23,7 @@ import { KnowledgeTransfer, type TransferPackage, type TransferItem, type Receiv
 import { UndoSystem, type UndoableAction, type UndoableActionType, type UndoResult, type ReverseHandler } from './safety/undo-system.js';
 import { UserManager, type UserConfig, type User } from './auth/user-manager.js';
 import { MigrationSystem } from './migration/migration-system.js';
+import { DashboardServer, type DashboardConfig } from './dashboard/server.js';
 import { join } from 'path';
 
 // ─── Engine Config ─────────────────────────────────────────────────────────
@@ -65,6 +66,8 @@ export interface LodestoneConfig {
   calendar?: { provider: 'caldav' | 'google'; url?: string; token?: string; calendarId?: string };
   /** Auth/multi-user configuration */
   auth?: { users: UserConfig[]; tokens: Record<string, string> };
+  /** Dashboard configuration */
+  dashboard?: DashboardConfig;
   /** Config version for migrations */
   configVersion?: number;
 }
@@ -112,6 +115,7 @@ export class LodestoneEngine {
   readonly undoSystem: UndoSystem | null;
   readonly userManager: UserManager | null;
   readonly migrationSystem: MigrationSystem;
+  readonly dashboard: DashboardServer | null;
 
   // State
   private running = false;
@@ -209,6 +213,11 @@ export class LodestoneEngine {
 
     // Sprint 6: Migration system
     this.migrationSystem = new MigrationSystem(join(config.workspaceRoot, 'data'));
+
+    // Dashboard (only if configured)
+    this.dashboard = config.dashboard
+      ? new DashboardServer(config.dashboard)
+      : null;
   }
 
   // ─── Lifecycle ──────────────────────────────────────────────────────────
@@ -262,6 +271,36 @@ export class LodestoneEngine {
       await this.channelManager.start();
     }
 
+    // Start dashboard (if configured)
+    if (this.dashboard) {
+      // Register engine data providers
+      this.dashboard.registerProvider('engine', async () => ({
+        running: this.running,
+        sessions: this.sessions.list().length,
+        tools: this.tools.listDefinitions().length,
+        scheduledJobs: this.scheduler.list().length,
+      }));
+      this.dashboard.registerProvider('safety', async () => ({
+        capabilities: this.safety.capabilities.getTierSummary(),
+        behavioralRules: this.safety.behavioralLearning.getActiveRules().length,
+        intentStats: this.safety.intentPredictor.getStats(),
+        qualityGate: this.safety.qualityGate.getStatus(),
+        memoryPromotionQueue: this.safety.memoryPromotion.listQueue(),
+      }));
+      this.dashboard.registerProvider('improvement', async () => ({
+        predictions: await this.improvement.predictionJournal.list({ limit: 10 }),
+        latestDrift: await this.improvement.driftDetector.getLatest(),
+        latestDiagnosis: await this.improvement.rbtDiagnosis.getLatest(),
+      }));
+      this.dashboard.registerProvider('memory', async () => ({
+        wikiPages: (await this.memory.wiki.list()).length,
+        scratchKeys: this.memory.scratch.list(),
+      }));
+
+      await this.dashboard.start();
+      console.log(`[Lodestone] Dashboard started on port ${this.config.dashboard?.port}`);
+    }
+
     this.running = true;
     this.emit({ type: 'started', timestamp: new Date().toISOString() });
 
@@ -273,6 +312,12 @@ export class LodestoneEngine {
     if (!this.running) return;
 
     console.log('[Lodestone] Stopping engine...');
+
+    // Stop dashboard
+    if (this.dashboard) {
+      await this.dashboard.stop();
+      console.log('[Lodestone] Dashboard stopped.');
+    }
 
     // Stop channels
     if (this.channelManager) {
