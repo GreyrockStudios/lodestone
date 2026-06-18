@@ -19,9 +19,10 @@ lodestone start
 Most LLM wrappers give you a chatbot. Lodestone gives you an agent that:
 
 - **Remembers everything** — Three-layer memory (vector recall, curated wiki, session scratch) means knowledge compounds across sessions. Ask something on Tuesday, get the answer instantly on Thursday.
-- **Improves itself** — Prediction journals, pre-mortems, drift detection, and skill evolution. The agent gets better at its job over time, not just longer context windows.
-- **Works proactively** — Health checks, consolidation cycles, and morning briefs. The agent thinks even when you're not talking to it.
+- **Improves itself** — Prediction journals, pre-mortems, drift detection, calibration loops, and skill synthesis. The agent gets better at its job over time, not just longer context windows.
+- **Works proactively** — Health checks, consolidation cycles, morning briefs, and dream mode. The agent thinks even when you're not talking to it.
 - **Has identity** — You define WHO it is (SOUL.md), WHAT it knows (wiki), HOW it operates (RULES.md), and WHAT it focuses on (HEARTBEAT.md). Not a blank slate — a shaped tool.
+- **Stays safe** — Behavioral learning, quality gates, self-constraints, intent prediction, and explainability traces. The agent learns from mistakes and enforces its own guardrails.
 - **Compounds knowledge** — Start empty or from templates. The wiki grows, cross-links, and gets linted automatically. Yesterday's research is tomorrow's context.
 
 ## Architecture
@@ -38,16 +39,39 @@ Most LLM wrappers give you a chatbot. Lodestone gives you an agent that:
 │  │ Memory       │  │ Self-         │  │ Proactive     │   │
 │  │ ┌ Wiki       │  │ Improvement   │  │ ┌ Sensorium   │   │
 │  │ ├ Vector DB  │  │ ┌ Predictions │  │ ├ Sleep Cycle │   │
-│  │ └ Scratch    │  │ ├ Drift Det.  │  │ ├ Briefs     │   │
-│  │              │  │ └ Skills      │  │ └ Watchdog   │   │
+│  │ └ Scratch    │  │ ├ Calibration │  │ ├ Briefs     │   │
+│  │              │  │ ├ Drift Det.  │  │ └ Watchdog   │   │
+│  │              │  │ ├ A/B Testing │  │              │   │
+│  │              │  │ └ Dream Mode  │  │              │   │
 │  ├─────────────┤  ├──────────────┤  ├──────────────┤   │
-│  │ Tools        │  │ Session Mgmt │  │ Scheduler     │   │
-│  │ ┌ wiki-resolve│  │ ┌ Create     │  │ ┌ Cron jobs  │   │
-│  │ ├ smart-retr. │  │ ├ Compact    │  │ ├ Intervals  │   │
-│  │ ├ decision-log│  │ └ Resume     │  │ └ Queues     │   │
-│  │ ├ watchdog    │  │              │  │              │   │
-│  │ ├ resume-state│  │              │  │              │   │
-│  │ └ biz-hours   │  │              │  │              │   │
+│  │ Safety       │  │ Session Mgmt │  │ Scheduler     │   │
+│  │ ┌ Quality    │  │ ┌ Create     │  │ ┌ Cron jobs  │   │
+│  │   Gates      │  │ ├ Compact    │  │ ├ Intervals  │   │
+│  │ ├ Self-      │  │ ├ Persist    │  │ └ Queues     │   │
+│  │   Constraints│  │ └ Resume     │  │              │   │
+│  │ ├ Explain.   │  │              │  │              │   │
+│  │ ├ Confidence │  │              │  │              │   │
+│  │ ├ Failure    │  │              │  │              │   │
+│  │ │ Replay     │  │              │  │              │   │
+│  │ └ Intent     │  │              │  │              │   │
+│  │   Prediction │  │              │  │              │   │
+│  ├─────────────┤  ├──────────────┤  ├──────────────┤   │
+│  │ Tools (15)   │  │ Channels     │  │ Plugins       │   │
+│  │ ┌ wiki-resolve│ │ ┌ Telegram   │  │ ┌ Hooks (5)   │   │
+│  │ ├ wiki-search │  │ ├ Discord   │  │ ├ onMessage   │   │
+│  │ ├ smart-retr. │  │ ├ Email     │  │ ├ beforeTool  │   │
+│  │ ├ decision-log│  │ ├ Dashboard │  │ ├ afterTool   │   │
+│  │ ├ resume-state│  │ └ CLI/TUI   │  │ ├ beforeResp  │   │
+│  │ ├ watchdog    │  │              │  │ └ afterResp   │   │
+│  │ ├ biz-hours   │  │              │  │              │   │
+│  │ ├ web-search  │  │              │  │              │   │
+│  │ ├ web-fetch   │  │              │  │              │   │
+│  │ ├ file-ops    │  │              │  │              │   │
+│  │ ├ code-exec   │  │              │  │              │   │
+│  │ ├ calendar    │  │              │  │              │   │
+│  │ ├ vision      │  │              │  │              │   │
+│  │ ├ voice       │  │              │  │              │   │
+│  │ └ coordinator │  │              │  │              │   │
 │  └─────────────┘  └──────────────┘  └──────────────┘   │
 ├──────────────────────────────────────────────────────────┤
 │                     LLM RUNTIME                           │
@@ -55,7 +79,7 @@ Most LLM wrappers give you a chatbot. Lodestone gives you an agent that:
 │  (Ollama · OpenAI · Anthropic · any OpenAI-compatible)   │
 ├──────────────────────────────────────────────────────────┤
 │                     CHANNELS                              │
-│         CLI · TUI Chat · Telegram · Discord · API         │
+│      CLI · TUI Chat · Telegram · Discord · Email · API    │
 └──────────────────────────────────────────────────────────┘
 ```
 
@@ -99,6 +123,7 @@ cd my-agent
 lodestone start      # Boot the engine
 lodestone chat       # Interactive TUI chat
 lodestone status     # Check engine status
+lodestone doctor     # Run 25 health checks
 ```
 
 Or with Docker:
@@ -106,6 +131,18 @@ Or with Docker:
 ```bash
 docker compose up
 ```
+
+## Example Agents
+
+Lodestone ships with three ready-to-use example agents in `examples/`:
+
+| Agent | Emoji | Best For | Description |
+|-------|-------|----------|-------------|
+| [business-ops](examples/business-ops/) | ⚙️ | Operations | Monitors systems, triages alerts, manages workflows |
+| [researcher](examples/researcher/) | 🔍 | Research | Literature review, evidence synthesis, citation tracking |
+| [customer-support](examples/customer-support/) | 💬 | Support | Ticket routing, response drafting, escalation handling |
+
+Each example includes a README, identity files (SOUL.md, IDENTITY.md), and a sample config.
 
 ## Configuration Reference
 
@@ -157,6 +194,8 @@ session:
   keepRecentCount: 10
   maxEntries: 200
   pruneAfter: 7d
+  persist: false                    # Set true for SQLite persistence
+                                    # (requires better-sqlite3)
 
 # Proactive systems
 proactive:
@@ -165,11 +204,25 @@ proactive:
     interval: 30m
   sleep:
     enabled: true
-    schedule: "0 3 * * *"           # 3am daily
+    schedule: "0 3 * * *"           # 3am daily (dream mode)
     timezone: "America/Toronto"
   drift:
     enabled: true
     schedule: "0 9 * * 1"           # Weekly Monday 9am
+  calibration:
+    enabled: true
+    interval: 1h                    # Hourly Brier score calibration
+  abTesting:
+    enabled: true                   # Variant injection + outcome recording
+
+# Safety systems
+safety:
+  qualityGates: true                # Block low-quality outputs
+  selfConstraints: true             # Self-imposed behavioral limits
+  explainability: true              # Decision trace recording
+  confidenceDisplay: true           # Calibrated confidence scoring
+  failureReplay: true               # Learn from past failures
+  intentPrediction: true            # Predict user intent before acting
 
 # Scheduler
 scheduler:
@@ -179,6 +232,16 @@ scheduler:
 logging:
   level: info                        # debug | info | warn | error
   file: ./workspace/data/logs/lodestone.log
+
+# Plugins
+plugins:
+  enabled: true
+  hooks:
+    - onMessage
+    - beforeTool
+    - afterTool
+    - beforeResponse
+    - afterResponse
 ```
 
 ## CLI Commands
@@ -188,11 +251,32 @@ lodestone init                Interactive workspace wizard
 lodestone start               Boot the engine
 lodestone status              Show engine status
 lodestone chat                Start TUI chat interface
-lodestone tools list          List registered tools
+lodestone tools list          List registered tools (15 built-in)
 lodestone memory stats        Show memory statistics
 lodestone config show          Display current configuration
 lodestone config set <k> <v>  Update a config value
+lodestone doctor              Run 25 health checks
 ```
+
+## Built-in Tools (15)
+
+| Tool | Purpose |
+|------|---------|
+| `wiki-resolve` | Resolve [[wikilinks]] to file paths and content |
+| `wiki-search` | Search wiki pages by title, slug, or tag |
+| `smart-retrieve` | Get wiki pages ranked by relevance to current task |
+| `decision-log` | Record and query decisions with rationale |
+| `resume-state` | Save/load task state across sessions |
+| `watchdog` | Register expected outcomes with deadlines |
+| `business-hours` | Check if it's business hours before sending |
+| `web-search` | Search the web for current information |
+| `web-fetch` | Fetch and extract readable content from a URL |
+| `file-ops` | Read, write, and manage files |
+| `code-exec` | Execute shell commands safely |
+| `calendar` | Schedule and manage events |
+| `vision` | Analyze images and visual content |
+| `voice` | Text-to-speech output |
+| `coordinator` | Spawn and manage sub-agents |
 
 ## Templates
 
@@ -220,9 +304,41 @@ Each template includes: IDENTITY.md, SOUL.md, USER.md, RULES.md, HEARTBEAT.md, l
 2. Set `DISCORD_BOT_TOKEN` in `.env`
 3. Configure the Discord channel in your config
 
+### Email
+
+1. Set `SMTP_HOST`, `SMTP_USER`, `SMTP_PASS` in `.env`
+2. Configure the email channel in your config
+3. Requires `nodemailer` and `imap` (optional peer deps)
+
 ### Web Chat
 
-The built-in TUI chat (`lodestone chat`) works out of the box. For a web interface, see the API server configuration.
+The built-in TUI chat (`lodestone chat`) works out of the box. For a web interface, use the dashboard API server.
+
+## Self-Improvement Features
+
+| Feature | What It Does | Schedule |
+|---------|-------------|----------|
+| **Prediction Journal** | Records predictions, checks outcomes, computes Brier scores | Each response |
+| **Calibration Loop** | Adjusts confidence based on historical accuracy | Hourly |
+| **Drift Correction** | Detects behavioral drift and injects corrective prompts | Every 6 hours |
+| **Dream Mode** | Consolidates learnings, synthesizes skills, patches behavior | Nightly 3am |
+| **A/B Testing** | Tests prompt variants and records outcomes | Per-response |
+| **Failure Replay** | Analyzes failures and generates prevention rules | On failure |
+| **Skill Synthesizer** | Creates new skills from accumulated tool sequences | During dream cycle |
+| **Sleep Cycle** | Runs self-improvement cycle with pre-mortems and reflection | Nightly 3am |
+
+## Safety Features
+
+| Feature | What It Does |
+|---------|-------------|
+| **Quality Gates** | Reviews outputs by type (code, advice, sensitive) and blocks low-quality responses |
+| **Self-Constraints** | Self-imposed behavioral limits approved by the agent itself |
+| **Explainability** | Records decision traces showing why each action was taken |
+| **Confidence Display** | Calibrated confidence scores with band labels (high/moderate/low/very-low) |
+| **Failure Replay** | Replays past failures to generate prevention rules |
+| **Intent Prediction** | Predicts user intent before executing tools |
+| **Behavioral Learning** | Learns from corrections and adjusts future behavior |
+| **Contextual Style** | Adapts tone, formality, and verbosity to context |
 
 ## Development Guide
 
@@ -245,30 +361,45 @@ npm run build
 ```
 lodestone/
 ├── packages/
-│   ├── core/                  # Engine runtime
+│   ├── core/                  # Engine runtime (44,000+ lines)
 │   │   └── src/
 │   │       ├── engine.ts       # Main orchestrator
 │   │       ├── agent-loop.ts   # LLM → tool → response cycle
+│   │       ├── sdk.ts          # Public API for embedding
 │   │       ├── llm/            # Multi-provider LLM abstraction
 │   │       ├── memory/         # Wiki + Vector + Scratch
-│   │       ├── tools/          # Built-in tools (7)
-│   │       ├── session/        # Session management & compaction
+│   │       ├── tools/          # Built-in tools (15)
+│   │       ├── session/        # Session management & persistence
 │   │       ├── scheduler/      # Cron & interval job system
 │   │       ├── streaming/      # Response streaming handler
-│   │       ├── channels/       # Channel adapters
-│   │       └── identity/       # SOUL/IDENTITY/RULES loader
+│   │       ├── channels/       # Channel adapters (Telegram, Discord, Email, Dashboard)
+│   │       ├── safety/         # Quality gates, self-constraints, explainability, confidence
+│   │       ├── improvement/    # Calibration, drift, dream mode, A/B testing, skill synthesis
+│   │       ├── identity/       # SOUL/IDENTITY/RULES loader, contextual style
+│   │       ├── plugin-system/  # Plugin hooks (5 lifecycle events)
+│   │       ├── dashboard/      # Web dashboard with auth
+│   │       └── utils/          # Logger, config validator, health checker
 │   └── cli/                    # CLI tool
 │       └── src/
 │           ├── index.ts         # Commander.js entry point
-│           └── commands/        # init, start, status, chat, etc.
+│           └── commands/        # init, start, status, chat, tools, memory, config, doctor
+├── examples/                   # Example agents (3)
+│   ├── business-ops/
+│   ├── researcher/
+│   └── customer-support/
 ├── templates/                  # Identity templates (5)
 │   ├── developer/
 │   ├── business/
 │   ├── creative/
 │   ├── researcher/
 │   └── general/
+├── docs/                       # Documentation
+│   ├── getting-started.md
+│   ├── architecture.md
+│   └── api-reference.md
 ├── docker/                     # Docker configuration
 ├── scripts/                    # Proactive scripts
+├── CONTRIBUTING.md             # Contribution guide
 └── docker-compose.yml          # One-command deployment
 ```
 
@@ -276,65 +407,68 @@ lodestone/
 
 ```bash
 npm run build          # Build all packages
-npm run test           # Run tests
+npm test               # Run 235 tests
+npm run test:dogfood   # Run 21 integration tests
 npm run dev            # Watch mode
-npm run lint           # Lint
 ```
 
 ### Adding a Tool
 
 1. Create `packages/core/src/tools/impl/my-tool.ts`
 2. Implement the `Tool` interface (definition + execute)
-3. Register in `main.ts` or via the CLI
-4. Add to the tool count in status output
+3. Register in `main.ts`
+4. Export from `packages/core/src/index.ts`
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for detailed guidelines.
 
 ### Adding a Channel
 
 1. Create `packages/core/src/channels/my-channel.ts`
-2. Implement the `Channel` interface
-3. Add authentication config
+2. Extend the `Channel` base class (retry, rate-limiting, and splitting are built-in)
+3. Implement `sendRaw()` and `getMaxMessageLength()`
 4. Wire into the engine startup
 
-## Milestones
+### Adding a Plugin
 
-### M1: First Breath ✅
-Docker Compose boots an agent that starts thinking proactively within 5 minutes.
+1. Create a plugin implementing one or more hooks:
+   - `onMessage` — fired when a message arrives
+   - `beforeTool` — fired before tool execution (can block or modify)
+   - `afterTool` — fired after tool execution
+   - `beforeResponse` — fired before sending response (can modify)
+   - `afterResponse` — fired after response is sent
+2. Register via `engine.plugins.register(plugin)`
 
-- ✅ Runtime core (LLM abstraction, tool execution, streaming)
-- ✅ Session management (create, resume, compaction)
-- ✅ Memory system (wiki, vector DB, scratch buffer)
-- ✅ Built-in tools (7: wiki-resolve, wiki-search, smart-retrieve, decision-log, resume-state, watchdog, business-hours)
-- ✅ Identity loader (SOUL, IDENTITY, USER, RULES, HEARTBEAT)
-- ✅ Proactive systems (sensorium, sleep cycle, drift detection)
-- ✅ Docker Compose (engine + Ollama)
+## SDK Usage
 
-### M2: Self-Improvement 🔄
-Agent gets better over time through structured self-assessment.
+Embed Lodestone in your own application:
 
-- ✅ Prediction journal
-- ✅ Pre-mortem analysis
-- ✅ Drift detection
-- ✅ RBT diagnosis
-- ✅ Context compaction
+```typescript
+import { createAgent } from '@lodestone/core';
 
-### M3: Channels & Multi-User 🔄
-Agent connects to the world and serves multiple users.
+const agent = await createAgent({
+  workspaceRoot: './my-agent',
+  llm: { type: 'ollama', model: 'glm-5.1:cloud' },
+});
 
-- ✅ TUI chat interface
-- 🔄 Telegram channel adapter
-- 🔄 Discord channel adapter
-- 🔄 Web chat interface
-- 🔄 Multi-user session isolation
+// Process a message
+const response = await agent.processMessage('user-1', 'What did we discuss yesterday?');
 
-### M4: Polish & Ship ✅ (This milestone)
-Production-ready product.
+// Access subsystems
+agent.engine.memory.vector.store('key', 'value');
+agent.engine.safety.explainability.getTrace('session-1');
+```
 
-- ✅ CLI (init, start, status, chat, tools, memory, config)
-- ✅ Identity templates (developer, business, creative, researcher, general)
-- ✅ README and documentation
-- ✅ npm-publishable package
-- 🔄 Cloud deployment option
-- 🔄 Monitoring dashboard
+## Stats
+
+- **44,284 lines** of TypeScript
+- **235 tests** + 21 dogfood tests — all passing
+- **15 built-in tools**
+- **5 channels** (CLI, TUI, Telegram, Discord, Email)
+- **8 self-improvement systems**
+- **8 safety systems**
+- **5 plugin hooks**
+- **3 example agents**
+- **5 identity templates**
 
 ## License
 
