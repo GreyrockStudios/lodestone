@@ -170,12 +170,6 @@ export class LodestoneEngine {
       identityDir: config.identityDir,
     });
 
-    // Improvement subsystem
-    this.improvement = new ImprovementSystem({
-      dataDir: join(config.workspaceRoot, 'data/improvement'),
-      sleepCycleEnabled: true,
-    });
-
     // Safety subsystem
     this.safety = new SafetySystem({
       dataDir: join(config.workspaceRoot, 'data/safety'),
@@ -184,6 +178,14 @@ export class LodestoneEngine {
       memoryPromotion: config.safety?.memoryPromotion,
       intentPrediction: config.safety?.intentPrediction,
       qualityGate: config.safety?.qualityGate,
+    });
+
+    // Improvement subsystem (after safety so it can reference behavioralLearning)
+    this.improvement = new ImprovementSystem({
+      dataDir: join(config.workspaceRoot, 'data/improvement'),
+      sleepCycleEnabled: true,
+      sessionManager: this.sessions,
+      behavioralLearning: this.safety.behavioralLearning,
     });
 
     // Initialize channels (only if configured)
@@ -327,6 +329,7 @@ export class LodestoneEngine {
         latestDiagnosis: await this.improvement.rbtDiagnosis.getLatest(),
         calibrationInsights: this.lastCalibrationInsights,
         driftCorrections: this.lastDriftCorrections,
+        abTests: this.improvement.abTesting.getActiveTests(),
       }));
       this.dashboard.registerProvider('memory', async () => ({
         wikiPages: (await this.memory.wiki.list()).length,
@@ -392,6 +395,17 @@ export class LodestoneEngine {
       description: 'Detect behavior drift from identity principles and generate corrective prompts',
     });
     this.logger.info('Drift correction job registered');
+
+    // Register dream mode job — runs nightly at 3am for reflective processing
+    if (this.improvement.dreamMode) {
+      this.scheduler.register({
+        id: 'dream-mode',
+        name: 'Dream Mode — Nightly Reflection',
+        schedule: { kind: 'cron', expr: '0 3 * * *' }, // 3am daily
+        description: 'Analyze recent conversations, extract behavioral rules, propose self-improvements',
+      });
+      this.logger.info('Dream mode job registered');
+    }
 
     this.running = true;
     this.emit({ type: 'started', timestamp: new Date().toISOString() });
@@ -465,6 +479,17 @@ export class LodestoneEngine {
               pages: report.wikiPages,
               entities: report.totalEntities,
               thinAreas: report.thinAreas.length,
+            });
+          }
+          break;
+        }
+        case 'dream-mode': {
+          if (this.improvement.dreamMode) {
+            const report = await this.improvement.dreamMode.runDreamSession();
+            this.logger.info('Dream mode complete', {
+              sessionsReviewed: report.sessionsReviewed,
+              responsesScored: report.responsesScored,
+              learnings: report.learnings.length,
             });
           }
           break;

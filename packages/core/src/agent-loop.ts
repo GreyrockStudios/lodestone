@@ -253,6 +253,31 @@ export class AgentLoop {
       await this.autoCapture(userMessage, currentResponse);
     }
 
+    // 6b. Record A/B test outcomes for active tests
+    const activeTests = this.engine.improvement.abTesting.getActiveTests();
+    if (activeTests.length > 0) {
+      for (const test of activeTests) {
+        try {
+          const variant = this.engine.improvement.abTesting.getVariant(test.id, sessionId);
+          if (variant) {
+            // Score based on response quality heuristics
+            const responseLength = currentResponse.length;
+            const score = Math.min(1, Math.max(0, responseLength / 1000)); // Simple heuristic: longer = more complete
+            this.engine.improvement.abTesting.recordResult(test.id, variant.id, {
+              sessionId,
+              variantId: variant.id,
+              score,
+              metadata: { rounds, toolCalls: toolCallsMade.length, responseLength },
+              timestamp: new Date().toISOString(),
+            });
+          }
+        } catch (err) {
+          // Don't block response on A/B test recording failure
+          this.logger.debug('A/B test recording failed', { testId: test.id, error: err instanceof Error ? err.message : String(err) });
+        }
+      }
+    }
+
     // 7. Check for context compaction
     if (this.engine.sessions.needsCompaction(sessionId)) {
       await this.compactSession(sessionId);
@@ -358,6 +383,17 @@ export class AgentLoop {
     if (driftCorrections.length > 0) {
       const corrections = driftCorrections.map(c => `- ${c.principleName}: ${c.correctionPrompt}`).join('\n');
       prompt += `\n\n## Identity Reinforcement\nRecent behavior has drifted from these principles. Please re-align:\n${corrections}`;
+    }
+
+    // Append A/B test variant (if active test exists for this session)
+    const activeTests = this.engine.improvement.abTesting.getActiveTests();
+    if (activeTests.length > 0) {
+      for (const test of activeTests) {
+        const variant = this.engine.improvement.abTesting.getVariant(test.id, sessionId);
+        if (variant && variant.promptTemplate) {
+          prompt += `\n\n## Experiment: ${test.name}\n${variant.promptTemplate}`;
+        }
+      }
     }
 
     return prompt;

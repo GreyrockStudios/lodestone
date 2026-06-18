@@ -15,6 +15,8 @@ import { join } from 'path';
 import type { Tool, ToolDefinition, ToolResult, ToolContext } from '../tools/definitions.js';
 import type { JobConfig } from '../scheduler/scheduler.js';
 import type { MemoryAccess } from '../tools/definitions.js';
+import type { SessionManager } from '../session/manager.js';
+import type { BehavioralLearning } from '../safety/behavioral-learning.js';
 
 import { PredictionJournal, type PredictionEntry, type CalibrationReport } from './prediction-journal.js';
 import { DriftDetector, type IdentityRule, type DecisionRecord, type DriftReport } from './drift-detector.js';
@@ -27,6 +29,8 @@ import { CalibrationLoop, type CalibrationLoopConfig, type CalibrationInsight, t
 import { DriftCorrector, DEFAULT_PRINCIPLES, type Principle, type DriftCorrection, type DriftCorrectionResult, type DriftCorrectionConfig } from './drift-correction.js';
 import { MultiAgentCoordinator, ReviewSubagent, type SubagentConfig, type SubagentTask, type SubagentResult, type SubagentHandoff, type SubagentStatus } from './multi-agent.js';
 import { PatchAutomation, type PatchAutomationConfig, type PatchProposal, type PatchReview, type AutomationStats } from './patch-automation.js';
+import { DreamMode, type DreamModeConfig, type DreamReport } from './dream-mode.js';
+import { ABTesting, type ABTest, type PromptVariant, type ABOutcome, type VariantResult, type ABResults, type SignificanceResult } from './ab-testing.js';
 
 // ─── Config ─────────────────────────────────────────────────────────────────
 
@@ -41,6 +45,10 @@ export interface ImprovementConfig {
   sleepCron?: string;
   /** Optional memory access for wiki integration */
   memory?: MemoryAccess;
+  /** Session manager (for dream mode) */
+  sessionManager?: SessionManager;
+  /** Behavioral learning (for dream mode) */
+  behavioralLearning?: BehavioralLearning;
 }
 
 // ─── Improvement System ─────────────────────────────────────────────────────
@@ -59,6 +67,8 @@ export class ImprovementSystem {
   readonly multiAgent: MultiAgentCoordinator;
   readonly reviewSubagent: ReviewSubagent;
   readonly patchAutomation: PatchAutomation;
+  readonly dreamMode: DreamMode | null;
+  readonly abTesting: ABTesting;
 
   private config: ImprovementConfig;
 
@@ -100,6 +110,15 @@ export class ImprovementSystem {
       patchSystem: this.selfPatching,
       projectRoot: process.cwd(),
     });
+    this.abTesting = new ABTesting(join(dataDir, 'ab-testing'));
+    this.dreamMode = config.sessionManager
+      ? new DreamMode({
+          dataDir: join(dataDir, 'dream'),
+          sessionManager: config.sessionManager,
+          behavioralLearning: config.behavioralLearning!,
+          selfPatching: this.selfPatching,
+        } as DreamModeConfig)
+      : null;
   }
 
   /** Initialize all subsystems */
@@ -115,7 +134,11 @@ export class ImprovementSystem {
       this.driftCorrector.init(),
       this.multiAgent.init(),
       this.patchAutomation.init(),
+      this.abTesting.init(),
     ]);
+    if (this.dreamMode) {
+      await this.dreamMode.init();
+    }
 
     // Wire post-cycle modules into the sleep cycle
     this.sleepCycle.setPostCycleModules({
