@@ -29,6 +29,14 @@ export { DecisionLogTool, type DecisionEntry } from './tools/impl/decision-log.j
 export { ResumeStateTool } from './tools/impl/resume-state.js';
 export { WatchdogTool, type WatchEntry } from './tools/impl/watchdog.js';
 export { BusinessHoursTool, type BusinessHoursConfig } from './tools/impl/business-hours.js';
+export { WebSearchTool, type WebSearchConfig } from './tools/impl/web-search.js';
+export { WebFetchTool } from './tools/impl/web-fetch.js';
+export { FileOpsTool, type FileOpsConfig } from './tools/impl/file-ops.js';
+export { CodeExecTool, type CodeExecConfig } from './tools/impl/code-exec.js';
+export { CalendarTool, type CalendarConfig } from './tools/impl/calendar.js';
+export { VisionTool, type VisionToolConfig } from './tools/impl/vision.js';
+export { VoiceTool, type VoiceToolConfig } from './tools/impl/voice.js';
+export { CoordinatorTool } from './tools/impl/coordinator.js';
 
 // Session
 export { SessionManager, type Session, type SessionMessage, type SessionState, type CompactionConfig } from './session/manager.js';
