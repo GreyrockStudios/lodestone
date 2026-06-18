@@ -23,6 +23,12 @@ export interface TelegramConfig extends ChannelConfig {
   streaming?: boolean;
   /** Streaming edit interval in ms (default: 500) */
   streamingInterval?: number;
+  /** Max retries for failed API calls (default: 3) */
+  maxRetries?: number;
+  /** Base delay for retry backoff in ms (default: 500) */
+  retryBaseDelay?: number;
+  /** Min delay between sends to same chat in ms (default: 1000 = 1 msg/sec) */
+  perChatRateLimitMs?: number;
 }
 
 // ─── Telegram Channel ─────────────────────────────────────────────────────
@@ -38,6 +44,10 @@ export class TelegramChannel extends Channel {
   private readonly maxMessageLength: number;
   private readonly streamingEnabled: boolean;
   private readonly streamingInterval: number;
+  private readonly maxRetries: number;
+  private readonly retryBaseDelay: number;
+  private readonly perChatRateLimitMs: number;
+  private lastSendTime: Map<string, number> = new Map(); // chatId → last send timestamp
   private logger = getLogger('Channel:Telegram');
 
   constructor(config: TelegramConfig) {
@@ -45,6 +55,9 @@ export class TelegramChannel extends Channel {
     this.maxMessageLength = config.maxMessageLength || 4096;
     this.streamingEnabled = config.streaming ?? true;
     this.streamingInterval = config.streamingInterval || 500;
+    this.maxRetries = config.maxRetries ?? 3;
+    this.retryBaseDelay = config.retryBaseDelay ?? 500;
+    this.perChatRateLimitMs = config.perChatRateLimitMs ?? 1000;
   }
 
   get id(): string {
@@ -144,6 +157,110 @@ export class TelegramChannel extends Channel {
       await this.emitMessage(message);
     });
 
+    // Handle media messages (photos, documents, voice, stickers, etc.)
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- grammy ctx type
+    this.bot.on('message:photo', async (ctx: any) => {
+      const chatId = ctx.chat.id.toString();
+      let sessionId = this.sessionMap.get(chatId);
+      if (!sessionId) {
+        sessionId = `telegram-${chatId}`;
+        this.sessionMap.set(chatId, sessionId);
+      }
+
+      // Get the highest resolution photo
+      const photos = ctx.message.photo;
+      const largest = photos[photos.length - 1];
+      const caption = ctx.message.caption || '(no caption)';
+
+      const message: ChannelMessage = {
+        sessionId,
+        content: `[Photo: ${caption}]`,
+        senderId: ctx.from.id.toString(),
+        senderName: ctx.from.first_name || ctx.from.username || 'Unknown',
+        channelId: this.id,
+        timestamp: new Date().toISOString(),
+        metadata: {
+          chatId,
+          messageId: ctx.message.message_id,
+          username: ctx.from.username,
+          mediaType: 'photo',
+          fileId: largest?.file_id,
+          fileSize: largest?.file_size,
+          caption,
+        },
+      };
+
+      await this.emitMessage(message);
+    });
+
+    // Handle documents
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- grammy ctx type
+    this.bot.on('message:document', async (ctx: any) => {
+      const chatId = ctx.chat.id.toString();
+      let sessionId = this.sessionMap.get(chatId);
+      if (!sessionId) {
+        sessionId = `telegram-${chatId}`;
+        this.sessionMap.set(chatId, sessionId);
+      }
+
+      const doc = ctx.message.document;
+      const caption = ctx.message.caption || doc.file_name || 'document';
+
+      const message: ChannelMessage = {
+        sessionId,
+        content: `[Document: ${caption} (${doc.file_name || 'unknown'}, ${doc.file_size || 0} bytes)]`,
+        senderId: ctx.from.id.toString(),
+        senderName: ctx.from.first_name || ctx.from.username || 'Unknown',
+        channelId: this.id,
+        timestamp: new Date().toISOString(),
+        metadata: {
+          chatId,
+          messageId: ctx.message.message_id,
+          username: ctx.from.username,
+          mediaType: 'document',
+          fileId: doc.file_id,
+          fileName: doc.file_name,
+          fileSize: doc.file_size,
+          mimeType: doc.mime_type,
+          caption,
+        },
+      };
+
+      await this.emitMessage(message);
+    });
+
+    // Handle voice messages
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- grammy ctx type
+    this.bot.on('message:voice', async (ctx: any) => {
+      const chatId = ctx.chat.id.toString();
+      let sessionId = this.sessionMap.get(chatId);
+      if (!sessionId) {
+        sessionId = `telegram-${chatId}`;
+        this.sessionMap.set(chatId, sessionId);
+      }
+
+      const voice = ctx.message.voice;
+
+      const message: ChannelMessage = {
+        sessionId,
+        content: `[Voice message: ${voice.duration}s]`,
+        senderId: ctx.from.id.toString(),
+        senderName: ctx.from.first_name || ctx.from.username || 'Unknown',
+        channelId: this.id,
+        timestamp: new Date().toISOString(),
+        metadata: {
+          chatId,
+          messageId: ctx.message.message_id,
+          username: ctx.from.username,
+          mediaType: 'voice',
+          fileId: voice.file_id,
+          duration: voice.duration,
+        },
+      };
+
+      await this.emitMessage(message);
+    });
+
     // Start polling
     await this.bot.start({
       allowed_updates: ['message'],
@@ -183,20 +300,65 @@ export class TelegramChannel extends Channel {
       return;
     }
 
+    // Rate limit: ensure min delay between sends to same chat
+    await this.enforceRateLimit(chatId);
+
     // Split message if it exceeds Telegram's limit
     const chunks = this.splitMessage(message);
     for (const chunk of chunks) {
-      try {
-        await this.bot.api.sendMessage(chatId, chunk, { parse_mode: 'HTML' });
-      } catch (err) {
-        // Fallback: send without HTML parsing
+      await this.enforceRateLimit(chatId);
+      await this.sendWithRetry(chatId, chunk);
+    }
+  }
+
+  /** Send a message with retry logic (exponential backoff) */
+  private async sendWithRetry(chatId: string, text: string, attempt = 1): Promise<void> {
+    try {
+      await this.bot.api.sendMessage(chatId, text, { parse_mode: 'HTML' });
+    } catch (err: any) {
+      // Check if it's a parse error — retry without HTML
+      if (attempt === 1 && err?.message?.includes('parse')) {
         try {
-          await this.bot.api.sendMessage(chatId, chunk);
+          await this.bot.api.sendMessage(chatId, text);
+          return;
         } catch (fallbackErr) {
-          this.logger.error('Failed to send message', { error: fallbackErr });
+          // Fall through to retry logic
+          err = fallbackErr;
         }
       }
+
+      // Check if it's a rate limit error (429) — respect retry_after
+      if (err?.error_code === 429 && err?.parameters?.retry_after) {
+        const delayMs = (err.parameters.retry_after + 1) * 1000;
+        this.logger.warn('Rate limited by Telegram, waiting', { delayMs, chatId });
+        await new Promise(r => setTimeout(r, delayMs));
+        return this.sendWithRetry(chatId, text, attempt);
+      }
+
+      if (attempt < this.maxRetries) {
+        const delay = this.retryBaseDelay * Math.pow(2, attempt - 1);
+        this.logger.warn('Send failed, retrying', { attempt, delay, error: err?.message });
+        await new Promise(r => setTimeout(r, delay));
+        return this.sendWithRetry(chatId, text, attempt + 1);
+      }
+
+      // Final attempt failed — try without HTML as last resort
+      try {
+        await this.bot.api.sendMessage(chatId, text);
+      } catch (finalErr) {
+        this.logger.error('Failed to send message after retries', { error: finalErr, attempts: attempt });
+      }
     }
+  }
+
+  /** Enforce per-chat rate limit */
+  private async enforceRateLimit(chatId: string): Promise<void> {
+    const last = this.lastSendTime.get(chatId) || 0;
+    const elapsed = Date.now() - last;
+    if (elapsed < this.perChatRateLimitMs) {
+      await new Promise(r => setTimeout(r, this.perChatRateLimitMs - elapsed));
+    }
+    this.lastSendTime.set(chatId, Date.now());
   }
 
   /**
@@ -272,8 +434,17 @@ export class TelegramChannel extends Channel {
 
     try {
       await this.bot.api.editMessageText(chatId, messageId, text);
-    } catch {
-      // Message may not have changed — ignore
+    } catch (err: any) {
+      // "message is not modified" is harmless — skip
+      if (err?.description?.includes('not modified')) return;
+      // Retry once on network errors
+      if (!err?.description?.includes('chat not found')) {
+        try {
+          await this.bot.api.editMessageText(chatId, messageId, text);
+        } catch {
+          // Second failure — give up on this edit, don't crash
+        }
+      }
     }
   }
 
