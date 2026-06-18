@@ -261,7 +261,7 @@ export class WebChatChannel extends Channel {
     this.logger.info('Stopped', { id: this.id });
   }
 
-  async send(sessionId: string, message: string): Promise<void> {
+  protected async sendRaw(sessionId: string, message: string): Promise<void> {
     if (!this.io) {
       this.logger.error('Socket.IO not initialized — cannot send');
       return;
@@ -276,6 +276,10 @@ export class WebChatChannel extends Channel {
     // Emit on both 'response' and 'agent_response' for client compatibility
     this.io.to(socketId).emit('response', message);
     this.io.to(socketId).emit('agent_response', { text: message, content: message });
+  }
+
+  getMaxMessageLength(): number {
+    return 0; // No limit for WebChat
   }
 
   /**

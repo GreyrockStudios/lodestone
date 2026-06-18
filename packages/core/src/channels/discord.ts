@@ -205,7 +205,7 @@ export class DiscordChannel extends Channel {
     this.logger.info('Stopped', { id: this.id });
   }
 
-  async send(sessionId: string, message: string): Promise<void> {
+  protected async sendRaw(sessionId: string, message: string): Promise<void> {
     if (!this.client) {
       this.logger.error('Client not initialized — cannot send');
       return;
@@ -232,6 +232,10 @@ export class DiscordChannel extends Channel {
     } catch (err) {
       this.logger.error('Failed to send message', { error: err });
     }
+  }
+
+  getMaxMessageLength(): number {
+    return this.maxMessageLength;
   }
 
   /**
