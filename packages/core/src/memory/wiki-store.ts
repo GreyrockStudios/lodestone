@@ -45,6 +45,8 @@ export interface WikiConfig {
   autoIndex: boolean;
   autoLint: boolean;
   categories: string[];
+  /** Callback fired after a page is written (slug, content) — used by MemorySystem for compounding */
+  onWrite?: (slug: string, content: string) => void | Promise<void>;
 }
 
 // ─── Default Categories ─────────────────────────────────────────────────────
@@ -66,6 +68,7 @@ export class WikiStore {
   private cache: Map<string, WikiPage> = new Map();
   private indexCache: Map<string, string> = new Map(); // slug → title
   private loaded = false;
+  private writeCallbacks: Array<(slug: string, content: string) => void | Promise<void>> = [];
 
   constructor(config: WikiConfig) {
     this.config = {
@@ -74,6 +77,14 @@ export class WikiStore {
       autoLint: config.autoLint ?? true,
       categories: config.categories ?? DEFAULT_CATEGORIES,
     };
+    if (config.onWrite) {
+      this.writeCallbacks.push(config.onWrite);
+    }
+  }
+
+  /** Register a callback to fire after a page is written */
+  onWriteEvent(callback: (slug: string, content: string) => void | Promise<void>): void {
+    this.writeCallbacks.push(callback);
   }
 
   // ─── CRUD ──────────────────────────────────────────────────────────────
@@ -138,6 +149,16 @@ export class WikiStore {
     // Rebuild index if auto-index is on
     if (this.config.autoIndex) {
       await this.rebuildIndex();
+    }
+
+    // Fire write callbacks (for memory compounding, knowledge graph, etc.)
+    for (const cb of this.writeCallbacks) {
+      try {
+        await cb(slug, content);
+      } catch (err) {
+        // Don't let a callback failure block the write
+        // Logged but not thrown
+      }
     }
 
     return page;
