@@ -8,6 +8,8 @@
 
 import { connect, type Connection, type Table } from '@lancedb/lancedb';
 import type { MemoryAccess, MemoryResult } from '../tools/definitions.js';
+import { MemoryError } from '../utils/errors.js';
+import { getLogger } from '../utils/logger.js';
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -48,6 +50,7 @@ export class VectorMemory implements Partial<MemoryAccess> {
   private config: VectorMemoryConfig;
   private db: Connection | null = null;
   private initialized = false;
+  private logger = getLogger('VectorMemory');
 
   constructor(config: VectorMemoryConfig) {
     this.config = {
@@ -83,11 +86,12 @@ export class VectorMemory implements Partial<MemoryAccess> {
     // Insert into LanceDB
     try {
       const table = await this.getOrCreateTable();
-      await table.add([entry] as any[]);
-    } catch (err: any) {
+      await table.add([entry] as unknown as Record<string, unknown>[]);
+    } catch (err: unknown) {
       // Schema mismatch: recreate table with merged schema
-      if (err?.message?.includes('schema') || err?.message?.includes('not in schema')) {
-        console.warn(`[Lodestone:VectorMemory] Schema mismatch, overwriting entry: ${err.message}`);
+      const msg = err instanceof Error ? err.message : String(err);
+      if (msg.includes('schema') || msg.includes('not in schema')) {
+        this.logger.warn('Schema mismatch, overwriting entry', { error: msg });
       } else {
         throw err;
       }
@@ -143,7 +147,7 @@ export class VectorMemory implements Partial<MemoryAccess> {
     } else if (this.config.embeddingProvider === 'openai') {
       return this.embedOpenAI(text);
     }
-    throw new Error(`Unknown embedding provider: ${this.config.embeddingProvider}`);
+    throw new MemoryError(`Unknown embedding provider: ${this.config.embeddingProvider}`, { context: { provider: this.config.embeddingProvider } });
   }
 
   private async embedOllama(text: string): Promise<number[]> {
@@ -158,7 +162,7 @@ export class VectorMemory implements Partial<MemoryAccess> {
     });
 
     if (!response.ok) {
-      throw new Error(`Ollama embedding failed: ${response.statusText}`);
+      throw new MemoryError(`Ollama embedding failed: ${response.statusText}`, { context: { status: response.status }, recoverable: true });
     }
 
     const data = await response.json() as { embedding: number[] };
@@ -180,7 +184,7 @@ export class VectorMemory implements Partial<MemoryAccess> {
     });
 
     if (!response.ok) {
-      throw new Error(`OpenAI embedding failed: ${response.statusText}`);
+      throw new MemoryError(`OpenAI embedding failed: ${response.statusText}`, { context: { status: response.status }, recoverable: true });
     }
 
     const data = await response.json() as { data: Array<{ embedding: number[] }> };
@@ -212,7 +216,7 @@ export class VectorMemory implements Partial<MemoryAccess> {
         embedding: new Array(this.config.dimensions).fill(0),
       };
 
-      return await this.db!.createTable(tableName, [schemaEntry] as any);
+      return await this.db!.createTable(tableName, [schemaEntry] as unknown as Record<string, unknown>[]);
     }
   }
 

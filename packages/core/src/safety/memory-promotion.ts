@@ -23,6 +23,7 @@
 
 import { readFile, writeFile, mkdir } from 'fs/promises';
 import { join } from 'path';
+import { getLogger } from '../utils/logger.js';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -205,6 +206,7 @@ export class MemoryPromotion {
   private filePath: string;
   private wikiContent: Map<string, string> = new Map();
   private loaded = false;
+  private logger = getLogger('MemoryPromotion');
 
   constructor(config: MemoryPromotionConfig) {
     this.config = config;
@@ -219,7 +221,7 @@ export class MemoryPromotion {
       for (const candidate of parsed) {
         this.queue.set(candidate.claim, candidate);
       }
-      console.log(`[Lodestone] Loaded ${this.queue.size} memory promotion candidates`);
+      this.logger.info('Loaded memory promotion candidates', { count: this.queue.size });
     } catch {
       await mkdir(join(this.filePath, '..'), { recursive: true });
       await this.save();

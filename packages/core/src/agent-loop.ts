@@ -22,6 +22,7 @@ import type { WikiFrontmatter } from './memory/wiki-store.js';
 import type { ToolResult } from './tools/definitions.js';
 import type { CorrectionInput } from './safety/behavioral-learning.js';
 import type { GateOutputType } from './safety/quality-gates.js';
+import { getLogger } from './utils/logger.js';
 
 // ─── Agent Loop Config ────────────────────────────────────────────────────
 
@@ -67,6 +68,7 @@ const DEFAULT_LOOP_CONFIG: AgentLoopConfig = {
 export class AgentLoop {
   private engine: LodestoneEngine;
   private config: AgentLoopConfig;
+  private logger = getLogger('AgentLoop');
 
   constructor(engine: LodestoneEngine, config?: Partial<AgentLoopConfig>) {
     this.engine = engine;
@@ -107,7 +109,7 @@ export class AgentLoop {
       };
       const extractedRule = this.engine.safety.processCorrection(correctionInput);
       if (extractedRule) {
-        console.log(`[Lodestone] Behavioral rule learned: When ${extractedRule.trigger}, ${extractedRule.correctBehavior}`);
+        this.logger.info('Behavioral rule learned', { trigger: extractedRule.trigger, correctBehavior: extractedRule.correctBehavior });
       }
     }
 
@@ -212,10 +214,10 @@ export class AgentLoop {
         type: outputType,
         request: userMessage,
       });
-      console.log(`[Lodestone] Quality gate: ${gateResult.decision} (score: ${gateResult.overallScore.toFixed(2)}) — ${outputType}`);
+      this.logger.info('Quality gate result', { decision: gateResult.decision, score: gateResult.overallScore.toFixed(2), outputType });
       if (gateResult.issues.length > 0) {
         for (const issue of gateResult.issues) {
-          console.log(`[Lodestone]   ${issue.severity}: ${issue.description}`);
+          this.logger.info('Quality gate issue', { severity: issue.severity, description: issue.description });
         }
       }
       // Don't block output — just log. Blocking will be wired later.
@@ -448,10 +450,11 @@ export class AgentLoop {
 
       // Check capability tier — log warning if not auto-approved
       if (!this.engine.safety.canAutoApprove(tc.toolName)) {
-        console.warn(`[Lodestone] Tool "${tc.toolName}" requires confirmation but auto-approval not available — proceeding (log only)`);
+        this.logger.warn('Tool requires confirmation but auto-approval not available — proceeding (log only)', { tool: tc.toolName });
       }
 
       // Build tool context
+      const toolLogger = getLogger(`Tool:${tc.toolName}`);
       const context: import('./tools/definitions.js').ToolContext = {
         sessionId,
         workspaceRoot: this.engine.config.workspaceRoot,
@@ -482,9 +485,9 @@ export class AgentLoop {
             this.engine.memory.scratch.scratchSet(key, value, ttlMs),
         },
         log: {
-          info: (msg: string, data?: unknown) => console.log(`[Lodestone:${tc.toolName}] ${msg}`, data || ''),
-          warn: (msg: string, data?: unknown) => console.warn(`[Lodestone:${tc.toolName}] ${msg}`, data || ''),
-          error: (msg: string, data?: unknown) => console.error(`[Lodestone:${tc.toolName}] ${msg}`, data || ''),
+          info: (msg: string, data?: unknown) => toolLogger.info(msg, { data }),
+          warn: (msg: string, data?: unknown) => toolLogger.warn(msg, { data }),
+          error: (msg: string, data?: unknown) => toolLogger.error(msg, { data }),
         },
       };
 
@@ -538,7 +541,7 @@ export class AgentLoop {
         ['auto-capture', 'conversation']
       );
     } catch (err) {
-      console.warn(`[Lodestone] Memory promotion submit failed:`, err);
+      this.logger.warn('Memory promotion submit failed', { error: err });
     }
   }
 

@@ -22,6 +22,7 @@
 
 import { readFile, writeFile, mkdir } from 'fs/promises';
 import { join } from 'path';
+import { getLogger } from '../utils/logger.js';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -94,6 +95,7 @@ export class BehavioralLearning {
   private config: BehavioralLearningConfig;
   private filePath: string;
   private loaded = false;
+  private logger = getLogger('BehavioralLearning');
 
   constructor(config: BehavioralLearningConfig) {
     this.config = config;
@@ -108,7 +110,7 @@ export class BehavioralLearning {
       for (const rule of parsed) {
         this.rules.set(rule.id, rule);
       }
-      console.log(`[Lodestone] Loaded ${this.rules.size} behavioral rules`);
+      this.logger.info('Loaded behavioral rules', { count: this.rules.size });
     } catch {
       // First run — no rules yet
       await mkdir(join(this.filePath, '..'), { recursive: true });

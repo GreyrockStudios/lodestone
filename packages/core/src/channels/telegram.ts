@@ -7,6 +7,7 @@
  */
 
 import { Channel, type ChannelConfig, type ChannelMessage } from './channel.js';
+import { getLogger } from '../utils/logger.js';
 
 // ─── Telegram Config ──────────────────────────────────────────────────────
 
@@ -27,6 +28,7 @@ export interface TelegramConfig extends ChannelConfig {
 // ─── Telegram Channel ─────────────────────────────────────────────────────
 
 export class TelegramChannel extends Channel {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- grammy Bot loaded dynamically
   private bot: any = null; // grammy Bot instance (loaded dynamically)
   private sessionMap: Map<string, string> = new Map(); // chatId → sessionId
   private streamingMessages: Map<string, number> = new Map(); // sessionId → last sent messageId
@@ -36,6 +38,7 @@ export class TelegramChannel extends Channel {
   private readonly maxMessageLength: number;
   private readonly streamingEnabled: boolean;
   private readonly streamingInterval: number;
+  private logger = getLogger('Channel:Telegram');
 
   constructor(config: TelegramConfig) {
     super(config);
@@ -56,19 +59,21 @@ export class TelegramChannel extends Channel {
     if (this.running) return;
 
     // Dynamically import grammy — it's an optional peer dependency
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- grammy exports not typed at runtime
     let Bot: any;
     try {
       // @ts-ignore — optional peer dependency
       const grammy = await import('grammy');
       Bot = grammy.Bot;
     } catch {
-      console.error('[Channel:Telegram] grammy package not installed. Install with: npm install grammy');
+      this.logger.error('grammy package not installed. Install with: npm install grammy');
       throw new Error('grammy package is required for the Telegram channel. Install with: npm install grammy');
     }
 
     this.bot = new Bot(this.config.botToken as string);
 
     // /start command
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- grammy ctx type
     this.bot.command('start', async (ctx: any) => {
       await ctx.reply(
         '🔮 Welcome to Lodestone!\n\n' +
@@ -80,6 +85,7 @@ export class TelegramChannel extends Channel {
     });
 
     // /help command
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- grammy ctx type
     this.bot.command('help', async (ctx: any) => {
       await ctx.reply(
         '🔮 Lodestone Commands\n\n' +
@@ -91,6 +97,7 @@ export class TelegramChannel extends Channel {
     });
 
     // /reset command
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- grammy ctx type
     this.bot.command('reset', async (ctx: any) => {
       const chatId = ctx.chat.id.toString();
       this.sessionMap.delete(chatId);
@@ -104,6 +111,7 @@ export class TelegramChannel extends Channel {
     });
 
     // Handle all text messages
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- grammy ctx type
     this.bot.on('message:text', async (ctx: any) => {
       const chatId = ctx.chat.id.toString();
       const text = ctx.message.text;
@@ -142,7 +150,7 @@ export class TelegramChannel extends Channel {
     });
 
     this.running = true;
-    console.log(`[Channel:Telegram] Started polling — ${this.id}`);
+    this.logger.info('Started polling', { id: this.id });
   }
 
   async stop(): Promise<void> {
@@ -160,18 +168,18 @@ export class TelegramChannel extends Channel {
     }
 
     this.running = false;
-    console.log(`[Channel:Telegram] Stopped — ${this.id}`);
+    this.logger.info('Stopped', { id: this.id });
   }
 
   async send(sessionId: string, message: string): Promise<void> {
     if (!this.bot) {
-      console.error('[Channel:Telegram] Bot not initialized — cannot send');
+      this.logger.error('Bot not initialized — cannot send');
       return;
     }
 
     const chatId = this.getChatId(sessionId);
     if (!chatId) {
-      console.error(`[Channel:Telegram] No chat ID for session ${sessionId}`);
+      this.logger.error('No chat ID for session', { sessionId });
       return;
     }
 
@@ -185,7 +193,7 @@ export class TelegramChannel extends Channel {
         try {
           await this.bot.api.sendMessage(chatId, chunk);
         } catch (fallbackErr) {
-          console.error(`[Channel:Telegram] Failed to send message:`, fallbackErr);
+          this.logger.error('Failed to send message', { error: fallbackErr });
         }
       }
     }

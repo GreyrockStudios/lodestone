@@ -10,6 +10,7 @@ import { BehavioralLearning, type BehavioralRule, type CorrectionInput, type Beh
 import { MemoryPromotion, type VerificationLevel, type MemoryCandidate, type VerificationResult, type ConflictEntry, type MemoryPromotionConfig } from './memory-promotion.js';
 import { IntentPredictor, type IntentPredictionResult, type IntentPredictionConfig, type IntentCategory, type IntentUrgency } from './intent-prediction.js';
 import { QualityGate, type QualityGateResult, type QualityGateConfig, type QualityGateInput, type GateOutputType, type GateDecision } from './quality-gates.js';
+import { getLogger } from '../utils/logger.js';
 
 export { CapabilityManager, type CapabilityTier, type TierConfig, type SimulationResult } from './capability-tiers.js';
 export { BehavioralLearning, type BehavioralRule, type CorrectionInput, type BehavioralLearningConfig } from './behavioral-learning.js';
@@ -44,6 +45,7 @@ export class SafetySystem {
   readonly qualityGate: QualityGate;
 
   private config: SafetyConfig;
+  private logger = getLogger('Safety');
 
   constructor(config: SafetyConfig) {
     this.config = config;
@@ -81,12 +83,12 @@ export class SafetySystem {
       this.intentPredictor.init(),
       this.qualityGate.init(),
     ]);
-    console.log('[Lodestone] Safety system initialized');
+    this.logger.info('Safety system initialized');
     const summary = this.capabilities.getTierSummary();
-    console.log(`[Lodestone]   Capabilities: ${Object.values(summary).reduce((sum, t) => sum + t.count, 0)} tools across 4 tiers`);
-    console.log(`[Lodestone]   Behavioral rules: ${this.behavioralLearning.getActiveRules().length} active`);
-    console.log(`[Lodestone]   Intent predictor: ${this.intentPredictor.getStats().totalPredictions} predictions logged`);
-    console.log(`[Lodestone]   Quality gate: ${this.qualityGate.getStatus().recentDecisions.approve} approved`);
+    this.logger.info('Capabilities', { tools: Object.values(summary).reduce((sum, t) => sum + t.count, 0), tiers: 4 });
+    this.logger.info('Behavioral rules', { active: this.behavioralLearning.getActiveRules().length });
+    this.logger.info('Intent predictor', { predictions: this.intentPredictor.getStats().totalPredictions });
+    this.logger.info('Quality gate', { approved: this.qualityGate.getStatus().recentDecisions.approve });
   }
 
   /** Get behavioral rules formatted for prompt injection */

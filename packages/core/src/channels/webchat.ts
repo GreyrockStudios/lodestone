@@ -7,6 +7,7 @@
  */
 
 import { Channel, type ChannelConfig, type ChannelMessage } from './channel.js';
+import { getLogger } from '../utils/logger.js';
 
 // ─── Web Chat Config ─────────────────────────────────────────────────────
 
@@ -119,14 +120,18 @@ const CHAT_UI_HTML = `<!DOCTYPE html>
 // ─── Web Chat Channel ────────────────────────────────────────────────────
 
 export class WebChatChannel extends Channel {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Express loaded dynamically
   private server: any = null; // Express server
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Socket.IO loaded dynamically
   private io: any = null; // Socket.IO server
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- http.Server
   private httpServer: any = null; // http.Server
   private sessionMap: Map<string, string> = new Map(); // socketId → sessionId
 
   private readonly port: number;
   private readonly corsOrigin: string;
   private readonly uiPath: string;
+  private logger = getLogger('Channel:WebChat');
 
   constructor(config: WebChatConfig) {
     super(config);
@@ -147,24 +152,27 @@ export class WebChatChannel extends Channel {
     if (this.running) return;
 
     // Dynamic imports — express and socket.io are the only required deps
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- express/socket.io loaded dynamically
     let express: any, createServer: any, Server: any;
     try {
       express = (await import('express')).default;
       ({ createServer } = await import('http'));
       ({ Server } = await import('socket.io'));
     } catch (err) {
-      console.error('[Channel:WebChat] express or socket.io not installed. Install with: npm install express socket.io');
+      this.logger.error('express or socket.io not installed. Install with: npm install express socket.io');
       throw new Error('express and socket.io packages are required for the WebChat channel. Install with: npm install express socket.io');
     }
 
     const app = express();
 
     // Serve chat UI
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Express req/res
     app.get(this.uiPath, (_req: any, res: any) => {
       res.type('html').send(CHAT_UI_HTML);
     });
 
     // Health check endpoint
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Express req/res
     app.get('/health', (_req: any, res: any) => {
       res.json({ status: 'ok', channel: this.id, uptime: process.uptime() });
     });
@@ -179,8 +187,9 @@ export class WebChatChannel extends Channel {
       },
     });
 
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Socket.IO socket
     this.io.on('connection', (socket: any) => {
-      console.log(`[Channel:WebChat] Client connected: ${socket.id}`);
+      this.logger.info('Client connected', { socketId: socket.id });
 
       // Generate a session for this connection
       const sessionId = `webchat-${socket.id}`;
@@ -189,8 +198,9 @@ export class WebChatChannel extends Channel {
       // Notify the client they're connected
       socket.emit('connected', { sessionId });
 
-      // Handle incoming messages
-      socket.on('message', async (text: string) => {
+      // Handle incoming messages (support both 'message' and 'user_message' events)
+      const handleMessage = async (data: unknown) => {
+        const text = typeof data === 'string' ? data : (data as { content?: string; text?: string })?.content || (data as { text?: string })?.text;
         if (!text || typeof text !== 'string') return;
 
         const message: ChannelMessage = {
@@ -207,11 +217,13 @@ export class WebChatChannel extends Channel {
         };
 
         await this.emitMessage(message);
-      });
+      };
+      socket.on('message', handleMessage);
+      socket.on('user_message', handleMessage);
 
       // Handle disconnect
       socket.on('disconnect', () => {
-        console.log(`[Channel:WebChat] Client disconnected: ${socket.id}`);
+        this.logger.info('Client disconnected', { socketId: socket.id });
         this.sessionMap.delete(socket.id);
       });
     });
@@ -219,14 +231,14 @@ export class WebChatChannel extends Channel {
     // Start listening
     await new Promise<void>((resolve, reject) => {
       this.httpServer.listen(this.port, () => {
-        console.log(`[Channel:WebChat] Server listening on port ${this.port}`);
+        this.logger.info('Server listening', { port: this.port });
         resolve();
       });
       this.httpServer.on('error', reject);
     });
 
     this.running = true;
-    console.log(`[Channel:WebChat] Started — ${this.id}`);
+    this.logger.info('Started', { id: this.id });
   }
 
   async stop(): Promise<void> {
@@ -246,22 +258,24 @@ export class WebChatChannel extends Channel {
 
     this.sessionMap.clear();
     this.running = false;
-    console.log(`[Channel:WebChat] Stopped — ${this.id}`);
+    this.logger.info('Stopped', { id: this.id });
   }
 
   async send(sessionId: string, message: string): Promise<void> {
     if (!this.io) {
-      console.error('[Channel:WebChat] Socket.IO not initialized — cannot send');
+      this.logger.error('Socket.IO not initialized — cannot send');
       return;
     }
 
     const socketId = this.getSocketId(sessionId);
     if (!socketId) {
-      console.error(`[Channel:WebChat] No socket for session ${sessionId}`);
+      this.logger.error('No socket for session', { sessionId });
       return;
     }
 
+    // Emit on both 'response' and 'agent_response' for client compatibility
     this.io.to(socketId).emit('response', message);
+    this.io.to(socketId).emit('agent_response', { text: message, content: message });
   }
 
   /**

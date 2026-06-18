@@ -42,6 +42,16 @@ export type MessageHandler = (message: ChannelMessage) => Promise<void>;
 
 // ─── Channel Base Class ──────────────────────────────────────────────────
 
+export interface ChannelHealth {
+  status: 'healthy' | 'degraded' | 'down';
+  active: boolean;
+  details?: Record<string, unknown>;
+}
+
+import { getLogger } from '../utils/logger.js';
+
+const logger = getLogger('Channel');
+
 export abstract class Channel {
   readonly config: ChannelConfig;
   protected messageHandler: MessageHandler | null = null;
@@ -76,12 +86,20 @@ export abstract class Channel {
     return this.running;
   }
 
+  /** Get channel health status */
+  getHealth(): ChannelHealth {
+    return {
+      status: this.running ? 'healthy' : 'down',
+      active: this.running,
+    };
+  }
+
   /** Emit an incoming message to the registered handler */
   protected async emitMessage(message: ChannelMessage): Promise<void> {
     if (this.messageHandler) {
       await this.messageHandler(message);
     } else {
-      console.warn(`[Channel:${this.id}] No message handler registered — dropping message from ${message.senderName}`);
+      logger.warn('No message handler registered — dropping message', { channelId: this.id, senderName: message.senderName });
     }
   }
 }

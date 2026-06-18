@@ -7,6 +7,7 @@
  */
 
 import { Channel, type ChannelConfig, type ChannelMessage } from './channel.js';
+import { getLogger } from '../utils/logger.js';
 
 // ─── Discord Config ──────────────────────────────────────────────────────
 
@@ -27,6 +28,7 @@ export interface DiscordConfig extends ChannelConfig {
 // ─── Discord Channel ─────────────────────────────────────────────────────
 
 export class DiscordChannel extends Channel {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- discord.js Client loaded dynamically
   private client: any = null; // discord.js Client instance (loaded dynamically)
   private sessionMap: Map<string, string> = new Map(); // userId → sessionId
   private streamingMessages: Map<string, string> = new Map(); // sessionId → last sent message ID
@@ -34,6 +36,7 @@ export class DiscordChannel extends Channel {
   private readonly channelIds: Set<string>;
   private readonly maxMessageLength: number;
   private readonly streamingEnabled: boolean;
+  private logger = getLogger('Channel:Discord');
 
   constructor(config: DiscordConfig) {
     super(config);
@@ -58,6 +61,7 @@ export class DiscordChannel extends Channel {
     if (this.running) return;
 
     // Dynamically import discord.js — it's an optional peer dependency
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- discord.js loaded dynamically
     let Client: any, GatewayIntentBits: any, REST: any, Routes: any, SlashCommandBuilder: any;
     try {
       // @ts-ignore — optional peer dependency
@@ -68,7 +72,7 @@ export class DiscordChannel extends Channel {
       Routes = discordJs.Routes;
       SlashCommandBuilder = discordJs.SlashCommandBuilder;
     } catch {
-      console.error('[Channel:Discord] discord.js package not installed. Install with: npm install discord.js');
+      this.logger.error('discord.js package not installed. Install with: npm install discord.js');
       throw new Error('discord.js package is required for the Discord channel. Install with: npm install discord.js');
     }
 
@@ -93,7 +97,7 @@ export class DiscordChannel extends Channel {
 
     // Register commands on ready
     this.client.once('ready', async () => {
-      console.log(`[Channel:Discord] Bot ready as ${this.client.user.tag}`);
+      this.logger.info('Bot ready', { tag: this.client.user.tag });
 
       try {
         const rest = new REST({ version: '10' }).setToken(this.config.botToken as string);
@@ -103,13 +107,14 @@ export class DiscordChannel extends Channel {
         } else {
           await rest.put(Routes.applicationCommands(this.client.user.id), { body: commands });
         }
-        console.log('[Channel:Discord] Slash commands registered');
+        this.logger.info('Slash commands registered');
       } catch (err) {
-        console.error('[Channel:Discord] Failed to register commands:', err);
+        this.logger.error('Failed to register commands', { error: err });
       }
     });
 
     // Handle slash commands
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- discord.js interaction type
     this.client.on('interactionCreate', async (interaction: any) => {
       if (!interaction.isChatInputCommand()) return;
 
@@ -139,6 +144,7 @@ export class DiscordChannel extends Channel {
     });
 
     // Handle messages in configured channels
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- discord.js message type
     this.client.on('messageCreate', async (msg: any) => {
       // Ignore bot messages
       if (msg.author.bot) return;
@@ -185,7 +191,7 @@ export class DiscordChannel extends Channel {
     // Login
     await this.client.login(this.config.botToken as string);
     this.running = true;
-    console.log(`[Channel:Discord] Started — ${this.id}`);
+    this.logger.info('Started', { id: this.id });
   }
 
   async stop(): Promise<void> {
@@ -196,25 +202,25 @@ export class DiscordChannel extends Channel {
     }
 
     this.running = false;
-    console.log(`[Channel:Discord] Stopped — ${this.id}`);
+    this.logger.info('Stopped', { id: this.id });
   }
 
   async send(sessionId: string, message: string): Promise<void> {
     if (!this.client) {
-      console.error('[Channel:Discord] Client not initialized — cannot send');
+      this.logger.error('Client not initialized — cannot send');
       return;
     }
 
     const channelInfo = this.getChannelInfo(sessionId);
     if (!channelInfo) {
-      console.error(`[Channel:Discord] No channel info for session ${sessionId}`);
+      this.logger.error('No channel info for session', { sessionId });
       return;
     }
 
     try {
       const channel = await this.client.channels.fetch(channelInfo.channelId);
       if (!channel || !channel.isTextBased()) {
-        console.error(`[Channel:Discord] Channel ${channelInfo.channelId} not found or not text-based`);
+        this.logger.error('Channel not found or not text-based', { channelId: channelInfo.channelId });
         return;
       }
 
@@ -224,7 +230,7 @@ export class DiscordChannel extends Channel {
         this.streamingMessages.set(sessionId, sent.id);
       }
     } catch (err) {
-      console.error('[Channel:Discord] Failed to send message:', err);
+      this.logger.error('Failed to send message', { error: err });
     }
   }
 
