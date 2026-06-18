@@ -630,6 +630,7 @@ export class AgentLoop {
           warn: (msg: string, data?: unknown) => toolLogger.warn(msg, { data }),
           error: (msg: string, data?: unknown) => toolLogger.error(msg, { data }),
         },
+        engine: this.engine,
       };
 
       // Execute the tool (with retry on transient failures)

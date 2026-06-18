@@ -75,6 +75,8 @@ export interface ToolContext {
   identity: AgentIdentity;
   /** Access to the memory system */
   memory: MemoryAccess;
+  /** Access to the engine (for coordinator, safety, improvement systems) */
+  engine?: any;
   /** Logger */
   log: ToolLogger;
 }

@@ -23,6 +23,7 @@ import { CodeExecTool } from './tools/impl/code-exec.js';
 import { CalendarTool } from './tools/impl/calendar.js';
 import { VisionTool } from './tools/impl/vision.js';
 import { VoiceTool } from './tools/impl/voice.js';
+import { CoordinatorTool } from './tools/impl/coordinator.js';
 import { createWorkspaceFromAnswers, PROVIDER_INFO } from './tui-onboarding/workspace-creator.js';
 import { readFile } from 'fs/promises';
 import { existsSync } from 'fs';
@@ -225,7 +226,8 @@ async function main() {
   engine.registerTool(new CalendarTool({ provider: 'caldav' }));
   engine.registerTool(new VisionTool());
   engine.registerTool(new VoiceTool());
-  console.log('[Lodestone] Tools registered: 14 built-in');
+  engine.registerTool(new CoordinatorTool());
+  console.log('[Lodestone] Tools registered: 15 built-in');
 
   // 5. Register proactive jobs
   engine.registerJob({
