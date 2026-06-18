@@ -482,9 +482,9 @@ Deterministic guardrails. Access via `sdk.safety` or `engine.safety`.
 
 | Tier | Confirmation | Simulation | Sleep Mode | Examples |
 |------|-------------|-----------|-----------|----------|
-| `public` | ❌ | ❌ | ✅ | wiki-resolve, smart-retrieve, drift-check |
-| `controlled` | ❌ | ❌ | ✅ | decision-log, prediction-journal, skill-learn |
-| `restricted` | ✅ | ❌ | ❌ | wiki-write, memory-store, file-write |
+| `public` | ❌ | ❌ | ✅ | wiki-resolve, wiki-search, smart-retrieve, web-search, web-fetch, business-hours |
+| `controlled` | ❌ | ❌ | ✅ | decision-log, resume-state, watchdog, file-ops, calendar, vision, voice |
+| `restricted` | ✅ | ❌ | ❌ | code-exec, coordinator, file-write |
 | `privileged` | ✅ | ✅ | ❌ | file-delete, exec, message-send, cron-add |
 
 ### SDK Safety Methods
@@ -575,16 +575,27 @@ Self-improvement subsystem. Access via `engine.improvement`.
 | SkillEvolver | `engine.improvement.skillEvolver` | Learn lessons, promote skills |
 | SleepCycle | `engine.improvement.sleepCycle` | Nightly improvement cycle |
 
-### Improvement Tools
+### Built-in Tools
 
 Available to the agent as built-in tools:
 
 | Tool ID | Actions |
-|---------|---------|
-| `prediction-journal` | `predict`, `resolve`, `calibrate`, `list`, `get` |
-| `drift-check` | `check`, `latest`, `list` |
-| `rbt-diagnose` | `diagnose`, `latest`, `list` |
-| `skill-learn` | `learn`, `validate`, `contradict`, `promote`, `evolve`, `list-lessons`, `list-skills` |
+|---------|--------|
+| `wiki-resolve` | `resolve` (resolve [[wikilinks]]) |
+| `wiki-search` | `search` (search wiki pages) |
+| `smart-retrieve` | `retrieve` (ranked wiki + memory retrieval) |
+| `decision-log` | `add`, `get`, `list`, `search`, `supersede` |
+| `resume-state` | `save`, `load`, `clear` |
+| `watchdog` | `watch`, `check`, `resolve`, `list` |
+| `business-hours` | `check`, `config`, `should_send` |
+| `web-search` | `search` (web search via configured provider) |
+| `web-fetch` | `fetch` (retrieve and extract content from URL) |
+| `file-ops` | `read`, `write`, `list`, `search` |
+| `code-exec` | `execute` (run Python or Node.js in sandbox) |
+| `calendar` | `get_schedule`, `get_next_event`, `create_event`, `find_free_slot` |
+| `vision` | `analyze` (image analysis via multimodal LLM) |
+| `voice` | `speak`, `transcribe` (TTS and STT) |
+| `coordinator` | `spawn`, `status`, `list`, `cancel` (sub-agent management) |
 
 ### Sleep Cycle
 

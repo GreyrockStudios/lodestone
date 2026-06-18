@@ -222,25 +222,58 @@ Press `Ctrl+C` in the terminal. The engine stops channels, cancels scheduled job
 
 ## 7. Built-in Tools
 
-Your agent comes with these tools out of the box:
+Your agent comes with 15 tools out of the box:
 
 | Tool | Description | Tier |
 |------|-------------|------|
 | `wiki-resolve` | Resolve `[[wikilinks]]` to page content | Public |
+| `wiki-search` | Search wiki pages by title, slug, or tag | Public |
 | `smart-retrieve` | Retrieve relevant wiki pages + memories | Public |
 | `decision-log` | Record and search decisions | Controlled |
 | `resume-state` | Save/load session state across restarts | Controlled |
 | `watchdog` | Set expected-outcome watches with deadlines | Controlled |
 | `business-hours` | Check if it's business hours | Public |
-| `prediction-journal` | Log predictions, resolve outcomes, check calibration | Controlled |
-| `drift-check` | Check if behavior drifted from identity rules | Public |
-| `rbt-diagnose` | Roses/Buds/Thorns self-assessment | Public |
-| `skill-learn` | Record lessons, promote skills to core instructions | Controlled |
+| `web-search` | Search the web for current information | Public |
+| `web-fetch` | Fetch and extract readable content from a URL | Public |
+| `file-ops` | Read, write, list, and search files | Controlled |
+| `code-exec` | Execute Python or Node.js code in a sandbox | Restricted |
+| `calendar` | Manage calendar events and find free slots | Controlled |
+| `vision` | Analyze images and visual content | Controlled |
+| `voice` | Text-to-speech and speech-to-text | Controlled |
+| `coordinator` | Spawn and manage sub-agent tasks | Restricted |
+
+## Next Steps
+
+## 8. Self-Improvement Features
+
+Lodestone doesn't just respond — it gets better over time:
+
+| Feature | Schedule | What It Does |
+|---------|----------|-------------|
+| **Calibration loop** | Hourly | Resolves expired predictions, computes Brier scores, adjusts confidence |
+| **Drift correction** | Every 6h | Detects behavior drift from identity principles, injects corrective prompts |
+| **Dream mode** | Nightly 3am | Analyzes recent conversations, extracts behavioral rules, proposes improvements |
+| **A/B testing** | Per response | Tests prompt variants, records outcomes, calculates statistical significance |
+| **Self-patching** | Via sleep cycle | Proposes code patches based on improvement opportunities (human approval required) |
+| **Memory compounding** | On wiki write | Auto-extracts entities, detects contradictions, builds knowledge graph |
+| **Proactive intelligence** | Every 30min | Scans for proactive opportunities (reminders, suggestions, follow-ups) |
+
+## 9. Health Check
+
+Run `lodestone doctor` to verify your setup:
+
+```bash
+lodestone doctor
+```
+
+This runs 25 checks: config validity, workspace structure, identity files, LLM connectivity, port availability, and more.
 
 ## Next Steps
 
 - **[Architecture →](architecture.md)** — Understand the system design and component interactions
 - **[API Reference →](api-reference.md)** — Embed Lodestone in your own application with the SDK
+- **[Examples →](../examples/)** — Pre-built agent configurations (business ops, researcher, customer support)
+- **[Contributing →](../CONTRIBUTING.md)** — Add your own tools, channels, or improvements
 - Edit `workspace/SOUL.md` to shape your agent's personality
 - Add a Telegram or Discord channel in the config
 - Write a custom tool (see [API Reference](api-reference.md#tool-interface))

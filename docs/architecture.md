@@ -131,11 +131,14 @@ Predict ──▶ Act ──▶ Resolve ──▶ Calibrate ──▶ Detect Dri
 | **RBT Diagnosis** | Roses (wins), Buds (potential), Thorns (problems). Structured self-assessment. |
 | **Sleep Cycle** | Nightly batch: harvest data → mine patterns → reflect → consolidate → validate → prepare. Runs at 3 AM by default. |
 | **Drift Detection** | Compare recent decisions against identity rules. Flag deviations. |
-| **Calibration Loop** | Measure prediction accuracy over time. Adjust confidence. |
-| **Patch Automation** | Generate and apply self-improvement patches. |
-| **Multi-Agent** | Coordinate multiple agents on improvement tasks. |
-| **Proactive Intelligence** | Decide what to work on without being asked. |
-| **Self-Patching** | Apply learned improvements to the agent's own configuration. |
+| **Drift Correction** | When drift is detected, generate corrective prompt injections to re-align behavior with identity principles. Runs every 6 hours. |
+| **Calibration Loop** | Measure prediction accuracy over time. Adjust confidence. Runs hourly. |
+| **Dream Mode** | Nightly reflective processing — analyzes recent conversations, extracts behavioral rules, proposes self-improvements. Runs at 3 AM. |
+| **A/B Testing** | Test prompt variants against the same inputs. Record outcomes. Calculate statistical significance. Promote winners. |
+| **Patch Automation** | Generate and apply self-improvement patches. Human approval required. |
+| **Multi-Agent Coordinator** | Spawn, monitor, and coordinate sub-agent tasks. LLM-callable via the coordinator tool. |
+| **Proactive Intelligence** | Decide what to work on without being asked. Scans for opportunities every 30 min. |
+| **Self-Patching** | Apply learned improvements to the agent's own configuration. Wired through sleep cycle post-cycle hooks. |
 | **Skill Evolution** | Learn lessons from experience → validate → promote to core instructions. |
 
 ### ChannelManager
@@ -172,7 +175,7 @@ engine.registerTool({
 });
 ```
 
-Built-in tools: `wiki-resolve`, `smart-retrieve`, `decision-log`, `resume-state`, `watchdog`, `business-hours`, `prediction-journal`, `drift-check`, `rbt-diagnose`, `skill-learn`.
+Built-in tools: `wiki-resolve`, `wiki-search`, `smart-retrieve`, `decision-log`, `resume-state`, `watchdog`, `business-hours`, `web-search`, `web-fetch`, `file-ops`, `code-exec`, `calendar`, `vision`, `voice`, `coordinator`.
 
 ### Scheduler
 
@@ -189,7 +192,7 @@ engine.registerJob({
 });
 ```
 
-The sleep cycle, sensorium, and drift detection are all scheduled jobs registered at startup.
+The sleep cycle, calibration loop, drift correction, dream mode, proactive intelligence, and memory growth report are all scheduled jobs registered at startup.
 
 ### StreamHandler
 
