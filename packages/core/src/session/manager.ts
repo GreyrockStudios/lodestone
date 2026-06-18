@@ -1,5 +1,5 @@
 /**
- * Lodestone Core — Session Management
+ * Lodestone Core - Session Management
  *
  * Manages agent sessions: creation, resumption, context management,
  * and compaction when context gets too long.
@@ -142,7 +142,7 @@ export class SessionManager {
     return session.totalTokens > threshold;
   }
 
-  /** Compact a session — summarize the middle, keep the edges */
+  /** Compact a session - summarize the middle, keep the edges */
   compact(
     sessionId: string,
     summaryFn: (messages: SessionMessage[]) => Promise<string>
@@ -219,5 +219,24 @@ export class SessionManager {
   /** Delete a session */
   delete(sessionId: string): boolean {
     return this.sessions.delete(sessionId);
+  }
+
+  /** Clean up stale sessions — remove sessions older than maxAgeMs with no recent activity */
+  cleanupStale(maxAgeMs: number = 24 * 60 * 60 * 1000): number {
+    const now = Date.now();
+    let removed = 0;
+    for (const [id, session] of this.sessions) {
+      const lastActivity = new Date(session.updatedAt).getTime();
+      if (now - lastActivity > maxAgeMs) {
+        this.sessions.delete(id);
+        removed++;
+      }
+    }
+    return removed;
+  }
+
+  /** Get session count */
+  count(): number {
+    return this.sessions.size;
   }
 }

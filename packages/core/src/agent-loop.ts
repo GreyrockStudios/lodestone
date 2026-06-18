@@ -136,6 +136,16 @@ export class AgentLoop {
     let currentResponse = '';
     let rounds = 0;
 
+    // Plugin Hook: beforeResponse — allow plugins to modify the prompt before LLM call
+    try {
+      await this.engine.executePluginHook('beforeResponse', sessionId, {
+        systemPrompt,
+        messages: messages.length,
+      });
+    } catch {
+      // Best-effort — don't block
+    }
+
     try {
       while (rounds < this.config.maxToolRounds) {
         rounds++;
@@ -246,6 +256,18 @@ export class AgentLoop {
         }
       }
       // Don't block output — just log. Blocking will be wired later.
+      // Quality gate enforcement: block output if decision is 'block'
+      if (gateResult.decision === 'block') {
+        this.logger.warn('Quality gate BLOCKED output', { outputType, score: gateResult.overallScore.toFixed(2) });
+        // Replace output with a safe fallback
+        currentResponse = `[Output withheld by quality gate — score ${gateResult.overallScore.toFixed(2)}, issues: ${gateResult.issues.map(i => i.description).join('; ')}]`;
+        // Update the session message if already added
+        const sess = this.engine.sessions.get(sessionId);
+        const lastMsg = sess?.messages[sess.messages.length - 1];
+        if (lastMsg && lastMsg.role === 'assistant') {
+          lastMsg.content = currentResponse;
+        }
+      }
     }
 
     // 6. Auto-capture if configured
@@ -288,6 +310,17 @@ export class AgentLoop {
       totalTokens,
       finishReason: rounds >= this.config.maxToolRounds ? 'tool_limit' : 'complete',
     });
+
+    // 9. Plugin Hook: afterResponse — allow plugins to observe the final response
+    try {
+      await this.engine.executePluginHook('afterResponse', sessionId, {
+        response: currentResponse,
+        toolCalls: toolCallsMade.length,
+        totalTokens,
+      });
+    } catch (hookErr) {
+      this.logger.warn('afterResponse hook failed', { error: hookErr instanceof Error ? hookErr.message : String(hookErr) });
+    }
 
     return {
       response: currentResponse,
@@ -669,6 +702,17 @@ export class AgentLoop {
         toolId: tc.toolName,
         durationMs: result.durationMs,
       });
+
+      // Plugin Hook: afterTool — allow plugins to observe results
+      try {
+        await this.engine.executePluginHook('afterTool', sessionId, {
+          toolName: tc.toolName,
+          result,
+          durationMs: Date.now() - startTime,
+        });
+      } catch (hookErr) {
+        this.logger.warn('afterTool hook failed', { tool: tc.toolName, error: hookErr instanceof Error ? hookErr.message : String(hookErr) });
+      }
     }
 
     return results;

@@ -396,6 +396,15 @@ export class LodestoneEngine {
     });
     this.logger.info('Drift correction job registered');
 
+    // Register session cleanup job — runs hourly to remove stale sessions
+    this.scheduler.register({
+      id: 'session-cleanup',
+      name: 'Session Cleanup',
+      schedule: { kind: 'interval', everyMs: 60 * 60 * 1000 }, // 1 hour
+      description: 'Remove sessions with no activity for 24+ hours',
+    });
+    this.logger.info('Session cleanup job registered');
+
     // Register dream mode job — runs nightly at 3am for reflective processing
     if (this.improvement.dreamMode) {
       this.scheduler.register({
@@ -491,6 +500,13 @@ export class LodestoneEngine {
               responsesScored: report.responsesScored,
               learnings: report.learnings.length,
             });
+          }
+          break;
+        }
+        case 'session-cleanup': {
+          const removed = this.sessions.cleanupStale();
+          if (removed > 0) {
+            this.logger.info('Session cleanup', { removed, remaining: this.sessions.count() });
           }
           break;
         }

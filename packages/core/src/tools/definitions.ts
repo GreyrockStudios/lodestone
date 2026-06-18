@@ -165,7 +165,14 @@ export class ToolRegistry {
 
     const start = Date.now();
     try {
-      const result = await tool.execute(params, context);
+      // Enforce tool timeout if specified (default: 30s)
+      const timeoutMs = tool.definition.timeout ?? 30000;
+      const result = await Promise.race([
+        tool.execute(params, context),
+        new Promise<ToolResult>((_, reject) =>
+          setTimeout(() => reject(new Error(`Tool '${toolId}' timed out after ${timeoutMs}ms`)), timeoutMs)
+        ),
+      ]);
       return { ...result, durationMs: Date.now() - start };
     } catch (err) {
       return {
