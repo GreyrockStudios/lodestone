@@ -195,7 +195,7 @@ You'll see:
 [Lodestone] Starting engine...
 [Lodestone] Identity loaded: Jarvis
 [Lodestone] Safety system initialized
-[Lodestone]   Capabilities: 11 tools across 4 tiers
+[Lodestone]   Capabilities: 15 tools across 4 tiers
 [Lodestone]   Behavioral rules: 0 active
 [Lodestone] Engine started. Agent is thinking.
 ```
