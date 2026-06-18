@@ -255,7 +255,6 @@ export class AgentLoop {
           this.logger.info('Quality gate issue', { severity: issue.severity, description: issue.description });
         }
       }
-      // Don't block output — just log. Blocking will be wired later.
       // Quality gate enforcement: block output if decision is 'block'
       if (gateResult.decision === 'block') {
         this.logger.warn('Quality gate BLOCKED output', { outputType, score: gateResult.overallScore.toFixed(2) });
@@ -310,6 +309,20 @@ export class AgentLoop {
       totalTokens,
       finishReason: rounds >= this.config.maxToolRounds ? 'tool_limit' : 'complete',
     });
+
+    // 8b. Record token usage in cost tracker (if enabled)
+    if (this.engine.costTracker) {
+      try {
+        const model = this.engine.llm.getDefault().getModelId();
+        this.engine.costTracker.recordUsage(sessionId, {
+          model,
+          inputTokens: Math.ceil(userMessage.length / 4),
+          outputTokens: totalTokens - Math.ceil(userMessage.length / 4),
+        });
+      } catch {
+        // Best-effort — don't block on cost tracking
+      }
+    }
 
     // 9. Plugin Hook: afterResponse — allow plugins to observe the final response
     try {

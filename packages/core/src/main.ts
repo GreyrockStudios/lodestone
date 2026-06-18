@@ -261,8 +261,9 @@ async function main() {
   const sessionId = engine.createSession();
   console.log(`[Lodestone] Session created: ${sessionId}`);
 
-  // 8. Create agent loop
+  // 8. Create agent loop and wire it into the engine
   const loop = new AgentLoop(engine);
+  engine.setAgentLoop(loop);
 
   // 9. Log boot decision
   const identity = await engine.identity.load();

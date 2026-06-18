@@ -441,26 +441,32 @@ export class LodestoneSDK extends EventEmitter {
       return response;
     }
 
-    // Process through the engine's session manager
-    // The actual LLM interaction is handled by the engine's agent loop.
-    // Here we add the message to the session and return a structured response.
+    // Process through the engine's agent loop (the actual LLM interaction)
     const startTime = Date.now();
 
-    // Add the message to the session
-    const session = this.engine.sessions.get(sessionId);
-    if (session) {
-      this.engine.sessions.addMessage(sessionId, {
-        role: 'user',
-        content: processedRequest.content,
-      });
+    let responseContent = processedRequest.content;
+    let toolCalls: { toolId: string; params: Record<string, unknown> }[] = [];
+    let blocked = false;
+    let blockReason: string | undefined;
+
+    try {
+      const result = await this.engine.processMessage(sessionId, processedRequest.content);
+      responseContent = result.response;
+      toolCalls = (result.toolCalls as any[]).map(tc => ({ toolId: tc.toolName || tc.toolId || 'unknown', params: tc.arguments || tc.params || {} }));
+    } catch (err) {
+      // If agent loop not set or fails, return error message
+      responseContent = `Error: ${err instanceof Error ? err.message : String(err)}`;
+      blocked = true;
+      blockReason = 'agent_loop_error';
     }
 
     const response: SDKResponse = {
       sessionId,
-      content: processedRequest.content,
-      toolCalls: [],
+      content: responseContent,
+      toolCalls,
       durationMs: Date.now() - startTime,
-      blocked: false,
+      blocked,
+      blockReason,
     };
 
     // Run response middleware

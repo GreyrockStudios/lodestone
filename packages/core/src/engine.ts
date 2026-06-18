@@ -29,6 +29,7 @@ import { ProactiveIntelligence, type ProactiveConfig } from './improvement/proac
 import type { CalibrationInsight } from './improvement/calibration-loop.js';
 import type { DriftCorrection } from './improvement/drift-correction.js';
 import { PluginManager, type Plugin, type PluginHookName } from './plugin-system.js';
+import { SessionPersistence } from './session/persistence.js';
 import { join } from 'path';
 import { getLogger } from './utils/logger.js';
 
@@ -97,6 +98,11 @@ export type EngineEvent =
   | { type: 'heartbeat'; context: string }
   | { type: 'error'; error: string; context?: string };
 
+// AgentLoop type (avoid circular import)
+export interface AgentLoopLike {
+  run(sessionId: string, userMessage: string, streamHandler?: unknown): Promise<{ response: string; toolCalls: unknown[]; totalTokens: number; rounds: number }>;
+}
+
 // ─── Lodestone Engine ──────────────────────────────────────────────────────
 
 export class LodestoneEngine {
@@ -129,6 +135,8 @@ export class LodestoneEngine {
   private lastCalibrationInsights: CalibrationInsight[] = [];
   private lastDriftCorrections: DriftCorrection[] = [];
   readonly pluginManager: PluginManager;
+  private agentLoop: AgentLoopLike | null = null;
+  readonly sessionPersistence: SessionPersistence | null;
 
   // State
   private running = false;
@@ -222,6 +230,9 @@ export class LodestoneEngine {
     // Sprint 6: Undo system (always on)
     this.undoSystem = new UndoSystem(join(config.workspaceRoot, 'data'));
 
+    // Session persistence (optional — requires better-sqlite3)
+    this.sessionPersistence = null; // Will be initialized in start() if available
+
     // Sprint 6: Multi-user support
     this.userManager = config.auth
       ? new UserManager(join(config.workspaceRoot, 'data'))
@@ -275,6 +286,15 @@ export class LodestoneEngine {
 
     // Sprint 5: Init cost tracker
     if (this.costTracker) await this.costTracker.init();
+
+    // Try to initialize session persistence (optional, requires better-sqlite3)
+    try {
+      const persistence = new SessionPersistence(join(this.config.workspaceRoot, 'data/sessions'));
+      (this as any).sessionPersistence = persistence;
+      this.logger.info('Session persistence enabled (SQLite)');
+    } catch {
+      this.logger.info('Session persistence disabled (better-sqlite3 not available)');
+    }
 
     // Sprint 6: Run migrations
     await this.migrationSystem!.runMigrations();
@@ -532,6 +552,24 @@ export class LodestoneEngine {
   /** Is the engine running? */
   isRunning(): boolean {
     return this.running;
+  }
+
+  /** Set the agent loop (called by main.ts or SDK after creating AgentLoop) */
+  setAgentLoop(loop: AgentLoopLike): void {
+    this.agentLoop = loop;
+  }
+
+  /** Get the agent loop (if set) */
+  getAgentLoop(): AgentLoopLike | null {
+    return this.agentLoop;
+  }
+
+  /** Process a message through the agent loop (convenience method) */
+  async processMessage(sessionId: string, content: string): Promise<{ response: string; toolCalls: unknown[]; totalTokens: number; rounds: number }> {
+    if (!this.agentLoop) {
+      throw new Error('Agent loop not set. Call setAgentLoop() first.');
+    }
+    return this.agentLoop.run(sessionId, content);
   }
 
   // ─── Tool Registration ──────────────────────────────────────────────────
