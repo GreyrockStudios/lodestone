@@ -14,11 +14,14 @@
  * This is the heart of the engine.
  */
 
-import { generateText, streamText } from 'ai';
+import { generateText, streamText, jsonSchema, tool as aiTool } from 'ai';
 import type { ModelMessage } from 'ai';
 import type { LodestoneEngine } from './engine.js';
 import type { StreamHandler } from './streaming/handler.js';
+import type { WikiFrontmatter } from './memory/wiki-store.js';
 import type { ToolResult } from './tools/definitions.js';
+import type { CorrectionInput } from './safety/behavioral-learning.js';
+import type { GateOutputType } from './safety/quality-gates.js';
 
 // ─── Agent Loop Config ────────────────────────────────────────────────────
 
@@ -93,6 +96,21 @@ export class AgentLoop {
       tokenCount: Math.ceil(userMessage.length / 4),
     });
 
+    // 1b. Check if this is a correction of a previous assistant response
+    const previousMessages = session.messages;
+    const lastAssistantMsg = previousMessages.filter(m => m.role === 'assistant').pop();
+    if (lastAssistantMsg) {
+      const correctionInput: CorrectionInput = {
+        message: userMessage,
+        precedingResponse: lastAssistantMsg.content,
+        timestamp: new Date().toISOString(),
+      };
+      const extractedRule = this.engine.safety.processCorrection(correctionInput);
+      if (extractedRule) {
+        console.log(`[Lodestone] Behavioral rule learned: When ${extractedRule.trigger}, ${extractedRule.correctBehavior}`);
+      }
+    }
+
     // 2. Construct system prompt
     const systemPrompt = await this.buildSystemPrompt(sessionId);
 
@@ -107,15 +125,20 @@ export class AgentLoop {
       rounds++;
 
       // Call LLM
-      const llmResponse = await this.callLLM(messages, streamHandler);
+      const llmResponse = await this.callLLM(messages, streamHandler, sessionId);
 
       totalTokens += llmResponse.tokenCount || 0;
       currentResponse = llmResponse.text;
 
-      // Add assistant message to history
+      // Add assistant message to history and session
       messages.push({
         role: 'assistant' as const,
         content: llmResponse.text,
+      });
+      this.engine.sessions.addMessage(sessionId, {
+        role: 'assistant',
+        content: llmResponse.text,
+        tokenCount: Math.ceil(llmResponse.text.length / 4),
       });
 
       // Check for tool calls in the response
@@ -140,14 +163,21 @@ export class AgentLoop {
         summary: r.summary,
       })));
 
-      // Add tool results to message history
+      // Add tool results to message history and session
       for (const result of toolResults) {
         const toolContent = result.success
           ? (typeof result.data === 'string' ? result.data : JSON.stringify(result.data))
           : `Error: ${result.error}`;
+        const toolMsg = `[Tool: ${result.toolName}] ${toolContent}`;
         messages.push({
           role: 'user' as const,
-          content: `[Tool: ${result.toolName}] ${toolContent}`,
+          content: toolMsg,
+        });
+        // Persist to session for continuity
+        this.engine.sessions.addMessage(sessionId, {
+          role: 'user',
+          content: toolMsg,
+          tokenCount: Math.ceil(toolMsg.length / 4),
         });
       }
 
@@ -163,12 +193,33 @@ export class AgentLoop {
       }
     }
 
-    // 5. Add final assistant message to session
-    this.engine.sessions.addMessage(sessionId, {
-      role: 'assistant',
-      content: currentResponse,
-      tokenCount: Math.ceil(currentResponse.length / 4),
-    });
+    // 5. Add final assistant message to session (if not already added in loop)
+    const session2 = this.engine.sessions.get(sessionId);
+    const lastMsg = session2?.messages[session2.messages.length - 1];
+    if (!lastMsg || lastMsg.role !== 'assistant' || lastMsg.content !== currentResponse) {
+      this.engine.sessions.addMessage(sessionId, {
+        role: 'assistant',
+        content: currentResponse,
+        tokenCount: Math.ceil(currentResponse.length / 4),
+      });
+    }
+
+    // 5b. Quality gate review — determine output type and review if gated
+    const outputType = this.detectOutputType(currentResponse);
+    if (outputType && this.engine.safety.qualityGate.shouldGate(outputType)) {
+      const gateResult = await this.engine.safety.qualityGate.review({
+        output: currentResponse,
+        type: outputType,
+        request: userMessage,
+      });
+      console.log(`[Lodestone] Quality gate: ${gateResult.decision} (score: ${gateResult.overallScore.toFixed(2)}) — ${outputType}`);
+      if (gateResult.issues.length > 0) {
+        for (const issue of gateResult.issues) {
+          console.log(`[Lodestone]   ${issue.severity}: ${issue.description}`);
+        }
+      }
+      // Don't block output — just log. Blocking will be wired later.
+    }
 
     // 6. Auto-capture if configured
     if (this.config.autoCapture) {
@@ -245,6 +296,21 @@ export class AgentLoop {
     prompt = prompt.replace('{memories}', memoriesSection);
     prompt = prompt.replace('{rules}', identity.rules.raw || '');
 
+    // Append behavioral rules from safety system
+    const behavioralRules = this.engine.safety.getRulesForPrompt();
+    if (behavioralRules) {
+      prompt += '\n\n' + behavioralRules;
+    }
+
+    // Append intent prediction for this user message
+    const lastUserMsg = session.messages.filter(m => m.role === 'user').pop()?.content || '';
+    if (lastUserMsg) {
+      const intentBehavior = this.engine.safety.intentPredictor.getBehaviorForPrompt(lastUserMsg);
+      if (intentBehavior) {
+        prompt += '\n\n' + intentBehavior;
+      }
+    }
+
     // Append session state if available
     const state = await this.engine.memory.loadSessionState();
     if (state) {
@@ -281,7 +347,8 @@ export class AgentLoop {
 
   private async callLLM(
     messages: ModelMessage[],
-    streamHandler?: StreamHandler
+    streamHandler?: StreamHandler,
+    sessionId?: string,
   ): Promise<LLMResponse> {
     const provider = this.engine.llm.getDefault();
     const model = provider.getModel();
@@ -297,6 +364,10 @@ export class AgentLoop {
       }
     }
 
+    // Build AI SDK tools for LLM discovery (no execute — Lodestone handles execution with safety checks)
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- AI SDK ToolSet requires flexible typing
+    const aiTools: Record<string, any> = this.engine.tools.toAISDKTools();
+
     if (this.config.stream && streamHandler) {
       // Streaming mode
       const result = await streamText({
@@ -305,6 +376,7 @@ export class AgentLoop {
         messages: chatMessages,
         maxOutputTokens: this.config.maxTokens,
         temperature: this.config.temperature,
+        tools: Object.keys(aiTools).length > 0 ? aiTools : undefined,
       });
 
       let fullText = '';
@@ -313,14 +385,14 @@ export class AgentLoop {
       for await (const event of result.fullStream) {
         if (event.type === 'text-delta') {
           // AI SDK v6 uses event.text instead of event.textDelta
-          const delta = (event as any).text || (event as any).textDelta || '';
+          const delta = (event as { text?: string; textDelta?: string }).text || (event as { textDelta?: string }).textDelta || '';
           fullText += delta;
           streamHandler.emit('text_delta', { text: delta });
         } else if (event.type === 'tool-call') {
           toolCalls.push({
             toolCallId: event.toolCallId,
             toolName: event.toolName,
-            arguments: (event as any).args || (event as any).input as Record<string, unknown>,
+            arguments: (event as { args?: Record<string, unknown>; input?: Record<string, unknown> }).args || (event as { input?: Record<string, unknown> }).input as Record<string, unknown>,
           });
           streamHandler.emit('tool_call_start', {
             toolCallId: event.toolCallId,
@@ -334,7 +406,7 @@ export class AgentLoop {
       return {
         text: fullText,
         toolCalls,
-        tokenCount: usage?.totalTokens,
+        tokenCount: ((usage?.inputTokens || 0) + (usage?.outputTokens || 0)) || undefined,
       };
     } else {
       // Non-streaming mode
@@ -344,18 +416,19 @@ export class AgentLoop {
         messages: chatMessages,
         maxOutputTokens: this.config.maxTokens,
         temperature: this.config.temperature,
+        tools: Object.keys(aiTools).length > 0 ? aiTools : undefined,
       });
 
       const toolCalls: ParsedToolCall[] = (result.toolCalls || []).map(tc => ({
         toolCallId: tc.toolCallId || `tc_${Date.now()}`,
         toolName: tc.toolName,
-        arguments: typeof (tc as any).args === 'string' ? JSON.parse((tc as any).args) : ((tc as any).args || (tc as any).input) as Record<string, unknown>,
+        arguments: typeof (tc as { args?: unknown }).args === 'string' ? JSON.parse((tc as { args?: string }).args!) : ((tc as { args?: Record<string, unknown> }).args || (tc as { input?: Record<string, unknown> }).input) as Record<string, unknown>,
       }));
 
       return {
         text: result.text,
         toolCalls,
-        tokenCount: result.usage?.totalTokens,
+        tokenCount: ((result.usage?.inputTokens || 0) + (result.usage?.outputTokens || 0)) || undefined,
       };
     }
   }
@@ -372,6 +445,11 @@ export class AgentLoop {
 
     for (const tc of toolCalls) {
       const startTime = Date.now();
+
+      // Check capability tier — log warning if not auto-approved
+      if (!this.engine.safety.canAutoApprove(tc.toolName)) {
+        console.warn(`[Lodestone] Tool "${tc.toolName}" requires confirmation but auto-approval not available — proceeding (log only)`);
+      }
 
       // Build tool context
       const context: import('./tools/definitions.js').ToolContext = {
@@ -394,7 +472,7 @@ export class AgentLoop {
             return page ? page.content : null;
           },
           wikiWrite: async (slug: string, content: string, frontmatter?: Record<string, unknown>) => {
-            await this.engine.memory.wiki.write(slug, content, frontmatter as any);
+            await this.engine.memory.wiki.write(slug, content, frontmatter as Partial<WikiFrontmatter>);
           },
           wikiSearch: async (query: string, limit?: number) =>
             this.engine.memory.wiki.search(query, limit),
@@ -450,6 +528,40 @@ export class AgentLoop {
       summary,
       { category: 'fact', importance: 0.5 }
     );
+
+    // Submit for memory promotion
+    try {
+      await this.engine.safety.memoryPromotion.submit(
+        summary,
+        `conversation:${Date.now()}`,
+        'research',
+        ['auto-capture', 'conversation']
+      );
+    } catch (err) {
+      console.warn(`[Lodestone] Memory promotion submit failed:`, err);
+    }
+  }
+
+  // ─── Output Type Detection ─────────────────────────────────────────
+
+  /**
+   * Detect the type of output for quality gating.
+   * Simple heuristic: wiki links → wiki-write, email/at patterns → external-message, etc.
+   */
+  private detectOutputType(response: string): GateOutputType | null {
+    // Wiki link syntax → wiki-write
+    if (/\[\[.+?\]\]/.test(response)) {
+      return 'wiki-write';
+    }
+    // Email patterns → external-message
+    if (/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/.test(response)) {
+      return 'external-message';
+    }
+    // @-mention patterns → external-message
+    if (/@[a-zA-Z0-9_]+/.test(response) && response.length < 500) {
+      return 'external-message';
+    }
+    return null;
   }
 
   // ─── Context Compaction ─────────────────────────────────────────────────

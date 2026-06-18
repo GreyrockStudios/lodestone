@@ -8,10 +8,14 @@
 import { CapabilityManager, type CapabilityTier, type TierConfig, type SimulationResult } from './capability-tiers.js';
 import { BehavioralLearning, type BehavioralRule, type CorrectionInput, type BehavioralLearningConfig } from './behavioral-learning.js';
 import { MemoryPromotion, type VerificationLevel, type MemoryCandidate, type VerificationResult, type ConflictEntry, type MemoryPromotionConfig } from './memory-promotion.js';
+import { IntentPredictor, type IntentPredictionResult, type IntentPredictionConfig, type IntentCategory, type IntentUrgency } from './intent-prediction.js';
+import { QualityGate, type QualityGateResult, type QualityGateConfig, type QualityGateInput, type GateOutputType, type GateDecision } from './quality-gates.js';
 
 export { CapabilityManager, type CapabilityTier, type TierConfig, type SimulationResult } from './capability-tiers.js';
 export { BehavioralLearning, type BehavioralRule, type CorrectionInput, type BehavioralLearningConfig } from './behavioral-learning.js';
 export { MemoryPromotion, type VerificationLevel, type MemoryCandidate, type VerificationResult, type ConflictEntry, type MemoryPromotionConfig } from './memory-promotion.js';
+export { IntentPredictor, type IntentPredictionResult, type IntentPredictionConfig, type IntentCategory, type IntentUrgency } from './intent-prediction.js';
+export { QualityGate, type QualityGateResult, type QualityGateConfig, type QualityGateInput, type GateOutputType, type GateDecision } from './quality-gates.js';
 
 // ─── Safety System Config ────────────────────────────────────────────────────
 
@@ -24,6 +28,10 @@ export interface SafetyConfig {
   behavioralLearning?: Partial<BehavioralLearningConfig>;
   /** Memory promotion config overrides */
   memoryPromotion?: Partial<MemoryPromotionConfig>;
+  /** Intent prediction config overrides */
+  intentPrediction?: Partial<IntentPredictionConfig>;
+  /** Quality gate config overrides */
+  qualityGate?: Partial<QualityGateConfig>;
 }
 
 // ─── Safety System ──────────────────────────────────────────────────────────
@@ -32,6 +40,8 @@ export class SafetySystem {
   readonly capabilities: CapabilityManager;
   readonly behavioralLearning: BehavioralLearning;
   readonly memoryPromotion: MemoryPromotion;
+  readonly intentPredictor: IntentPredictor;
+  readonly qualityGate: QualityGate;
 
   private config: SafetyConfig;
 
@@ -49,6 +59,18 @@ export class SafetySystem {
       autoPromotionLevel: config.memoryPromotion?.autoPromotionLevel,
       maxQueueSize: config.memoryPromotion?.maxQueueSize,
     });
+    this.intentPredictor = new IntentPredictor({
+      dataDir: `${config.dataDir}/intent`,
+      maxHistory: config.intentPrediction?.maxHistory,
+      minConfidence: config.intentPrediction?.minConfidence,
+      enableProactive: config.intentPrediction?.enableProactive,
+    });
+    this.qualityGate = new QualityGate({
+      dataDir: `${config.dataDir}/quality`,
+      thresholds: config.qualityGate?.thresholds,
+      gatedTypes: config.qualityGate?.gatedTypes,
+      useLLMReview: config.qualityGate?.useLLMReview,
+    });
   }
 
   /** Initialize all safety subsystems */
@@ -56,11 +78,15 @@ export class SafetySystem {
     await Promise.all([
       this.behavioralLearning.init(),
       this.memoryPromotion.init(),
+      this.intentPredictor.init(),
+      this.qualityGate.init(),
     ]);
     console.log('[Lodestone] Safety system initialized');
     const summary = this.capabilities.getTierSummary();
     console.log(`[Lodestone]   Capabilities: ${Object.values(summary).reduce((sum, t) => sum + t.count, 0)} tools across 4 tiers`);
     console.log(`[Lodestone]   Behavioral rules: ${this.behavioralLearning.getActiveRules().length} active`);
+    console.log(`[Lodestone]   Intent predictor: ${this.intentPredictor.getStats().totalPredictions} predictions logged`);
+    console.log(`[Lodestone]   Quality gate: ${this.qualityGate.getStatus().recentDecisions.approve} approved`);
   }
 
   /** Get behavioral rules formatted for prompt injection */

@@ -15,6 +15,14 @@ import { MemorySystem } from './memory/memory-system.js';
 import { ImprovementSystem, type ImprovementConfig } from './improvement/index.js';
 import { ChannelManager, type ChannelManagerConfig } from './channels/index.js';
 import { SafetySystem, type SafetyConfig } from './safety/index.js';
+import { CostTracker, type TokenUsage, type CostReport, type SessionCost, type BudgetAlert, type BudgetStatus, type CostBreakdown, type CostExport } from './llm/cost-tracker.js';
+import { ModelRouter, type RoutingContext, type RoutingDecision, type RoutingRule, type RoutingStats } from './llm/model-router.js';
+import { WebhookSystem, type WebhookConfig, type OutgoingWebhookConfig } from './integrations/webhooks.js';
+import { ABTesting, type ABTest, type PromptVariant, type ABOutcome, type ABResults, type SignificanceResult } from './improvement/ab-testing.js';
+import { KnowledgeTransfer, type TransferPackage, type TransferItem, type ReceiveResult, type ApplyResult, type KnowledgeType } from './memory/knowledge-transfer.js';
+import { UndoSystem, type UndoableAction, type UndoableActionType, type UndoResult, type ReverseHandler } from './safety/undo-system.js';
+import { UserManager, type UserConfig, type User } from './auth/user-manager.js';
+import { MigrationSystem } from './migration/migration-system.js';
 import { join } from 'path';
 
 // ─── Engine Config ─────────────────────────────────────────────────────────
@@ -43,6 +51,22 @@ export interface LodestoneConfig {
   channels?: ChannelManagerConfig;
   /** Safety configuration (capability tiers, behavioral learning, memory promotion) */
   safety?: SafetyConfig;
+  /** Cost tracking configuration */
+  costTracking?: { enabled: boolean; monthlyBudget?: number; pricing?: Record<string, { input: number; output: number }> };
+  /** Multi-model routing configuration */
+  modelRouting?: { enabled: boolean; routes?: RoutingRule[]; defaultModel: string; escalationModel: string; cheapModel?: string; mediumModel?: string; expensiveModel?: string };
+  /** Webhook integration configuration */
+  webhooks?: { incoming?: WebhookConfig[]; outgoing?: OutgoingWebhookConfig[] };
+  /** A/B prompt testing configuration */
+  abTesting?: { enabled: boolean };
+  /** Email channel configuration */
+  email?: { imap: { host: string; port: number; user: string; password: string; tls: boolean }; smtp: { host: string; port: number; user: string; password: string }; pollIntervalMs?: number };
+  /** Calendar integration configuration */
+  calendar?: { provider: 'caldav' | 'google'; url?: string; token?: string; calendarId?: string };
+  /** Auth/multi-user configuration */
+  auth?: { users: UserConfig[]; tokens: Record<string, string> };
+  /** Config version for migrations */
+  configVersion?: number;
 }
 
 // ─── Engine Events ──────────────────────────────────────────────────────────
@@ -77,6 +101,17 @@ export class LodestoneEngine {
   readonly memory: MemorySystem;
   readonly improvement: ImprovementSystem;
   readonly channelManager: ChannelManager | null;
+  // Sprint 5: LLM features
+  readonly costTracker: CostTracker | null;
+  readonly modelRouter: ModelRouter | null;
+  // Sprint 5: Integrations
+  readonly webhooks: WebhookSystem | null;
+  readonly abTesting: ABTesting | null;
+  // Sprint 6: Quality
+  readonly knowledgeTransfer: KnowledgeTransfer | null;
+  readonly undoSystem: UndoSystem | null;
+  readonly userManager: UserManager | null;
+  readonly migrationSystem: MigrationSystem;
 
   // State
   private running = false;
@@ -127,12 +162,53 @@ export class LodestoneEngine {
     this.safety = new SafetySystem({
       dataDir: join(config.workspaceRoot, 'data/safety'),
       customTiers: config.safety?.customTiers,
+      behavioralLearning: config.safety?.behavioralLearning,
+      memoryPromotion: config.safety?.memoryPromotion,
+      intentPrediction: config.safety?.intentPrediction,
+      qualityGate: config.safety?.qualityGate,
     });
 
     // Initialize channels (only if configured)
     this.channelManager = config.channels
       ? new ChannelManager(config.channels)
       : null;
+
+    // Sprint 5: Cost tracking
+    this.costTracker = config.costTracking?.enabled
+      ? new CostTracker({
+          dataDir: join(config.workspaceRoot, 'data'),
+          pricing: config.costTracking?.pricing,
+        })
+      : null;
+
+    // Sprint 5: Multi-model routing
+    this.modelRouter = config.modelRouting?.enabled
+      ? new ModelRouter(config.modelRouting)
+      : null;
+
+    // Sprint 5: Webhook system
+    this.webhooks = config.webhooks
+      ? new WebhookSystem(config.webhooks)
+      : null;
+
+    // Sprint 5: A/B testing
+    this.abTesting = config.abTesting?.enabled
+      ? new ABTesting(join(config.workspaceRoot, 'data'))
+      : null;
+
+    // Sprint 6: Knowledge transfer (always on, lightweight)
+    this.knowledgeTransfer = new KnowledgeTransfer(join(config.workspaceRoot, 'data'));
+
+    // Sprint 6: Undo system (always on)
+    this.undoSystem = new UndoSystem(join(config.workspaceRoot, 'data'));
+
+    // Sprint 6: Multi-user support
+    this.userManager = config.auth
+      ? new UserManager(join(config.workspaceRoot, 'data'))
+      : null;
+
+    // Sprint 6: Migration system
+    this.migrationSystem = new MigrationSystem(join(config.workspaceRoot, 'data'));
   }
 
   // ─── Lifecycle ──────────────────────────────────────────────────────────
@@ -152,6 +228,15 @@ export class LodestoneEngine {
 
     // Initialize safety subsystem
     await this.safety.init();
+
+    // Sprint 5: Init cost tracker
+    if (this.costTracker) await this.costTracker.init();
+
+    // Sprint 6: Run migrations
+    await this.migrationSystem!.runMigrations();
+
+    // Sprint 6: Load users
+    if (this.userManager) await this.userManager.init();
 
     // Register improvement tools
     for (const tool of this.improvement.getTools()) {
@@ -242,6 +327,7 @@ export class LodestoneEngine {
       try {
         handler(event);
       } catch (err) {
+        // eslint-disable-next-line no-console -- event handler errors need to be visible
         console.error('[Lodestone] Event handler error:', err);
       }
     }

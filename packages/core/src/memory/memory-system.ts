@@ -10,7 +10,9 @@
 import { WikiStore, type WikiSearchResult } from './wiki-store.js';
 import { VectorMemory } from './vector-memory.js';
 import { ScratchBuffer } from './scratch-buffer.js';
+import { KnowledgeGraph, type KnowledgeGraphConfig } from './knowledge-graph.js';
 import type { MemoryResult } from '../tools/definitions.js';
+import { join } from 'path';
 
 // ─── Config ─────────────────────────────────────────────────────────────────
 
@@ -36,6 +38,12 @@ export interface MemorySystemConfig {
     dbPath: string;
     defaultTtlMs: number | null;
   };
+  /** Knowledge graph config (optional — uses memoryDir by default) */
+  knowledgeGraph?: {
+    dataDir: string;
+    maxNodes?: number;
+    maxEdgesPerNode?: number;
+  };
 }
 
 // ─── Memory System ───────────────────────────────────────────────────────────
@@ -44,6 +52,7 @@ export class MemorySystem {
   readonly wiki: WikiStore;
   readonly vector: VectorMemory;
   readonly scratch: ScratchBuffer;
+  readonly knowledgeGraph: KnowledgeGraph;
 
   private config: MemorySystemConfig;
 
@@ -73,6 +82,12 @@ export class MemorySystem {
       dbPath: config.scratch.dbPath,
       defaultTtlMs: config.scratch.defaultTtlMs,
     });
+
+    this.knowledgeGraph = new KnowledgeGraph({
+      dataDir: config.knowledgeGraph?.dataDir || join(config.vector.dbPath, '..', 'knowledge-graph'),
+      maxNodes: config.knowledgeGraph?.maxNodes,
+      maxEdgesPerNode: config.knowledgeGraph?.maxEdgesPerNode,
+    });
   }
 
   /** Initialize all memory subsystems */
@@ -80,6 +95,7 @@ export class MemorySystem {
     await Promise.all([
       this.vector.init(),
       this.scratch.init(),
+      this.knowledgeGraph.init(),
       // Wiki loads lazily on first access
     ]);
   }
