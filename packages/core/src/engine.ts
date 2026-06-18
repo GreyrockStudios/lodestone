@@ -11,6 +11,12 @@ import { SessionManager } from './session/manager.js';
 import { StreamHandler } from './streaming/handler.js';
 import { Scheduler, type JobConfig } from './scheduler/scheduler.js';
 import { IdentityLoader, type Identity, type IdentityConfig } from './identity/loader.js';
+import { ContextualStyle, type StyleProfile, type StyleContext } from './identity/contextual-style.js';
+import { ConfidenceDisplay } from './safety/confidence-display.js';
+import { FailureReplay, type FailureReplayConfig } from './safety/failure-replay.js';
+import { SelfConstraints, type SelfConstraintsConfig } from './safety/self-constraints.js';
+import { SkillSynthesizer, type SkillSynthesizerConfig } from './improvement/skill-synthesizer.js';
+import { ExplainabilityLayer } from './safety/explainability.js';
 import { MemorySystem } from './memory/memory-system.js';
 import { ImprovementSystem, type ImprovementConfig } from './improvement/index.js';
 import { MultiAgentCoordinator } from './improvement/multi-agent.js';
@@ -31,7 +37,7 @@ import type { DriftCorrection } from './improvement/drift-correction.js';
 import { PluginManager, type Plugin, type PluginHookName } from './plugin-system.js';
 import { SessionPersistence } from './session/persistence.js';
 import { join } from 'path';
-import { getLogger } from './utils/logger.js';
+import { getLogger, type Logger } from './utils/logger.js';
 
 // ─── Engine Config ─────────────────────────────────────────────────────────
 
@@ -114,6 +120,12 @@ export class LodestoneEngine {
   readonly sessions: SessionManager;
   readonly scheduler: Scheduler;
   readonly identity: IdentityLoader;
+  readonly contextualStyle: ContextualStyle;
+  readonly confidenceDisplay: ConfidenceDisplay;
+  readonly failureReplay: FailureReplay;
+  readonly selfConstraints: SelfConstraints;
+  readonly skillSynthesizer: SkillSynthesizer;
+  readonly explainability: ExplainabilityLayer;
   readonly safety: SafetySystem;
 
   readonly memory: MemorySystem;
@@ -177,6 +189,19 @@ export class LodestoneEngine {
     this.identity = new IdentityLoader({
       identityDir: config.identityDir,
     });
+    this.contextualStyle = new ContextualStyle();
+    this.confidenceDisplay = new ConfidenceDisplay();
+    this.failureReplay = new FailureReplay({
+      dataDir: join(config.workspaceRoot, 'data/failure-replay'),
+      logger: getLogger() as Logger,
+    });
+    this.selfConstraints = new SelfConstraints({
+      dataDir: join(config.workspaceRoot, 'data/self-constraints'),
+    });
+    this.skillSynthesizer = new SkillSynthesizer({
+      dataDir: join(config.workspaceRoot, 'data/skill-synthesizer'),
+    });
+    this.explainability = new ExplainabilityLayer();
 
     // Safety subsystem
     this.safety = new SafetySystem({
@@ -283,6 +308,11 @@ export class LodestoneEngine {
 
     // Initialize safety subsystem
     await this.safety.init();
+
+    // Initialize improvement subsystem modules that need async init
+    await this.failureReplay.init();
+    await this.selfConstraints.init();
+    await this.skillSynthesizer.init();
 
     // Sprint 5: Init cost tracker
     if (this.costTracker) await this.costTracker.init();

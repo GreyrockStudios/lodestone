@@ -10,7 +10,11 @@ import { BehavioralLearning, type BehavioralRule, type CorrectionInput, type Beh
 import { MemoryPromotion, type VerificationLevel, type MemoryCandidate, type VerificationResult, type ConflictEntry, type MemoryPromotionConfig } from './memory-promotion.js';
 import { IntentPredictor, type IntentPredictionResult, type IntentPredictionConfig, type IntentCategory, type IntentUrgency } from './intent-prediction.js';
 import { QualityGate, type QualityGateResult, type QualityGateConfig, type QualityGateInput, type GateOutputType, type GateDecision } from './quality-gates.js';
-import { getLogger } from '../utils/logger.js';
+import { ConfidenceDisplay, type ConfidenceScore, type ConfidenceContext, type CalibrationData } from './confidence-display.js';
+import { FailureReplay, type FailureReplayConfig, type DecisionTrace, type FailureAnalysis, type FailureSignal, type PreventionRule } from './failure-replay.js';
+import { SelfConstraints, type SelfConstraintsConfig, type NearMissEvent, type ConstraintProposal, type ActiveConstraint, type ActionRecord } from './self-constraints.js';
+import { ExplainabilityLayer, type ExplainTrace, type ExplainStep } from './explainability.js';
+import { getLogger, Logger } from '../utils/logger.js';
 
 export { CapabilityManager, type CapabilityTier, type TierConfig, type SimulationResult } from './capability-tiers.js';
 export { BehavioralLearning, type BehavioralRule, type CorrectionInput, type BehavioralLearningConfig } from './behavioral-learning.js';
@@ -33,6 +37,10 @@ export interface SafetyConfig {
   intentPrediction?: Partial<IntentPredictionConfig>;
   /** Quality gate config overrides */
   qualityGate?: Partial<QualityGateConfig>;
+  /** Failure replay config */
+  failureReplay?: { maxTraces?: number; maxFailures?: number; detectionWindow?: number };
+  /** Self constraints config */
+  selfConstraints?: { maxConstraints?: number; detectionWindow?: number; autoApprove?: boolean };
 }
 
 // ─── Safety System ──────────────────────────────────────────────────────────
@@ -43,6 +51,10 @@ export class SafetySystem {
   readonly memoryPromotion: MemoryPromotion;
   readonly intentPredictor: IntentPredictor;
   readonly qualityGate: QualityGate;
+  readonly confidenceDisplay: ConfidenceDisplay;
+  readonly failureReplay: FailureReplay;
+  readonly selfConstraints: SelfConstraints;
+  readonly explainability: ExplainabilityLayer;
 
   private config: SafetyConfig;
   private logger = getLogger('Safety');
@@ -73,6 +85,19 @@ export class SafetySystem {
       gatedTypes: config.qualityGate?.gatedTypes,
       useLLMReview: config.qualityGate?.useLLMReview,
     });
+    this.confidenceDisplay = new ConfidenceDisplay();
+    this.explainability = new ExplainabilityLayer();
+    this.failureReplay = new FailureReplay({
+      dataDir: `${config.dataDir}/failure-replay`,
+      logger: getLogger('failure-replay') as Logger,
+      maxTraces: config.failureReplay?.maxTraces ?? 1000,
+      maxArchivedFailures: config.failureReplay?.maxFailures ?? 100,
+      existingRules: this.behavioralLearning.getActiveRules(),
+    });
+    this.selfConstraints = new SelfConstraints({
+      dataDir: `${config.dataDir}/self-constraints`,
+      maxProposals: config.selfConstraints?.maxConstraints ?? 50,
+    });
   }
 
   /** Initialize all safety subsystems */
@@ -82,7 +107,9 @@ export class SafetySystem {
       this.memoryPromotion.init(),
       this.intentPredictor.init(),
       this.qualityGate.init(),
-    ]);
+      this.failureReplay.init(),
+      this.selfConstraints.init(),
+    ].filter(p => p !== undefined));
     this.logger.info('Safety system initialized');
     const summary = this.capabilities.getTierSummary();
     this.logger.info('Capabilities', { tools: Object.values(summary).reduce((sum, t) => sum + t.count, 0), tiers: 4 });

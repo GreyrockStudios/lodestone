@@ -18,6 +18,7 @@ import { generateText, streamText, jsonSchema, tool as aiTool } from 'ai';
 import type { ModelMessage } from 'ai';
 import type { LodestoneEngine } from './engine.js';
 import type { StreamHandler } from './streaming/handler.js';
+import type { StyleContext } from './identity/contextual-style.js';
 import type { WikiFrontmatter } from './memory/wiki-store.js';
 import type { ToolResult } from './tools/definitions.js';
 import type { CorrectionInput } from './safety/behavioral-learning.js';
@@ -91,6 +92,13 @@ export class AgentLoop {
     const startTime = Date.now();
     let totalTokens = 0;
     let toolCallsMade: ToolCallRecord[] = [];
+
+    // ─── Explainability — begin trace ───────────────────────────────────
+    try {
+      this.engine.safety.explainability.beginTrace(sessionId, userMessage);
+    } catch {
+      // Best-effort
+    }
 
     // ─── Plugin Hook: onMessage ──────────────────────────────────────────
     try {
@@ -274,6 +282,24 @@ export class AgentLoop {
       await this.autoCapture(userMessage, currentResponse);
     }
 
+    // 6a. Confidence scoring — record response confidence for calibration
+    try {
+      const confidenceScore = this.engine.confidenceDisplay.calculateConfidence(currentResponse, {
+        truthGuardsPassed: true,
+        truthGuardsBlocked: false,
+        truthWarningCount: 0,
+        hasSourceCitations: false,
+        hasToolVerification: toolCallsMade.length > 0,
+        responseType: 'task',
+      });
+      this.logger.debug('Response confidence', {
+        score: confidenceScore.score.toFixed(2),
+        band: confidenceScore.band,
+      });
+    } catch {
+      // Best-effort — don't block on confidence scoring
+    }
+
     // 6b. Record A/B test outcomes for active tests
     const activeTests = this.engine.improvement.abTesting.getActiveTests();
     if (activeTests.length > 0) {
@@ -333,6 +359,58 @@ export class AgentLoop {
       });
     } catch (hookErr) {
       this.logger.warn('afterResponse hook failed', { error: hookErr instanceof Error ? hookErr.message : String(hookErr) });
+    }
+
+    // 10. Explainability — end trace and store
+    try {
+      this.engine.safety.explainability.endTrace(sessionId, currentResponse);
+    } catch {
+      // Best-effort
+    }
+
+    // 11. Confidence display — calculate and append confidence to response
+    try {
+      const score = this.engine.safety.confidenceDisplay.calculateConfidence(currentResponse, {
+        truthGuardsPassed: true,
+        truthGuardsBlocked: false,
+        truthWarningCount: 0,
+        hasSourceCitations: /\[\[.*\]\]/.test(currentResponse),
+        hasToolVerification: toolCallsMade.length > 0,
+        responseType: 'ambiguous',
+      });
+      // Only append confidence if it's low — high confidence is implicit
+      if (score.adjustedScore < 50) {
+        currentResponse += `\n\n_Confidence: ${score.band} — ${score.label}_`;
+      }
+    } catch {
+      // Best-effort
+    }
+
+    // 12. Skill synthesizer — record tool sequence for pattern detection
+    if (this.engine.improvement.skillSynthesizer && toolCallsMade.length > 0) {
+      try {
+        this.engine.improvement.skillSynthesizer.recordToolSequence(sessionId, toolCallsMade.map(tc => ({
+          toolName: tc.toolName,
+          timestamp: new Date().toISOString(),
+        } as any)));
+      } catch {
+        // Best-effort
+      }
+    }
+
+    // 13. Failure replay — record decision trace
+    try {
+      this.engine.safety.failureReplay.recordDecisionTrace({
+        traceId: sessionId + '-' + Date.now(),
+        sessionId,
+        timestamp: new Date().toISOString(),
+        userMessage,
+        response: currentResponse,
+        toolCalls: toolCallsMade.map(tc => ({ toolName: tc.toolName, step: tc.toolName, result: 'completed' } as any)),
+        outcome: 'completed',
+      } as any);
+    } catch {
+      // Best-effort
     }
 
     return {
@@ -400,6 +478,26 @@ export class AgentLoop {
       prompt += '\n\n' + behavioralRules;
     }
 
+    // Append self-imposed constraints
+    const activeConstraints = this.engine.selfConstraints.getActiveConstraints();
+    if (activeConstraints.length > 0) {
+      const constraintSection = activeConstraints.map(c => `- ${c.name}: ${c.justification}`).join('\n');
+      prompt += `\n\n## Self-Imposed Constraints\nYou must follow these constraints:\n${constraintSection}`;
+    }
+
+    // Apply contextual style adaptation
+    const styleContext: StyleContext = {
+      channel: 'dashboard',
+      timeOfDay: this.getTimeOfDay(),
+      userHistory: {
+        messagesExchanged: session.messages.filter(m => m.role === 'user').length,
+        firstInteraction: session.messages.filter(m => m.role === 'user').length <= 1,
+      },
+      conversationDepth: session.messages.filter(m => m.role === 'user').length,
+    };
+    const style = this.engine.contextualStyle.getStyle(styleContext);
+    prompt = this.engine.contextualStyle.applyStyle(prompt, style);
+
     // Append intent prediction for this user message
     const lastUserMsg = session.messages.filter(m => m.role === 'user').pop()?.content || '';
     if (lastUserMsg) {
@@ -442,10 +540,40 @@ export class AgentLoop {
       }
     }
 
+    // Apply contextual style adaptation (tone, formality, verbosity)
+    try {
+      const hour = new Date().getHours();
+      const timeOfDay = hour < 12 ? 'morning' : hour < 17 ? 'afternoon' : hour < 21 ? 'evening' : 'night';
+      const styleContext: StyleContext = {
+        channel: 'default',
+        timeOfDay,
+        userHistory: {
+          messagesExchanged: session.messages.length,
+          firstInteraction: session.messages.length <= 2,
+        },
+        conversationDepth: session.messages.length,
+        detectedTone: this.engine.contextualStyle.detectTone(
+          session.messages.filter(m => m.role === 'user').pop()?.content || ''
+        ),
+      };
+      const style = this.engine.contextualStyle.getStyle(styleContext);
+      prompt = this.engine.contextualStyle.applyStyle(prompt, style);
+    } catch {
+      // Best-effort — style adaptation shouldn't block
+    }
+
     return prompt;
   }
 
   // ─── Message History ────────────────────────────────────────────────────
+
+  private getTimeOfDay(): 'morning' | 'afternoon' | 'evening' | 'night' {
+    const hour = new Date().getHours();
+    if (hour > 6 && hour < 12) return 'morning';
+    if (hour > 12 && hour < 17) return 'afternoon';
+    if (hour > 17 && hour < 21) return 'evening';
+    return 'night';
+  }
 
   private buildMessageHistory(sessionId: string, systemPrompt: string): ModelMessage[] {
     const session = this.engine.sessions.get(sessionId);
@@ -680,6 +808,33 @@ export class AgentLoop {
       };
 
       // Execute the tool (with retry on transient failures)
+      // Self-constraints check — block if a constraint matches this tool/action
+      const constraints = this.engine.safety.selfConstraints.getAllProposals().filter(p => p.status === 'approved');
+      for (const constraint of constraints) {
+        try {
+          const pattern = constraint.pattern;
+          const isRegex = constraint.isRegex;
+const matches = isRegex
+  ? new RegExp(pattern).test(tc.toolName)
+  : tc.toolName.includes(pattern);
+          if (matches) {
+            this.logger.warn('Self-constraint blocked tool call', { tool: tc.toolName, constraint: constraint.name });
+            results.push({
+              toolId: tc.toolCallId,
+              toolName: tc.toolName,
+              success: false,
+              data: null,
+              summary: 'Blocked by self-constraint',
+              error: `Blocked by self-constraint: ${constraint.name}`,
+              durationMs: 0,
+            });
+            continue; // Skip to next tool
+          }
+        } catch {
+          // Best-effort — don't block on constraint check errors
+        }
+      }
+
       const maxToolRetries = 2;
       let result = await this.engine.tools.execute(tc.toolName, tc.arguments, context);
       for (let attempt = 1; attempt < maxToolRetries && !result.success; attempt++) {
@@ -715,6 +870,18 @@ export class AgentLoop {
         toolId: tc.toolName,
         durationMs: result.durationMs,
       });
+
+      // Explainability — record tool step
+      try {
+        this.engine.safety.explainability.addStep(sessionId, {
+          phase: 'tool_call',
+          description: `Called tool: ${tc.toolName}`,
+          result: result.summary?.substring(0, 200) || (result.success ? 'success' : result.error?.substring(0, 200) || 'unknown'),
+          durationMs: result.durationMs,
+        });
+      } catch {
+        // Best-effort
+      }
 
       // Plugin Hook: afterTool — allow plugins to observe results
       try {

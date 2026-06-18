@@ -11,6 +11,7 @@
  */
 
 import { join } from 'path';
+import { getLogger } from '../utils/logger.js';
 
 import type { Tool, ToolDefinition, ToolResult, ToolContext } from '../tools/definitions.js';
 import type { JobConfig } from '../scheduler/scheduler.js';
@@ -31,6 +32,7 @@ import { MultiAgentCoordinator, ReviewSubagent, type SubagentConfig, type Subage
 import { PatchAutomation, type PatchAutomationConfig, type PatchProposal, type PatchReview, type AutomationStats } from './patch-automation.js';
 import { DreamMode, type DreamModeConfig, type DreamReport } from './dream-mode.js';
 import { ABTesting, type ABTest, type PromptVariant, type ABOutcome, type VariantResult, type ABResults, type SignificanceResult } from './ab-testing.js';
+import { SkillSynthesizer, type SkillSynthesizerConfig, type ToolCallRecord, type ToolPattern, type SkillProposal, type ApprovalResult } from './skill-synthesizer.js';
 
 // ─── Config ─────────────────────────────────────────────────────────────────
 
@@ -69,6 +71,7 @@ export class ImprovementSystem {
   readonly patchAutomation: PatchAutomation;
   readonly dreamMode: DreamMode | null;
   readonly abTesting: ABTesting;
+  readonly skillSynthesizer: SkillSynthesizer | null;
 
   private config: ImprovementConfig;
 
@@ -111,6 +114,10 @@ export class ImprovementSystem {
       projectRoot: process.cwd(),
     });
     this.abTesting = new ABTesting(join(dataDir, 'ab-testing'));
+    this.skillSynthesizer = new SkillSynthesizer({
+      dataDir: join(dataDir, 'skill-synthesizer'),
+      logger: getLogger('skill-synthesizer') as any,
+    });
     this.dreamMode = config.sessionManager
       ? new DreamMode({
           dataDir: join(dataDir, 'dream'),
@@ -135,6 +142,7 @@ export class ImprovementSystem {
       this.multiAgent.init(),
       this.patchAutomation.init(),
       this.abTesting.init(),
+      this.skillSynthesizer ? this.skillSynthesizer.init() : Promise.resolve(),
     ]);
     if (this.dreamMode) {
       await this.dreamMode.init();
