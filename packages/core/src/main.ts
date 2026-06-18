@@ -16,6 +16,13 @@ import { DecisionLogTool } from './tools/impl/decision-log.js';
 import { ResumeStateTool } from './tools/impl/resume-state.js';
 import { WatchdogTool } from './tools/impl/watchdog.js';
 import { BusinessHoursTool } from './tools/impl/business-hours.js';
+import { WebSearchTool } from './tools/impl/web-search.js';
+import { WebFetchTool } from './tools/impl/web-fetch.js';
+import { FileOpsTool } from './tools/impl/file-ops.js';
+import { CodeExecTool } from './tools/impl/code-exec.js';
+import { CalendarTool } from './tools/impl/calendar.js';
+import { VisionTool } from './tools/impl/vision.js';
+import { VoiceTool } from './tools/impl/voice.js';
 import { createWorkspaceFromAnswers, PROVIDER_INFO } from './tui-onboarding/workspace-creator.js';
 import { readFile } from 'fs/promises';
 import { existsSync } from 'fs';
@@ -211,7 +218,14 @@ async function main() {
   engine.registerTool(new ResumeStateTool());
   engine.registerTool(new WatchdogTool());
   engine.registerTool(new BusinessHoursTool());
-  console.log('[Lodestone] Tools registered: 7 built-in');
+  engine.registerTool(new WebSearchTool({ provider: 'searxng', searxngUrl: 'http://localhost:8888' }));
+  engine.registerTool(new WebFetchTool());
+  engine.registerTool(new FileOpsTool({ workspaceRoot: resolve(config.workspaceRoot) }));
+  engine.registerTool(new CodeExecTool());
+  engine.registerTool(new CalendarTool({ provider: 'caldav' }));
+  engine.registerTool(new VisionTool());
+  engine.registerTool(new VoiceTool());
+  console.log('[Lodestone] Tools registered: 14 built-in');
 
   // 5. Register proactive jobs
   engine.registerJob({
