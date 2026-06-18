@@ -11,6 +11,7 @@ import { WikiStore, type WikiSearchResult } from './wiki-store.js';
 import { VectorMemory } from './vector-memory.js';
 import { ScratchBuffer } from './scratch-buffer.js';
 import { KnowledgeGraph, type KnowledgeGraphConfig } from './knowledge-graph.js';
+import { MemoryCompounding, type CompoundingConfig, type CompoundingReport } from './memory-compounding.js';
 import type { MemoryResult } from '../tools/definitions.js';
 import { join } from 'path';
 
@@ -44,6 +45,11 @@ export interface MemorySystemConfig {
     maxNodes?: number;
     maxEdgesPerNode?: number;
   };
+  /** Memory compounding config (optional — enables auto entity extraction + contradiction detection) */
+  compounding?: {
+    dataDir: string;
+    enabled?: boolean;
+  };
 }
 
 // ─── Memory System ───────────────────────────────────────────────────────────
@@ -53,6 +59,7 @@ export class MemorySystem {
   readonly vector: VectorMemory;
   readonly scratch: ScratchBuffer;
   readonly knowledgeGraph: KnowledgeGraph;
+  readonly compounding: MemoryCompounding | null;
 
   private config: MemorySystemConfig;
 
@@ -88,16 +95,34 @@ export class MemorySystem {
       maxNodes: config.knowledgeGraph?.maxNodes,
       maxEdgesPerNode: config.knowledgeGraph?.maxEdgesPerNode,
     });
+
+    // Memory compounding (optional — enables auto entity extraction, contradiction detection)
+    const compoundingEnabled = config.compounding?.enabled !== false;
+    this.compounding = compoundingEnabled
+      ? new MemoryCompounding({
+          dataDir: config.compounding?.dataDir || join(config.vector.dbPath, '..', 'compounding'),
+          wikiRoot: config.wiki.rootDir,
+        })
+      : null;
+
+    // Wire compounding into wiki writes — every wiki.write() triggers entity extraction
+    if (this.compounding) {
+      this.wiki.onWriteEvent((slug, content) => { void this.processWikiWrite(slug, content); });
+    }
   }
 
   /** Initialize all memory subsystems */
   async init(): Promise<void> {
-    await Promise.all([
+    const initPromises: Promise<void>[] = [
       this.vector.init(),
       this.scratch.init(),
       this.knowledgeGraph.init(),
       // Wiki loads lazily on first access
-    ]);
+    ];
+    if (this.compounding) {
+      initPromises.push(this.compounding.init().then(() => undefined));
+    }
+    await Promise.all(initPromises);
   }
 
   // ─── Convenience Methods ───────────────────────────────────────────────
@@ -128,6 +153,7 @@ export class MemorySystem {
     const existing = await this.wiki.read(slug);
     if (!existing) {
       await this.wiki.write(slug, content, { title, status: 'active' });
+      // Compounding hook fires automatically via WikiStore.onWriteEvent
     }
   }
 
@@ -167,5 +193,95 @@ export class MemorySystem {
   /** Rebuild the wiki index */
   async rebuildWikiIndex(): Promise<void> {
     await this.wiki.rebuildIndex();
+  }
+
+  // ─── Memory Compounding ────────────────────────────────────────────────
+
+  /**
+   * Process a wiki page write through the compounding pipeline.
+   * Extracts entities, checks for contradictions, and adds entities
+   * to the knowledge graph automatically.
+   *
+   * Called after every wiki write. No-op if compounding is disabled.
+   */
+  async processWikiWrite(slug: string, content: string): Promise<CompoundingReport | null> {
+    if (!this.compounding) return null;
+
+    // Run compounding analysis (entity extraction + contradiction detection)
+    const report = this.compounding.processWikiWrite(slug, content);
+
+    // Feed extracted entities into the knowledge graph
+    const entities = this.compounding.extractEntities(content);
+    for (const entity of entities) {
+      const nodeId = `${entity.type}:${entity.name.toLowerCase().replace(/\s+/g, '-')}`;
+      const existing = this.knowledgeGraph.getNode(nodeId);
+
+      if (!existing) {
+        await this.knowledgeGraph.addNode({
+          id: nodeId,
+          label: entity.name,
+          type: entity.type === 'project' ? 'project' : entity.type === 'tool' ? 'tool' : entity.type === 'concept' ? 'concept' : 'entity',
+          wikiSlug: slug,
+          state: {},
+          tags: [entity.type, `from:${slug}`],
+        });
+      } else {
+        // Node exists — add a tag noting it was mentioned in this page
+        const newTags = Array.from(new Set([...(existing.tags || []), `from:${slug}`]));
+        await this.knowledgeGraph.addNode({
+          id: nodeId,
+          label: existing.label,
+          type: existing.type,
+          wikiSlug: existing.wikiSlug,
+          state: existing.state,
+          tags: newTags,
+        });
+      }
+    }
+
+    // Add edges between entities mentioned in the same page (co-occurrence)
+    const contentLower = content.toLowerCase();
+    for (let i = 0; i < entities.length; i++) {
+      for (let j = i + 1; j < entities.length; j++) {
+        const a = entities[i];
+        const b = entities[j];
+        const idA = `${a.type}:${a.name.toLowerCase().replace(/\s+/g, '-')}`;
+        const idB = `${b.type}:${b.name.toLowerCase().replace(/\s+/g, '-')}`;
+
+        // Check both nodes exist in the graph
+        if (this.knowledgeGraph.getNode(idA) && this.knowledgeGraph.getNode(idB)) {
+          // Check they co-occur within 200 chars in the content
+          const idxA = contentLower.indexOf(a.name.toLowerCase());
+          const idxB = contentLower.indexOf(b.name.toLowerCase());
+          if (idxA >= 0 && idxB >= 0 && Math.abs(idxA - idxB) < 200) {
+            try {
+              await this.knowledgeGraph.addEdge({
+                from: idA,
+                to: idB,
+                type: 'related-to',
+                description: `Co-mentioned in [[${slug}]]`,
+                validFrom: new Date().toISOString(),
+              });
+            } catch {
+              // Edge already exists or node missing — skip
+            }
+          }
+        }
+      }
+    }
+
+    return report;
+  }
+
+  /** Get compounding stats for dashboard */
+  getCompoundingStats(): { enabled: boolean; contradictions: number; growthReport: ReturnType<MemoryCompounding['generateGrowthReport']> | null } {
+    if (!this.compounding) {
+      return { enabled: false, contradictions: 0, growthReport: null };
+    }
+    return {
+      enabled: true,
+      contradictions: this.compounding.getContradictions().length,
+      growthReport: this.compounding.generateGrowthReport(),
+    };
   }
 }

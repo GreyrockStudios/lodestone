@@ -26,6 +26,7 @@ import { MigrationSystem } from './migration/migration-system.js';
 import { DashboardServer, type DashboardConfig } from './dashboard/server.js';
 import { ProactiveIntelligence, type ProactiveConfig } from './improvement/proactive-intelligence.js';
 import { join } from 'path';
+import { getLogger } from './utils/logger.js';
 
 // ─── Engine Config ─────────────────────────────────────────────────────────
 
@@ -124,6 +125,7 @@ export class LodestoneEngine {
   // State
   private running = false;
   private eventHandlers: ((event: EngineEvent) => void)[] = [];
+  private logger = getLogger('Engine');
 
   constructor(config: LodestoneConfig) {
     this.config = config;
@@ -235,11 +237,11 @@ export class LodestoneEngine {
   async start(): Promise<void> {
     if (this.running) return;
 
-    console.log('[Lodestone] Starting engine...');
+    this.logger.info('Starting engine...');
 
     // Load identity
     const loadedIdentity = await this.identity.load();
-    console.log(`[Lodestone] Identity loaded: ${loadedIdentity.identity.name}`);
+    this.logger.info('Identity loaded', { name: loadedIdentity.identity.name });
 
     // Initialize improvement subsystem
     await this.improvement.init();
@@ -304,6 +306,8 @@ export class LodestoneEngine {
       this.dashboard.registerProvider('memory', async () => ({
         wikiPages: (await this.memory.wiki.list()).length,
         scratchKeys: this.memory.scratch.list(),
+        compounding: this.memory.getCompoundingStats(),
+        knowledgeGraph: this.memory.knowledgeGraph.getStats(),
       }));
       this.dashboard.registerProvider('proactive', async () => {
         if (!this.proactiveIntelligence) return { opportunities: [] };
@@ -312,7 +316,7 @@ export class LodestoneEngine {
       });
 
       await this.dashboard.start();
-      console.log(`[Lodestone] Dashboard started on port ${this.config.dashboard?.port}`);
+      this.logger.info('Dashboard started', { port: this.config.dashboard?.port });
     }
 
     // Init proactive intelligence (if configured)
@@ -325,25 +329,36 @@ export class LodestoneEngine {
         schedule: { kind: 'interval', everyMs: checkIntervalMs },
         description: 'Scan for proactive opportunities',
       });
-      console.log('[Lodestone] Proactive intelligence initialized');
+      this.logger.info('Proactive intelligence initialized');
+    }
+
+    // Register weekly memory growth report job
+    if (this.memory.compounding) {
+      this.scheduler.register({
+        id: 'memory-growth-report',
+        name: 'Weekly Memory Growth Report',
+        schedule: { kind: 'cron', expr: '0 9 * * 1' }, // Monday 9am
+        description: 'Generate weekly memory compounding growth report',
+      });
+      this.logger.info('Memory compounding growth report job registered');
     }
 
     this.running = true;
     this.emit({ type: 'started', timestamp: new Date().toISOString() });
 
-    console.log('[Lodestone] Engine started. Agent is thinking.');
+    this.logger.info('Engine started. Agent is thinking.');
   }
 
   /** Stop the engine — cancel jobs, cleanup */
   async stop(): Promise<void> {
     if (!this.running) return;
 
-    console.log('[Lodestone] Stopping engine...');
+    this.logger.info('Stopping engine...');
 
     // Stop dashboard
     if (this.dashboard) {
       await this.dashboard.stop();
-      console.log('[Lodestone] Dashboard stopped.');
+      this.logger.info('Dashboard stopped.');
     }
 
     // Stop channels
@@ -355,7 +370,7 @@ export class LodestoneEngine {
     this.running = false;
 
     this.emit({ type: 'stopped', timestamp: new Date().toISOString() });
-    console.log('[Lodestone] Engine stopped.');
+    this.logger.info('Engine stopped.');
   }
 
   /** Is the engine running? */
@@ -399,8 +414,7 @@ export class LodestoneEngine {
       try {
         handler(event);
       } catch (err) {
-        // eslint-disable-next-line no-console -- event handler errors need to be visible
-        console.error('[Lodestone] Event handler error:', err);
+        this.logger.error('Event handler error', { error: err });
       }
     }
   }

@@ -123,11 +123,12 @@ export class AgentLoop {
     let currentResponse = '';
     let rounds = 0;
 
-    while (rounds < this.config.maxToolRounds) {
-      rounds++;
+    try {
+      while (rounds < this.config.maxToolRounds) {
+        rounds++;
 
-      // Call LLM
-      const llmResponse = await this.callLLM(messages, streamHandler, sessionId);
+        // Call LLM
+        const llmResponse = await this.callLLM(messages, streamHandler, sessionId);
 
       totalTokens += llmResponse.tokenCount || 0;
       currentResponse = llmResponse.text;
@@ -193,6 +194,17 @@ export class AgentLoop {
           durationMs: result.durationMs,
         });
       }
+    }
+    } catch (err) {
+      // Graceful degradation — if LLM fails completely, return a meaningful message
+      const errorMsg = err instanceof Error ? err.message : String(err);
+      this.logger.error('Agent loop failed', { error: errorMsg, round: rounds });
+      currentResponse = `I encountered an error processing your request: ${errorMsg}. Please try again or rephrase your message.`;
+      this.engine.sessions.addMessage(sessionId, {
+        role: 'assistant',
+        content: currentResponse,
+        tokenCount: Math.ceil(currentResponse.length / 4),
+      });
     }
 
     // 5. Add final assistant message to session (if not already added in loop)
@@ -345,9 +357,42 @@ export class AgentLoop {
     return messages;
   }
 
-  // ─── LLM Call ──────────────────────────────────────────────────────────
+  // ─── LLM Call (with retry) ─────────────────────────────────────────────
 
   private async callLLM(
+    messages: ModelMessage[],
+    streamHandler?: StreamHandler,
+    sessionId?: string,
+  ): Promise<LLMResponse> {
+    const maxRetries = 3;
+    const baseDelayMs = 1000;
+
+    for (let attempt = 0; attempt < maxRetries; attempt++) {
+      try {
+        return await this.callLLMInternal(messages, streamHandler, sessionId);
+      } catch (err) {
+        const isLastAttempt = attempt === maxRetries - 1;
+        const errorMsg = err instanceof Error ? err.message : String(err);
+
+        // Check if error is retryable (timeout, rate limit, network)
+        const isRetryable = /timeout|rate.?limit|429|503|502|network|ECONNREFUSED|ECONNRESET|ETIMEDOUT/i.test(errorMsg);
+
+        if (isLastAttempt || !isRetryable) {
+          this.logger.error('LLM call failed', { attempt: attempt + 1, error: errorMsg, retryable: isRetryable });
+          throw err;
+        }
+
+        const delayMs = baseDelayMs * Math.pow(2, attempt); // 1s, 2s, 4s
+        this.logger.warn('LLM call failed, retrying', { attempt: attempt + 1, error: errorMsg, retryInMs: delayMs });
+        await new Promise(resolve => setTimeout(resolve, delayMs));
+      }
+    }
+
+    // Should not reach here, but TypeScript needs it
+    throw new Error('LLM call failed after all retries');
+  }
+
+  private async callLLMInternal(
     messages: ModelMessage[],
     streamHandler?: StreamHandler,
     sessionId?: string,
@@ -491,8 +536,18 @@ export class AgentLoop {
         },
       };
 
-      // Execute the tool
-      const result = await this.engine.tools.execute(tc.toolName, tc.arguments, context);
+      // Execute the tool (with retry on transient failures)
+      const maxToolRetries = 2;
+      let result = await this.engine.tools.execute(tc.toolName, tc.arguments, context);
+      for (let attempt = 1; attempt < maxToolRetries && !result.success; attempt++) {
+        const isRetryable = /timeout|network|ECONNREFUSED|ECONNRESET|ETIMEDOUT/i.test(result.error || '');
+        if (!isRetryable) break;
+
+        const delayMs = 500 * Math.pow(2, attempt - 1); // 500ms, 1s
+        this.logger.warn('Tool failed, retrying', { tool: tc.toolName, attempt, error: result.error, retryInMs: delayMs });
+        await new Promise(resolve => setTimeout(resolve, delayMs));
+        result = await this.engine.tools.execute(tc.toolName, tc.arguments, context);
+      }
 
       results.push({
         toolId: tc.toolCallId,
