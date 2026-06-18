@@ -315,6 +315,13 @@ export class LodestoneEngine {
         return { opportunities: result.opportunities, lastCheck: result.timestamp };
       });
 
+      // Channel health provider
+      if (this.channelManager) {
+        this.dashboard.registerProvider('channels', async () => {
+          return this.channelManager!.checkHealth();
+        });
+      }
+
       await this.dashboard.start();
       this.logger.info('Dashboard started', { port: this.config.dashboard?.port });
     }

@@ -6,7 +6,7 @@
  * Supports streaming responses (edit messages as text arrives).
  */
 
-import { Channel, type ChannelConfig, type ChannelMessage } from './channel.js';
+import { Channel, type ChannelConfig, type ChannelMessage, type ChannelHealth } from './channel.js';
 import { getLogger } from '../utils/logger.js';
 
 // ─── Telegram Config ──────────────────────────────────────────────────────
@@ -418,7 +418,26 @@ export class TelegramChannel extends Channel {
     this.streamingBuffers.delete(sessionId);
   }
 
-  // ─── Private Helpers ─────────────────────────────────────────────────
+  /** Get detailed channel health status */
+  getHealth(): ChannelHealth {
+    let status: ChannelHealth['status'] = 'healthy';
+    if (!this.running) {
+      status = 'down';
+    } else if (!this.bot) {
+      status = 'degraded';
+    }
+    return {
+      status,
+      active: this.running,
+      details: {
+        botInitialized: this.bot !== null,
+        activeStreams: this.streamingTimers.size,
+        trackedSessions: this.sessionMap.size,
+      },
+    };
+  }
+
+  // ─── Private Helpers ─────────────────────────────────────────────────────────
 
   private async flushStream(sessionId: string): Promise<void> {
     const messageId = this.streamingMessages.get(sessionId);

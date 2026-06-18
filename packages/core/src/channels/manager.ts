@@ -8,7 +8,9 @@
  * Session tracking: each (channel, user) pair maps to one agent session.
  */
 
-import { Channel, type ChannelConfig, type ChannelMessage } from './channel.js';
+import { Channel, type ChannelConfig, type ChannelMessage, type ChannelHealth } from './channel.js';
+import { getLogger } from '../utils/logger.js';
+import { ChannelError } from '../utils/errors.js';
 import { TelegramChannel, type TelegramConfig } from './telegram.js';
 import { DiscordChannel, type DiscordConfig } from './discord.js';
 import { WebChatChannel, type WebChatConfig } from './webchat.js';
@@ -23,6 +25,7 @@ export interface ChannelManagerConfig {
 // ─── Channel Manager ─────────────────────────────────────────────────────
 
 export class ChannelManager {
+  private log = getLogger('channel-manager');
   private channels: Map<string, Channel> = new Map();
   private messageHandler: ((message: ChannelMessage) => Promise<string | void>) | null = null;
   private running = false;
@@ -35,9 +38,9 @@ export class ChannelManager {
       try {
         const channel = this.createChannel(chConfig);
         this.channels.set(channel.id, channel);
-        console.log(`[ChannelManager] Registered channel: ${channel.name} (${channel.id})`);
+        this.log.info(`Registered channel: ${channel.name} (${channel.id})`);
       } catch (err) {
-        console.error(`[ChannelManager] Failed to create channel type '${chConfig.type}':`, err);
+        this.log.error(`Failed to create channel type '${chConfig.type}'`, { error: err instanceof Error ? err.message : String(err) });
       }
     }
   }
@@ -69,14 +72,14 @@ export class ChannelManager {
     for (const channel of this.channels.values()) {
       startPromises.push(
         channel.start().catch(err => {
-          console.error(`[ChannelManager] Failed to start ${channel.name}:`, err);
+          this.log.error(`Failed to start ${channel.name}`, { error: err instanceof Error ? err.message : String(err) });
         })
       );
     }
 
     await Promise.all(startPromises);
     this.running = true;
-    console.log(`[ChannelManager] Started — ${this.channels.size} channel(s) active`);
+    this.log.info(`Started — ${this.channels.size} channel(s) active`);
   }
 
   /**
@@ -92,7 +95,7 @@ export class ChannelManager {
 
     await Promise.all(stopPromises);
     this.running = false;
-    console.log('[ChannelManager] Stopped all channels');
+    this.log.info('Stopped all channels');
   }
 
   /**
@@ -102,7 +105,7 @@ export class ChannelManager {
   async send(sessionId: string, message: string): Promise<void> {
     const channel = this.findChannelForSession(sessionId);
     if (!channel) {
-      console.error(`[ChannelManager] No channel found for session ${sessionId}`);
+      this.log.warn(`No channel found for session ${sessionId}`);
       return;
     }
     await channel.send(sessionId, message);
@@ -116,8 +119,9 @@ export class ChannelManager {
     const channel = this.findChannelForSession(sessionId);
     if (!channel) return;
 
-    if ('streamDelta' in channel && typeof (channel as any).streamDelta === 'function') {
-      (channel as any).streamDelta(sessionId, text);
+    const streamable = channel as Channel & { streamDelta?: (sessionId: string, text: string) => void };
+    if (typeof streamable.streamDelta === 'function') {
+      streamable.streamDelta(sessionId, text);
     }
   }
 
@@ -128,8 +132,9 @@ export class ChannelManager {
     const channel = this.findChannelForSession(sessionId);
     if (!channel) return;
 
-    if ('streamEnd' in channel && typeof (channel as any).streamEnd === 'function') {
-      await (channel as any).streamEnd(sessionId, finalText);
+    const streamable = channel as Channel & { streamEnd?: (sessionId: string, finalText: string) => Promise<void> };
+    if (typeof streamable.streamEnd === 'function') {
+      await streamable.streamEnd(sessionId, finalText);
     }
   }
 
@@ -140,8 +145,9 @@ export class ChannelManager {
     const channel = this.findChannelForSession(sessionId);
     if (!channel) return;
 
-    if ('streamStart' in channel && typeof (channel as any).streamStart === 'function') {
-      await (channel as any).streamStart(sessionId);
+    const streamable = channel as Channel & { streamStart?: (sessionId: string) => Promise<void> };
+    if (typeof streamable.streamStart === 'function') {
+      await streamable.streamStart(sessionId);
     }
   }
 
@@ -157,6 +163,44 @@ export class ChannelManager {
    */
   listChannels(): Channel[] {
     return Array.from(this.channels.values());
+  }
+
+  /** Get health status of all channels */
+  getHealth(): Record<string, ChannelHealth> {
+    const result: Record<string, ChannelHealth> = {};
+    for (const channel of this.channels.values()) {
+      result[channel.id] = channel.getHealth();
+    }
+    return result;
+  }
+
+  /** Check if any channels are down */
+  hasDownChannels(): boolean {
+    for (const channel of this.channels.values()) {
+      if (!channel.isActive()) return true;
+    }
+    return false;
+  }
+
+  /** Check channel health and alert on degraded/down channels */
+  checkHealth(): { healthy: number; degraded: number; down: number; alerts: string[] } {
+    const alerts: string[] = [];
+    let healthy = 0, degraded = 0, down = 0;
+
+    for (const channel of this.channels.values()) {
+      const health = channel.getHealth();
+      if (health.status === 'healthy') {
+        healthy++;
+      } else if (health.status === 'degraded') {
+        degraded++;
+        alerts.push(`⚠️ ${channel.name} (${channel.id}) is degraded: ${JSON.stringify(health.details || {})}`);
+      } else {
+        down++;
+        alerts.push(`🚨 ${channel.name} (${channel.id}) is down`);
+      }
+    }
+
+    return { healthy, degraded, down, alerts };
   }
 
   /**
@@ -177,13 +221,13 @@ export class ChannelManager {
       case 'webchat':
         return new WebChatChannel(config as WebChatConfig);
       default:
-        throw new Error(`Unknown channel type: '${config.type}'. Supported: telegram, discord, webchat`);
+        throw new ChannelError(`Unknown channel type: '${config.type}'. Supported: telegram, discord, webchat`, { context: { type: config.type } });
     }
   }
 
   private async handleIncomingMessage(message: ChannelMessage, channel: Channel): Promise<void> {
     if (!this.messageHandler) {
-      console.warn('[ChannelManager] No message handler registered — dropping message');
+      this.log.warn('No message handler registered — dropping message');
       return;
     }
 
@@ -195,7 +239,7 @@ export class ChannelManager {
         await channel.send(message.sessionId, response);
       }
     } catch (err) {
-      console.error(`[ChannelManager] Error handling message from ${message.senderName}:`, err);
+      this.log.error(`Error handling message from ${message.senderName}`, { error: err instanceof Error ? err.message : String(err) });
       // Try to send an error message back
       try {
         await channel.send(message.sessionId, '❌ An error occurred while processing your message. Please try again.');
