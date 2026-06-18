@@ -22,6 +22,7 @@ import { chatCommand } from './commands/chat.js';
 import { toolsCommand } from './commands/tools.js';
 import { memoryCommand } from './commands/memory.js';
 import { configCommand } from './commands/config.js';
+import { doctorCommand } from './commands/doctor.js';
 
 const program = new Command();
 
@@ -38,5 +39,6 @@ program.addCommand(chatCommand());
 program.addCommand(toolsCommand());
 program.addCommand(memoryCommand());
 program.addCommand(configCommand());
+program.addCommand(doctorCommand());
 
 program.parse();
