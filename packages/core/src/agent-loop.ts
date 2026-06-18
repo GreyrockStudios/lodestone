@@ -346,6 +346,20 @@ export class AgentLoop {
       if (state.nextSteps.length > 0) prompt += `\n- Next steps: ${state.nextSteps.join(', ')}`;
     }
 
+    // Append calibration insights (confidence adjustments from prediction verification)
+    const calibrationInsights = this.engine.getCalibrationInsights();
+    if (calibrationInsights.length > 0) {
+      const insights = calibrationInsights.map(i => `- ${i.area}: ${i.message} (adjustment: ${i.adjustment > 0 ? '+' : ''}${i.adjustment})`).join('\n');
+      prompt += `\n\n## Calibration Insights\nThe following confidence adjustments are active based on past prediction accuracy:\n${insights}`;
+    }
+
+    // Append drift corrections (identity reinforcement)
+    const driftCorrections = this.engine.getDriftCorrections();
+    if (driftCorrections.length > 0) {
+      const corrections = driftCorrections.map(c => `- ${c.principleName}: ${c.correctionPrompt}`).join('\n');
+      prompt += `\n\n## Identity Reinforcement\nRecent behavior has drifted from these principles. Please re-align:\n${corrections}`;
+    }
+
     return prompt;
   }
 

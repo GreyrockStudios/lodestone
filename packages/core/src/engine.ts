@@ -26,6 +26,8 @@ import { UserManager, type UserConfig, type User } from './auth/user-manager.js'
 import { MigrationSystem } from './migration/migration-system.js';
 import { DashboardServer, type DashboardConfig } from './dashboard/server.js';
 import { ProactiveIntelligence, type ProactiveConfig } from './improvement/proactive-intelligence.js';
+import type { CalibrationInsight } from './improvement/calibration-loop.js';
+import type { DriftCorrection } from './improvement/drift-correction.js';
 import { PluginManager, type Plugin, type PluginHookName } from './plugin-system.js';
 import { join } from 'path';
 import { getLogger } from './utils/logger.js';
@@ -124,6 +126,8 @@ export class LodestoneEngine {
   readonly migrationSystem: MigrationSystem;
   readonly dashboard: DashboardServer | null;
   readonly proactiveIntelligence: ProactiveIntelligence | null;
+  private lastCalibrationInsights: CalibrationInsight[] = [];
+  private lastDriftCorrections: DriftCorrection[] = [];
   readonly pluginManager: PluginManager;
 
   // State
@@ -285,8 +289,9 @@ export class LodestoneEngine {
     this.scheduler.register(this.improvement.getSleepCycleJob());
 
     // Start scheduler
-    this.scheduler.on('job:start' as never, (data: { jobId: string; name: string }) => {
+    this.scheduler.on('job:start' as never, async (data: { jobId: string; name: string }) => {
       this.emit({ type: 'job.started', jobId: data.jobId });
+      await this.handleScheduledJob(data.jobId);
     });
     this.scheduler.on('job:complete' as never, (data: { jobId: string }) => {
       this.emit({ type: 'job.completed', jobId: data.jobId, status: 'ok' });
@@ -320,6 +325,8 @@ export class LodestoneEngine {
         predictions: await this.improvement.predictionJournal.list({ limit: 10 }),
         latestDrift: await this.improvement.driftDetector.getLatest(),
         latestDiagnosis: await this.improvement.rbtDiagnosis.getLatest(),
+        calibrationInsights: this.lastCalibrationInsights,
+        driftCorrections: this.lastDriftCorrections,
       }));
       this.dashboard.registerProvider('memory', async () => ({
         wikiPages: (await this.memory.wiki.list()).length,
@@ -368,6 +375,24 @@ export class LodestoneEngine {
       this.logger.info('Memory compounding growth report job registered');
     }
 
+    // Register calibration loop job — runs hourly to resolve predictions and adjust confidence
+    this.scheduler.register({
+      id: 'calibration-loop',
+      name: 'Calibration Loop',
+      schedule: { kind: 'interval', everyMs: 60 * 60 * 1000 }, // 1 hour
+      description: 'Auto-resolve predictions, compute calibration metrics, adjust confidence',
+    });
+    this.logger.info('Calibration loop job registered');
+
+    // Register drift correction job — runs every 6 hours to detect and correct behavior drift
+    this.scheduler.register({
+      id: 'drift-correction',
+      name: 'Drift Detection and Correction',
+      schedule: { kind: 'interval', everyMs: 6 * 60 * 60 * 1000 }, // 6 hours
+      description: 'Detect behavior drift from identity principles and generate corrective prompts',
+    });
+    this.logger.info('Drift correction job registered');
+
     this.running = true;
     this.emit({ type: 'started', timestamp: new Date().toISOString() });
 
@@ -399,6 +424,68 @@ export class LodestoneEngine {
 
     this.emit({ type: 'stopped', timestamp: new Date().toISOString() });
     this.logger.info('Engine stopped.');
+  }
+
+  /** Handle a scheduled job by ID */
+  private async handleScheduledJob(jobId: string): Promise<void> {
+    try {
+      switch (jobId) {
+        case 'calibration-loop': {
+          const result = await this.improvement.calibrationLoop.run();
+          this.logger.info('Calibration loop complete', {
+            expired: result.expiredCount,
+            resolved: result.resolvedCount,
+            insights: result.insights.length,
+          });
+          // Store insights for the agent loop to use
+          this.lastCalibrationInsights = result.insights;
+          break;
+        }
+        case 'drift-correction': {
+          const result = await this.improvement.driftCorrector.checkAndCorrect();
+          this.logger.info('Drift correction complete', {
+            corrections: result.corrections.length,
+            overallDrift: result.overallDrift,
+          });
+          // Store corrections for the agent loop to use
+          this.lastDriftCorrections = result.corrections;
+          break;
+        }
+        case 'proactive-check': {
+          if (this.proactiveIntelligence) {
+            const result = await this.proactiveIntelligence.check();
+            this.logger.info('Proactive check complete', { opportunities: result.opportunities.length });
+          }
+          break;
+        }
+        case 'memory-growth-report': {
+          if (this.memory.compounding) {
+            const report = this.memory.compounding.generateGrowthReport();
+            this.logger.info('Memory growth report', {
+              pages: report.wikiPages,
+              entities: report.totalEntities,
+              thinAreas: report.thinAreas.length,
+            });
+          }
+          break;
+        }
+        default:
+          // Unknown job — skip
+          break;
+      }
+    } catch (err) {
+      this.logger.error('Scheduled job failed', { jobId, error: err instanceof Error ? err.message : String(err) });
+    }
+  }
+
+  /** Get recent calibration insights for the agent loop */
+  getCalibrationInsights(): CalibrationInsight[] {
+    return this.lastCalibrationInsights || [];
+  }
+
+  /** Get recent drift corrections for the agent loop */
+  getDriftCorrections(): DriftCorrection[] {
+    return this.lastDriftCorrections || [];
   }
 
   /** Is the engine running? */
