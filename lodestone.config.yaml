@@ -3,11 +3,11 @@
 
 # ─── Workspace ──────────────────────────────────────────────────────
 workspace:
-  root: /Users/flint/.openclaw/workspace/projects/lodestone
+  root: ./workspace
 
 # ─── Identity ────────────────────────────────────────────────────────
 identity:
-  dir: /Users/flint/.openclaw/workspace/projects/lodestone/workspace
+  dir: ./workspace
 
 # ─── LLM ─────────────────────────────────────────────────────────────
 llm:
@@ -26,9 +26,9 @@ llm:
 # ─── Memory ──────────────────────────────────────────────────────────
 memory:
   wiki:
-    path: /Users/flint/.openclaw/workspace/projects/lodestone/memory/wiki
+    path: ./memory/wiki
   vector:
-    path: /Users/flint/.openclaw/workspace/projects/lodestone/data/lancedb
+    path: ./data/lancedb
 
 # ─── Session ─────────────────────────────────────────────────────────
 session:
@@ -43,7 +43,7 @@ scheduler:
 dashboard:
   port: 3002
   host: "127.0.0.1"
-  dashboardDir: /Users/flint/.openclaw/workspace/projects/lodestone/packages/core/src/dashboard
+  # dashboardDir: ./packages/core/src/dashboard  # defaults to built-in
   # apiToken: "your-secret-token"  # set to enable auth
   corsOrigin: "*"
 

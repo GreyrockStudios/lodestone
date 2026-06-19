@@ -18,6 +18,12 @@ dist/
 data/
 *.db
 *.sqlite
+*.db-shm
+*.db-wal
+
+# Runtime workspace (created by lodestone init)
+workspace/
+memory/
 
 # Ollama models (if pulled locally)
 ollama_models/
@@ -36,6 +42,13 @@ Thumbs.db
 # Logs
 logs/
 *.log
+
+# Dev-only files
+AUDIT.md
+GAP_PROGRESS.md
+PLAN.md
+RECOVERY.md
+chat.sh
 
 # Test
 coverage/
