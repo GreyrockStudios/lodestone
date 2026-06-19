@@ -460,7 +460,7 @@ agent.engine.safety.explainability.getTrace('session-1');
 
 ## Stats
 
-- **44,284 lines** of TypeScript
+- **43,660 lines** of TypeScript
 - **235 tests** + 21 dogfood tests — all passing
 - **15 built-in tools**
 - **5 channels** (CLI, TUI, Telegram, Discord, Email)
