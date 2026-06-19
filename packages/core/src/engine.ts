@@ -11,6 +11,7 @@ import { SessionManager } from './session/manager.js';
 import { StreamHandler } from './streaming/handler.js';
 import { Scheduler, type JobConfig } from './scheduler/scheduler.js';
 import { IdentityLoader, type Identity, type IdentityConfig } from './identity/loader.js';
+import { ConfigWatcher } from './utils/config-watcher.js';
 import { ContextualStyle, type StyleProfile, type StyleContext } from './identity/contextual-style.js';
 import { ConfidenceDisplay } from './safety/confidence-display.js';
 import { FailureReplay, type FailureReplayConfig } from './safety/failure-replay.js';
@@ -42,6 +43,8 @@ import { getLogger, type Logger } from './utils/logger.js';
 // ─── Engine Config ─────────────────────────────────────────────────────────
 
 export interface LodestoneConfig {
+  /** Path to config file (for hot-reload via ConfigWatcher) */
+  configPath?: string;
   /** LLM provider configuration */
   llm: {
     default: ProviderConfig;
@@ -126,6 +129,7 @@ export class LodestoneEngine {
   readonly selfConstraints: SelfConstraints;
   readonly skillSynthesizer: SkillSynthesizer;
   readonly explainability: ExplainabilityLayer;
+  readonly configWatcher: ConfigWatcher | null;
   readonly safety: SafetySystem;
 
   readonly memory: MemorySystem;
@@ -202,6 +206,11 @@ export class LodestoneEngine {
       dataDir: join(config.workspaceRoot, 'data/skill-synthesizer'),
     });
     this.explainability = new ExplainabilityLayer();
+
+    // Config watcher — hot-reload config when the file changes (if path provided)
+    this.configWatcher = config.configPath
+      ? new ConfigWatcher({ path: config.configPath })
+      : null;
 
     // Safety subsystem
     this.safety = new SafetySystem({
@@ -466,6 +475,29 @@ export class LodestoneEngine {
       this.logger.info('Dream mode job registered');
     }
 
+    // Start config watcher (if configured) — hot-reload config on file change
+    if (this.configWatcher) {
+      this.configWatcher.onReload((newConfig) => {
+        this.logger.info('Config reloaded', { llm: newConfig.llm?.default?.model });
+        // Update what we safely can at runtime
+        if (newConfig.maxConcurrentJobs) {
+          (this.scheduler as any).maxConcurrent = newConfig.maxConcurrentJobs;
+        }
+        if (newConfig.maxConcurrentTools) {
+          (this as any).config.maxConcurrentTools = newConfig.maxConcurrentTools;
+        }
+        // Note: LLM provider changes require restart — just log
+        if (newConfig.llm?.default?.model !== this.config.llm.default.model) {
+          this.logger.warn('LLM model changed — restart required to take effect', {
+            from: this.config.llm.default.model,
+            to: newConfig.llm.default.model,
+          });
+        }
+      });
+      this.configWatcher.start();
+      this.logger.info('Config watcher started', { path: this.config.configPath });
+    }
+
     this.running = true;
     this.emit({ type: 'started', timestamp: new Date().toISOString() });
 
@@ -493,6 +525,12 @@ export class LodestoneEngine {
     }
 
     this.scheduler.stopAll();
+
+    // Stop config watcher
+    if (this.configWatcher) {
+      this.configWatcher.stop();
+    }
+
     this.running = false;
 
     this.emit({ type: 'stopped', timestamp: new Date().toISOString() });

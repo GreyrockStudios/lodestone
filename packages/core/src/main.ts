@@ -57,6 +57,7 @@ async function loadConfig(): Promise<LodestoneConfig> {
     }
 
     return {
+      configPath,
       workspaceRoot: config.workspace?.root || process.env.LODESTONE_WORKSPACE || './workspace',
       identityDir: config.identity?.dir || '.',
       wikiRoot: config.memory?.wiki?.path || './memory/wiki',

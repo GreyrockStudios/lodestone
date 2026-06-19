@@ -10,8 +10,9 @@
 
 import { watch, type FSWatcher } from 'fs';
 import { readFileSync } from 'fs';
+import { parse as parseYaml } from 'yaml';
 import { Logger, getLogger } from './logger.js';
-import { ConfigValidator } from './config-validator.js';
+import { ConfigValidator, lodestoneSchema } from './config-validator.js';
 import type { LodestoneConfig } from '../engine.js';
 
 // ─── Types ──────────────────────────────────────────────────────────────────
@@ -43,7 +44,7 @@ export class ConfigWatcher {
     this.path = opts.path;
     this.debounceMs = opts.debounceMs ?? 500;
     this.logger = opts.logger ? opts.logger.child('config-watcher') : getLogger('config-watcher');
-    this.validator = new ConfigValidator();
+    this.validator = new ConfigValidator(lodestoneSchema);
   }
 
   /**
@@ -101,7 +102,7 @@ export class ConfigWatcher {
   loadConfig(): LodestoneConfig | null {
     try {
       const raw = readFileSync(this.path, 'utf-8');
-      const config = JSON.parse(raw) as LodestoneConfig;
+      const config = parseYaml(raw) as LodestoneConfig;
       return config;
     } catch (err) {
       this.logger.error('Failed to load config file', {
