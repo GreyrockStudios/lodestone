@@ -61,7 +61,7 @@ export const TEMPLATE_INFO: Record<string, { emoji: string; name: string; desc: 
 };
 
 export const PROVIDER_INFO: Record<string, { emoji: string; name: string; models: string[]; desc: string }> = {
-  ollama: { emoji: '🦙', name: 'Ollama (local)', models: ['glm-5.1:cloud', 'qwen3:8b', 'llama3:8b', 'mistral:7b'], desc: 'Run models on your own machine. Free, private, no API key needed.' },
+  ollama: { emoji: '🦙', name: 'Ollama (local)', models: ['glm-5.2:cloud', 'qwen3:8b', 'llama3:8b', 'mistral:7b'], desc: 'Run models on your own machine. Free, private, no API key needed.' },
   openai: { emoji: '🟢', name: 'OpenAI', models: ['gpt-4o', 'gpt-4o-mini', 'gpt-4-turbo'], desc: 'Cloud API. Requires OPENAI_API_KEY in environment.' },
   anthropic: { emoji: '🟣', name: 'Anthropic', models: ['claude-sonnet-4-20250514', 'claude-haiku-4-20250514'], desc: 'Cloud API. Requires ANTHROPIC_API_KEY in environment.' },
 };
@@ -123,7 +123,7 @@ export function createWorkspaceFromAnswers(config: WorkspaceConfig): void {
   const today = new Date().toISOString().split('T')[0];
 
   if (existsSync(templateDir)) {
-    const files = ['IDENTITY.md', 'SOUL.md', 'USER.md', 'RULES.md', 'HEARTBEAT.md'];
+    const files = ['IDENTITY.md', 'SOUL.md', 'USER.md', 'RULES.md', 'HEARTBEAT.md', 'AGENTS.md'];
     for (const file of files) {
       const src = join(templateDir, file);
       if (existsSync(src)) {

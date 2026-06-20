@@ -4,7 +4,7 @@
 llm:
   default:
     type: ollama
-    model: glm-5.1:cloud
+    model: glm-5.2:cloud
     baseUrl: http://127.0.0.1:11434/api
     contextWindow: 128000
     maxTokens: 16384   # Long outputs for literature reviews and syntheses
@@ -31,13 +31,6 @@ memory:
     path: ./workspace/memory/wiki
     autoLint: true
     autoIndex: true      # Always maintain the index — it's the research catalog
-    categories:
-      - entities       # Authors, organizations, key figures
-      - concepts        # Theories, methods, frameworks
-      - decisions       # Research direction decisions
-      - projects        # Active research projects
-      - areas           # Research domains
-      - research        # Source material, findings, annotations
 
   scratch:
     path: ./workspace/data/scratch.db

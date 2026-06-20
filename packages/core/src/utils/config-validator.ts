@@ -60,11 +60,11 @@ export const lodestoneSchema: ConfigSchema = {
         required: true,
         description: 'Default LLM provider',
         properties: {
-          provider: {
+          type: {
             type: 'string',
             required: true,
             enum: ['ollama', 'openai', 'anthropic', 'custom'],
-            description: 'LLM provider name',
+            description: 'LLM provider type',
           },
           model: {
             type: 'string',
@@ -109,7 +109,7 @@ export const lodestoneSchema: ConfigSchema = {
           type: 'object',
           properties: {
             pattern: { type: 'string', required: true },
-            provider: { type: 'string', required: true },
+            type: { type: 'string', required: true },
             model: { type: 'string', required: true },
           },
         },
@@ -118,23 +118,19 @@ export const lodestoneSchema: ConfigSchema = {
   },
   workspaceRoot: {
     type: 'path',
-    required: true,
-    description: 'Workspace root directory (must exist)',
+    description: 'Workspace root directory (populated by config loader)',
   },
   identityDir: {
     type: 'path',
-    required: true,
-    description: 'Identity directory (contains SOUL.md, IDENTITY.md, etc.)',
+    description: 'Identity directory (populated by config loader)',
   },
   wikiRoot: {
     type: 'path',
-    required: true,
-    description: 'Wiki root directory',
+    description: 'Wiki root directory (populated by config loader)',
   },
   memoryDir: {
     type: 'path',
-    required: true,
-    description: 'Memory/vector DB directory',
+    description: 'Memory/vector DB directory (populated by config loader)',
   },
   maxConcurrentTools: {
     type: 'number',
@@ -182,6 +178,7 @@ export const lodestoneSchema: ConfigSchema = {
         properties: {
           enabled: { type: 'boolean', default: false },
           port: { type: 'number', min: 1, max: 65535, default: 3000 },
+          corsOrigin: { type: 'string', description: 'CORS origin for webchat' },
         },
       },
     },
@@ -218,6 +215,51 @@ export const lodestoneSchema: ConfigSchema = {
         default: 'text',
       },
       file: { type: 'path', description: 'Log file path (if set, logs go to file)' },
+    },
+  },
+  // YAML config sections (parsed by config-loader, not validated here)
+  workspace: {
+    type: 'object',
+    description: 'Workspace configuration',
+    properties: {
+      root: { type: 'path', description: 'Workspace root directory' },
+    },
+  },
+  memory: {
+    type: 'object',
+    description: 'Memory system configuration',
+    properties: {
+      wiki: { type: 'object', description: 'Wiki configuration' },
+      vectorDb: { type: 'object', description: 'Vector DB configuration' },
+      scratch: { type: 'object', description: 'Scratch buffer configuration' },
+    },
+  },
+  identity: {
+    type: 'object',
+    description: 'Identity configuration',
+    properties: {
+      dir: { type: 'path', description: 'Identity directory' },
+    },
+  },
+  session: {
+    type: 'object',
+    description: 'Session configuration',
+    properties: {
+      compactionThreshold: { type: 'number', min: 0.1, max: 0.9 },
+      keepRecentCount: { type: 'number', min: 1 },
+      maxEntries: { type: 'number', min: 1 },
+      pruneAfter: { type: 'string', description: 'Duration string (e.g. 7d)' },
+    },
+  },
+  proactive: {
+    type: 'object',
+    description: 'Proactive intelligence configuration',
+  },
+  scheduler: {
+    type: 'object',
+    description: 'Scheduler configuration',
+    properties: {
+      maxConcurrent: { type: 'number', min: 1, max: 50 },
     },
   },
 };

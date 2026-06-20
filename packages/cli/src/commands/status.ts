@@ -91,7 +91,7 @@ export function statusCommand(): Command {
           console.log(chalk.dim('  Identity:  ') + chalk.yellow('Not configured'));
         }
 
-        console.log(chalk.dim('  Model:     ') + chalk.white(config.llm?.default?.model || 'glm-5.1:cloud'));
+        console.log(chalk.dim('  Model:     ') + chalk.white(config.llm?.default?.model || 'glm-5.2:cloud'));
         console.log(chalk.dim('  Provider:  ') + chalk.white(config.llm?.default?.type || 'ollama'));
         console.log(chalk.dim('  Workspace: ') + chalk.white(resolve(workspaceRoot)));
         console.log(chalk.dim('  Wiki:      ') + chalk.white(`${wikiPageCount} pages`));
@@ -99,8 +99,15 @@ export function statusCommand(): Command {
 
         // Tools
         const toolNames = [
-          'wiki-resolve', 'wiki-search', 'smart-retrieve',
+          'wiki-resolve', 'wiki-search', 'wiki-write', 'wiki-read',
+          'memory-store', 'memory-recall', 'smart-retrieve',
           'decision-log', 'resume-state', 'watchdog', 'business-hours',
+          'web-search', 'web-fetch', 'file-ops', 'code-exec',
+          'calendar', 'vision', 'voice', 'coordinator',
+          'shell', 'http', 'process-manager', 'diff-patch', 'git',
+          'browser', 'scheduler', 'send-message', 'database', 'mcp-client',
+          'image-gen', 'ocr', 'transcribe', 'clipboard', 'notify',
+          'secrets', 'search-engine', 'screenshot', 'archive', 'lsp',
         ];
         console.log(chalk.dim('  Tools:     ') + chalk.white(`${toolNames.length} built-in`));
         console.log(chalk.dim('             ') + chalk.dim(toolNames.join(', ')));

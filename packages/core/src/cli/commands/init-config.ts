@@ -6,7 +6,7 @@
  *
  * Options:
  *   --provider <name>    LLM provider (ollama|openai|anthropic)  default: ollama
- *   --model <name>       Model name                            default: glm-5.1:cloud
+ *   --model <name>       Model name                            default: glm-5.2:cloud
  *   --port <number>      WebChat port                           default: 3000
  *   --output <path>      Config output path                     default: ./lodestone.config.yaml
  *   --force              Overwrite existing config without asking
@@ -38,7 +38,7 @@ export interface ConfigInitOptions {
 // ─── Defaults ──────────────────────────────────────────────────────────────
 
 const DEFAULT_PROVIDER = 'ollama';
-const DEFAULT_MODEL = 'glm-5.1:cloud';
+const DEFAULT_MODEL = 'glm-5.2:cloud';
 const DEFAULT_PORT = 3000;
 
 // ─── Command ────────────────────────────────────────────────────────────────
@@ -468,7 +468,7 @@ function generateEnvTemplate(): string {
 # Only set the key for your chosen provider.
 
 # Ollama (local) — no API key needed
-# LODSTONE_MODEL=glm-5.1:cloud
+# LODSTONE_MODEL=glm-5.2:cloud
 
 # OpenAI
 # OPENAI_API_KEY=sk-...

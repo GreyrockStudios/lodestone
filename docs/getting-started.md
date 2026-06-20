@@ -15,7 +15,7 @@ You need an LLM provider. The easiest is [Ollama](https://ollama.com) running lo
 ## 1. Install
 
 ```bash
-npm install -g @lodestone/cli
+npm install -g lodestone
 ```
 
 Or clone and build from source:

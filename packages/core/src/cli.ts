@@ -174,7 +174,7 @@ Init options:
   --resume             Resume from saved partial onboarding progress
   --template <name>    Template: general|developer|business|creative|researcher
   --provider <name>   LLM provider: ollama|openai|anthropic
-  --model <name>       Model name (e.g., glm-5.1:cloud)
+  --model <name>       Model name (e.g., glm-5.2:cloud)
   --agent-name <name>  Agent name
   --user-name <name>   User name
   --personality <type>  concise|balanced|detailed

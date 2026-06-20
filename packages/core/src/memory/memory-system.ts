@@ -141,7 +141,7 @@ export class MemorySystem {
   }
 
   /** Store a fact in vector memory (with auto-compounding) */
-  async storeFact(text: string, category: MemoryResult['metadata'] extends Record<string, unknown> ? never : string, importance = 0.7): Promise<void> {
+  async storeFact(text: string, category: string, importance = 0.7): Promise<void> {
     const key = `fact_${Date.now()}`;
     await this.vector.store(key, text, {
       category: category || 'fact',

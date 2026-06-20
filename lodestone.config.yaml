@@ -26,9 +26,9 @@ llm:
 # ─── Memory ──────────────────────────────────────────────────────────
 memory:
   wiki:
-    path: ./memory/wiki
+    path: ./workspace/memory/wiki
   vector:
-    path: ./data/lancedb
+    path: ./workspace/data/lancedb
 
 # ─── Session ─────────────────────────────────────────────────────────
 session:

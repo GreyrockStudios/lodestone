@@ -4,7 +4,7 @@
 llm:
   default:
     type: ollama
-    model: glm-5.1:cloud
+    model: glm-5.2:cloud
     baseUrl: http://127.0.0.1:11434/api
     contextWindow: 128000
     maxTokens: 8192
@@ -31,13 +31,6 @@ memory:
     path: ./workspace/memory/wiki
     autoLint: true
     autoIndex: true
-    categories:
-      - entities
-      - concepts
-      - decisions
-      - projects
-      - areas
-      - research
 
   scratch:
     path: ./workspace/data/scratch.db

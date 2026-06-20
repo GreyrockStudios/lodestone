@@ -57,7 +57,7 @@ export async function runOnboarding(
     templates: ['general'],
     personality: 'balanced',
     provider: 'ollama',
-    model: 'glm-5.1:cloud',
+    model: 'glm-5.2:cloud',
     workspacePath: suggestedPath,
   };
 

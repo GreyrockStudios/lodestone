@@ -124,6 +124,7 @@ export class ImprovementSystem {
           sessionManager: config.sessionManager,
           behavioralLearning: config.behavioralLearning!,
           selfPatching: this.selfPatching,
+          logger: getLogger('dream-mode'),
         } as DreamModeConfig)
       : null;
   }

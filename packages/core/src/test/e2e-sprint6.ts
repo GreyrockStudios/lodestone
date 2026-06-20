@@ -709,7 +709,7 @@ async function testConfigValidator() {
     const config = {
       llm: {
         default: {
-          provider: 'ollama',
+          type: 'ollama',
           model: 'glm-5.2:cloud',
           contextWindow: 202752,
           maxTokens: 8192,
@@ -738,7 +738,7 @@ async function testConfigValidator() {
     const config = {
       llm: {
         default: {
-          provider: 'invalid-provider',
+          type: 'invalid-provider',
           model: 'test-model',
         },
       },
@@ -757,7 +757,7 @@ async function testConfigValidator() {
     const config = {
       llm: {
         default: {
-          provider: 'ollama',
+          type: 'ollama',
           model: 'test',
         },
       },
@@ -782,7 +782,7 @@ async function testConfigValidator() {
 
   await test('applyDefaults fills missing defaults', async () => {
     const config = {
-      llm: { default: { provider: 'ollama', model: 'test' } },
+      llm: { default: { type: 'ollama', model: 'test' } },
       workspaceRoot: TMP,
       identityDir: TMP,
       wikiRoot: TMP,

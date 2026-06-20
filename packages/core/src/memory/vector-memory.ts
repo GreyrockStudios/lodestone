@@ -73,6 +73,21 @@ export class VectorMemory implements Partial<MemoryAccess> {
   async store(key: string, value: string, metadata?: Record<string, unknown>): Promise<void> {
     await this.ensureInit();
 
+    // Check for duplicate (exact text match)
+    try {
+      const table = await this.getOrCreateTable();
+      const existing = await table.query()
+        .where(`text = '${value.replace(/'/g, "''")}'`)
+        .limit(1)
+        .toArray();
+      if (existing.length > 0) {
+        this.logger.debug('Skipping duplicate memory', { text: value.slice(0, 50) });
+        return;
+      }
+    } catch {
+      // Query failed — proceed with insert
+    }
+
     const entry: Record<string, unknown> = {
       id: this.generateId(),
       text: value,
@@ -80,7 +95,7 @@ export class VectorMemory implements Partial<MemoryAccess> {
       importance: (metadata?.importance as number) ?? 0.7,
       timestamp: new Date().toISOString(),
       key,
-      embedding: await this.embed(value),
+      vector: await this.embed(value),
     };
 
     // Insert into LanceDB
@@ -111,12 +126,18 @@ export class VectorMemory implements Partial<MemoryAccess> {
         .limit(limit)
         .toArray();
 
-      return results.map((row: Record<string, unknown>) => ({
-        text: row.text as string,
-        relevance: row._distance as number,
-        timestamp: row.timestamp as string,
-        metadata: row.metadata as Record<string, unknown>,
-      }));
+      return results
+        .filter((row: Record<string, unknown>) => row.text !== '__schema_entry__')
+        .map((row: Record<string, unknown>) => ({
+          text: row.text as string,
+          relevance: row._distance as number,
+          timestamp: row.timestamp as string,
+          metadata: {
+            category: row.category,
+            importance: row.importance,
+            key: row.key,
+          },
+        }));
     } catch {
       // Table doesn't exist yet
       return [];
@@ -205,18 +226,19 @@ export class VectorMemory implements Partial<MemoryAccess> {
     try {
       return await this.db!.openTable(tableName);
     } catch {
-      // Table doesn't exist, create it with a consistent flat schema
-      const schemaEntry = {
+      // Table doesn't exist — create with a schema entry using 'vector' as the column name
+      // LanceDB expects the vector column to be named 'vector' by default
+      const schemaEntry = [{
         id: '__schema__',
         text: '__schema_entry__',
         category: 'other',
         importance: 0,
         key: '__schema__',
         timestamp: new Date().toISOString(),
-        embedding: new Array(this.config.dimensions).fill(0),
-      };
+        vector: new Array(this.config.dimensions).fill(0),
+      }];
 
-      return await this.db!.createTable(tableName, [schemaEntry] as unknown as Record<string, unknown>[]);
+      return await this.db!.createTable(tableName, schemaEntry);
     }
   }
 

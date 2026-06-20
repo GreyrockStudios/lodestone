@@ -94,8 +94,9 @@ export class AgentLoop {
     let toolCallsMade: ToolCallRecord[] = [];
 
     // ─── Explainability — begin trace ───────────────────────────────────
+    let traceId: string | undefined;
     try {
-      this.engine.safety.explainability.beginTrace(sessionId, userMessage);
+      traceId = this.engine.safety.explainability.beginTrace(sessionId, userMessage);
     } catch {
       // Best-effort
     }
@@ -363,7 +364,7 @@ export class AgentLoop {
 
     // 10. Explainability — end trace and store
     try {
-      this.engine.safety.explainability.endTrace(sessionId, currentResponse);
+      this.engine.safety.explainability.endTrace(traceId || sessionId, currentResponse);
     } catch {
       // Best-effort
     }
@@ -783,6 +784,8 @@ export class AgentLoop {
         memory: {
           store: async (key: string, value: string, metadata?: Record<string, unknown>) =>
             this.engine.memory.vector.store(key, value, metadata),
+          storeFact: async (text: string, category: string, importance?: number) =>
+            this.engine.memory.storeFact(text, category, importance),
           recall: async (query: string, limit?: number) =>
             this.engine.memory.vector.recall(query, limit),
           wikiRead: async (slug: string) => {
@@ -900,25 +903,184 @@ const matches = isRegex
 
   // ─── Auto-Capture ──────────────────────────────────────────────────────
 
+  /**
+   * Auto-capture important information from the conversation.
+   * Extracts facts, preferences, decisions, and entities from the exchange
+   * and stores them in vector memory with appropriate categories.
+   * High-importance captures are also written to the wiki.
+   */
   private async autoCapture(userMessage: string, assistantResponse: string): Promise<void> {
-    const summary = `${userMessage.slice(0, 100)}... → ${assistantResponse.slice(0, 100)}`;
-    await this.engine.memory.vector.store(
-      `conv_${Date.now()}`,
-      summary,
-      { category: 'fact', importance: 0.5 }
+    try {
+      const captures = this.extractCapturableFacts(userMessage, assistantResponse);
+
+      for (const capture of captures) {
+        // Route through storeFact — triggers compounding, entity extraction, cross-referencing
+        try {
+          await this.engine.memory.storeFact(capture.text, capture.category, capture.importance);
+        } catch {
+          // If storeFact fails (e.g. LanceDB down), continue with wiki write
+        }
+
+        // Write high-importance facts to wiki
+        if (capture.importance >= 0.7) {
+          try {
+            const slug = capture.category === 'entity'
+              ? capture.text.replace(/^Entity mentioned:\s*/i, '').toLowerCase().replace(/\s+/g, '-')
+              : `auto-${capture.category}-${Date.now()}`;
+            const existing = await this.engine.memory.wiki.read(slug);
+            if (!existing) {
+              await this.engine.memory.wiki.write(slug, capture.text, {
+                title: capture.text.split(' ').slice(0, 6).join(' ').replace(/^(User |Decision: |Entity mentioned: )/i, ''),
+                status: 'active',
+                tags: [capture.category, 'auto-captured'],
+                agents: ['auto-capture'],
+                source: 'auto-capture',
+              });
+            }
+          } catch {
+            // Best-effort — don't fail the turn if wiki write fails
+          }
+        }
+      }
+
+      // Submit for memory promotion
+      if (captures.length > 0) {
+        try {
+          const summary = captures.map(c => c.text).join('\n');
+          await this.engine.safety.memoryPromotion.submit(
+            summary,
+            `conversation:${Date.now()}`,
+            'research',
+            ['auto-capture', 'conversation'],
+          );
+        } catch (err) {
+          this.logger.warn('Memory promotion submit failed', { error: err });
+        }
+      }
+    } catch (err) {
+      this.logger.warn('Auto-capture failed', { error: err });
+    }
+  }
+
+  /**
+   * Extract capturable facts from a user message + assistant response.
+   * Pattern-based — no LLM call needed.
+   */
+  private extractCapturableFacts(
+    userMessage: string,
+    assistantResponse: string,
+  ): Array<{ text: string; category: 'preference' | 'fact' | 'decision' | 'entity' | 'other'; importance: number }> {
+    const captures: Array<{ text: string; category: 'preference' | 'fact' | 'decision' | 'entity' | 'other'; importance: number }> = [];
+
+    // 1. Preferences — expanded patterns
+    const prefPatterns = [
+      /(?:i|my)\s+(?:like|prefer|want|love|enjoy|hate|dislike)\s+(.+)/gi,
+      /(?:don't|do not|doesn't|does not)\s+(?:like|want|need|use)\s+(.+)/gi,
+      /(?:my|the)\s+(?:favorite|preferred)\s+(?:is|are)\s+(.+)/gi,
+      /(?:favorite|preferred)\s+(?:tool|editor|language|framework|os|system)\s+(?:is|are)\s+(.+)/gi,
+    ];
+    for (const pattern of prefPatterns) {
+      let match: RegExpExecArray | null;
+      while ((match = pattern.exec(userMessage)) !== null) {
+        const value = match[1]?.trim();
+        if (value && value.length > 2 && value.length < 200) {
+          captures.push({
+            text: `User prefers ${value}`,
+            category: 'preference',
+            importance: 0.8,
+          });
+        }
+      }
+    }
+
+    // 2. Decisions — expanded patterns
+    const decisionPatterns = [
+      /(?:i|we)\s+(?:decided|decide|should|will|need to|have to|going to|gonna)\s+(.+)/gi,
+      /let'?s\s+(.+)/gi,
+      /(?:i|we)\s+(?:decided|choose|chose|picked|selected|going with|will use|will go with)\s+(.+)/gi,
+      /(?:i'm|we're|im|were)\s+(?:going to|gonna|planning to)\s+(.+)/gi,
+      /(?:i need|we need|i want|we want)\s+(?:to|a|an|the)\s+(.+)/gi,
+    ];
+    for (const pattern of decisionPatterns) {
+      let match: RegExpExecArray | null;
+      while ((match = pattern.exec(userMessage)) !== null) {
+        const value = match[1]?.trim();
+        if (value && value.length > 5 && value.length < 200) {
+          captures.push({
+            text: `Decision: ${match[0].trim()}`,
+            category: 'decision',
+            importance: 0.75,
+          });
+        }
+      }
+    }
+
+    // 3. Facts — expanded patterns
+    const factPatterns = [
+      /(?:my name is|call me|i am|i'm)\s+([a-z\s]+)/gi,
+      /(?:i work at|i work for|my company is|my business is)\s+(.+)/gi,
+      /(?:i live in|i'm based in|i'm from)\s+(.+)/gi,
+      /(?:i am a|i'm a|i am an|i'm an)\s+(.+)/gi,
+      /(?:i work|working|employed)\s+(?:at|for|with)\s+(.+)/gi,
+      /(?:i live|living|based|located)\s+(?:in|at|near)\s+(.+)/gi,
+      /(?:my|our)\s+(?:company|business|team|project|app|website|product)\s+(?:is|called|named)\s+(.+)/gi,
+      /(?:i use|using|we use)\s+(.+)/gi,
+      /(?:i have|i've been|i am|i'm)\s+(?:using|learning|building|working on|developing)\s+(.+)/gi,
+    ];
+    for (const pattern of factPatterns) {
+      let match: RegExpExecArray | null;
+      while ((match = pattern.exec(userMessage)) !== null) {
+        const value = match[1]?.trim();
+        if (value && value.length > 2 && value.length < 200 && !match[0].toLowerCase().includes('i am a great name')) {
+          captures.push({
+            text: match[0].trim(),
+            category: 'fact',
+            importance: 0.7,
+          });
+        }
+      }
+    }
+
+    // 4. Entities — proper nouns, tools, technologies mentioned
+    const entityPattern = /\b([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*)\b/g;
+    const seen = new Set<string>();
+    let entityMatch: RegExpExecArray | null;
+    while ((entityMatch = entityPattern.exec(userMessage)) !== null) {
+      const name = entityMatch[1];
+      if (seen.has(name) || name.length < 3 || ['The', 'This', 'That', 'What', 'How', 'Why', 'When', 'Where', 'Hi', 'Hey', 'Hello'].includes(name)) continue;
+      seen.add(name);
+      captures.push({
+        text: `Entity mentioned: ${name}`,
+        category: 'entity',
+        importance: 0.4,
+      });
+    }
+
+    // 5. Questions — capture as potential knowledge gaps
+    const questionPattern = /^(?:what|how|why|when|where|who|which|can you|could you|do you|are you|is it|is there|are there)\s+(.+)/gi;
+    let questionMatch: RegExpExecArray | null;
+    while ((questionMatch = questionPattern.exec(userMessage)) !== null) {
+      captures.push({
+        text: `Question asked: ${userMessage.slice(0, 150)}`,
+        category: 'other',
+        importance: 0.2,
+      });
+    }
+
+    // 6. Always store a conversation summary (low importance)
+    const summary = `${userMessage.slice(0, 150)} → ${assistantResponse.slice(0, 150)}`;
+    captures.push({
+      text: summary,
+      category: 'other',
+      importance: 0.3,
+    });
+
+    // Deduplicate by text
+    const unique = captures.filter((c, i, arr) =>
+      arr.findIndex(c2 => c2.text === c.text) === i
     );
 
-    // Submit for memory promotion
-    try {
-      await this.engine.safety.memoryPromotion.submit(
-        summary,
-        `conversation:${Date.now()}`,
-        'research',
-        ['auto-capture', 'conversation']
-      );
-    } catch (err) {
-      this.logger.warn('Memory promotion submit failed', { error: err });
-    }
+    return unique;
   }
 
   // ─── Output Type Detection ─────────────────────────────────────────

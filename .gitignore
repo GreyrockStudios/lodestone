@@ -17,7 +17,6 @@ dist/
 .env.local
 
 # Data
-data/
 *.db
 *.sqlite
 *.db-shm
@@ -25,7 +24,10 @@ data/
 
 # Runtime workspace (created by lodestone init)
 workspace/
-memory/
+
+# Runtime data (root-level, not workspace)
+/memory/
+/data/
 
 # Ollama models (if pulled locally)
 ollama_models/

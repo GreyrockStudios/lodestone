@@ -54,7 +54,7 @@ export function doctorCommand(): Command {
         { path: resolve(workspaceRoot, 'memory/wiki'), label: 'Wiki directory' },
         { path: resolve(workspaceRoot, 'memory/raw'), label: 'Raw sources' },
         { path: resolve(workspaceRoot, 'memory/agents'), label: 'Agent workspaces' },
-        { path: resolve(workspaceRoot, '00-inbox'), label: 'Inbox' },
+        { path: resolve(workspaceRoot, 'memory/00-inbox'), label: 'Inbox' },
       ];
 
       for (const dir of requiredDirs) {

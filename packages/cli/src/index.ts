@@ -23,6 +23,7 @@ import { toolsCommand } from './commands/tools.js';
 import { memoryCommand } from './commands/memory.js';
 import { configCommand } from './commands/config.js';
 import { doctorCommand } from './commands/doctor.js';
+import { lintCommand } from './commands/lint.js';
 
 const program = new Command();
 
@@ -40,5 +41,6 @@ program.addCommand(toolsCommand());
 program.addCommand(memoryCommand());
 program.addCommand(configCommand());
 program.addCommand(doctorCommand());
+program.addCommand(lintCommand());
 
 program.parse();

@@ -7,119 +7,12 @@
  * This is what runs inside the Docker container.
  */
 
-import { LodestoneEngine, type LodestoneConfig } from './engine.js';
-import type { ChannelConfig } from './channels/channel.js';
-import { AgentLoop } from './agent-loop.js';
-import { WikiResolveTool, WikiSearchTool } from './tools/impl/wiki-resolve.js';
-import { SmartRetrieveTool } from './tools/impl/smart-retrieve.js';
-import { DecisionLogTool } from './tools/impl/decision-log.js';
-import { ResumeStateTool } from './tools/impl/resume-state.js';
-import { WatchdogTool } from './tools/impl/watchdog.js';
-import { BusinessHoursTool } from './tools/impl/business-hours.js';
-import { WebSearchTool } from './tools/impl/web-search.js';
-import { WebFetchTool } from './tools/impl/web-fetch.js';
-import { FileOpsTool } from './tools/impl/file-ops.js';
-import { CodeExecTool } from './tools/impl/code-exec.js';
-import { CalendarTool } from './tools/impl/calendar.js';
-import { VisionTool } from './tools/impl/vision.js';
-import { VoiceTool } from './tools/impl/voice.js';
-import { CoordinatorTool } from './tools/impl/coordinator.js';
+import { bootEngine } from './boot.js';
+import { loadConfigFromFile } from './config-loader.js';
 import { createWorkspaceFromAnswers, PROVIDER_INFO } from './tui-onboarding/workspace-creator.js';
-import { readFile } from 'fs/promises';
 import { existsSync } from 'fs';
 import { resolve } from 'path';
-import { parse as parseYaml } from 'yaml';
 import { createInterface } from 'readline';
-import { ConfigValidator, lodestoneSchema } from './utils/config-validator.js';
-
-// ─── Config ─────────────────────────────────────────────────────────────────
-
-async function loadConfig(): Promise<LodestoneConfig> {
-  const configPath = process.env.LODESTONE_CONFIG || './lodestone.config.yaml';
-
-  try {
-    const raw = await readFile(configPath, 'utf-8');
-    const config = parseYaml(raw);
-
-    // Validate config before using it
-    const validator = new ConfigValidator(lodestoneSchema);
-    const result = validator.validate(config);
-    if (!result.valid) {
-      console.error('[Lodestone] Config validation failed:');
-      for (const err of result.errors) {
-        console.error(`  ❌ ${err.path}: ${err.message}`);
-      }
-      console.error('[Lodestone] Fix the config or use defaults.');
-      // Continue with defaults rather than crashing — the agent should be resilient
-    }
-    for (const warn of result.warnings) {
-      console.warn(`  ⚠️  ${warn.path}: ${warn.message}`);
-    }
-
-    return {
-      configPath,
-      workspaceRoot: config.workspace?.root || process.env.LODESTONE_WORKSPACE || './workspace',
-      identityDir: config.identity?.dir || '.',
-      wikiRoot: config.memory?.wiki?.path || './memory/wiki',
-      memoryDir: config.memory?.vector?.path || './data/lancedb',
-      maxConcurrentTools: config.scheduler?.maxConcurrent || 4,
-      maxConcurrentJobs: config.scheduler?.maxConcurrent || 4,
-      compactionThreshold: config.session?.compactionThreshold || 0.5,
-      llm: {
-        default: {
-          type: config.llm?.default?.type || 'ollama',
-          model: config.llm?.default?.model || 'glm-5.1:cloud',
-          baseUrl: config.llm?.default?.baseUrl || process.env.OLLAMA_BASE_URL || 'http://127.0.0.1:11434/api',
-          apiKey: config.llm?.default?.apiKey || process.env.OPENAI_API_KEY,
-          contextWindow: config.llm?.default?.contextWindow || 128000,
-          maxTokens: config.llm?.default?.maxTokens || 8192,
-        },
-        routes: Object.entries(config.llm?.routes || {}).map(([name, route]) => {
-          const r = route as Record<string, unknown>;
-          return {
-            name,
-            provider: {
-              type: ((r.type as string) || 'ollama') as 'ollama' | 'openai' | 'anthropic' | 'custom',
-              model: r.model as string,
-              baseUrl: r.baseUrl as string | undefined,
-              apiKey: r.apiKey as string | undefined,
-              contextWindow: (r.contextWindow as number) || 128000,
-              maxTokens: (r.maxTokens as number) || 8192,
-            },
-          };
-        }),
-      },
-      channels: config.channels ? {
-        channels: Object.entries(config.channels || {}).map(([, ch]) => ch as Record<string, unknown>).filter((ch: Record<string, unknown>) => ch.enabled !== false) as unknown as ChannelConfig[],
-      } : undefined,
-      dashboard: config.dashboard ? {
-        port: config.dashboard.port || 3002,
-        host: config.dashboard.host || '127.0.0.1',
-        dashboardDir: config.dashboard.dashboardDir || './packages/core/src/dashboard',
-        apiToken: config.dashboard.apiToken,
-        corsOrigin: config.dashboard.corsOrigin || '*',
-      } : undefined,
-    };
-  } catch (err) {
-    console.error('[Lodestone] Failed to load config:', err);
-    console.error('[Lodestone] Using defaults');
-    return {
-      workspaceRoot: process.env.LODESTONE_WORKSPACE || './workspace',
-      identityDir: '.',
-      wikiRoot: './memory/wiki',
-      memoryDir: './data/lancedb',
-      llm: {
-        default: {
-          type: 'ollama',
-          model: 'glm-5.1:cloud',
-          baseUrl: 'http://127.0.0.1:11434/api',
-          contextWindow: 128000,
-          maxTokens: 8192,
-        },
-      },
-    };
-  }
-}
 
 // ─── Headless Onboarding ──────────────────────────────────────────────────
 
@@ -192,137 +85,36 @@ async function main() {
   console.log('🔮 Lodestone — Agent Engine');
   console.log('─'.repeat(40));
 
-  // 1. Load config first (needed for paths)
-  const config = await loadConfig();
+  // 1. Load config
+  const config = await loadConfigFromFile(process.env.LODESTONE_CONFIG || './lodestone.config.yaml');
   console.log(`[Lodestone] Config loaded from ${process.env.LODESTONE_CONFIG || './lodestone.config.yaml'}`);
 
-  // 0. Check if onboarding is needed (using config paths)
+  // 2. Check if onboarding is needed
   const identityPath = resolve(config.identityDir, 'IDENTITY.md');
   if (!existsSync(identityPath)) {
     await runHeadlessOnboarding(config.workspaceRoot);
     // runHeadlessOnboarding calls process.exit(0) after creating workspace
   }
 
-  // 2. Create engine (this also initializes memory)
-  const engine = new LodestoneEngine(config);
-
-  // 3. Initialize memory system
-  await engine.memory.init();
+  // 3. Boot engine (register tools, create session, wire channels, start)
+  const { engine, loop, sessionId } = await bootEngine(config);
   console.log('[Lodestone] Memory system initialized');
-
-  // 4. Register tools
-  const decisionLog = new DecisionLogTool(resolve(config.workspaceRoot, 'data/decisions.json'));
-
-  engine.registerTool(new WikiResolveTool());
-  engine.registerTool(new WikiSearchTool());
-  engine.registerTool(new SmartRetrieveTool());
-  engine.registerTool(decisionLog);
-  engine.registerTool(new ResumeStateTool());
-  engine.registerTool(new WatchdogTool());
-  engine.registerTool(new BusinessHoursTool());
-  engine.registerTool(new WebSearchTool({ provider: 'searxng', searxngUrl: 'http://localhost:8888' }));
-  engine.registerTool(new WebFetchTool());
-  engine.registerTool(new FileOpsTool({ workspaceRoot: resolve(config.workspaceRoot) }));
-  engine.registerTool(new CodeExecTool());
-  engine.registerTool(new CalendarTool({ provider: 'caldav' }));
-  engine.registerTool(new VisionTool());
-  engine.registerTool(new VoiceTool());
-  engine.registerTool(new CoordinatorTool());
-  console.log('[Lodestone] Tools registered: 15 built-in');
-
-  // 5. Register proactive jobs
-  engine.registerJob({
-    id: 'sensorium',
-    name: 'Lodestone Sensorium',
-    schedule: { kind: 'interval', everyMs: 30 * 60 * 1000 },
-    description: 'Health check — verify all systems operational',
-  });
-
-  engine.registerJob({
-    id: 'sleep-cycle',
-    name: 'Lodestone Sleep Cycle',
-    schedule: { kind: 'cron', expr: '0 3 * * *', tz: 'America/Toronto' },
-    description: 'Nightly consolidation: harvest, mine, reflect, consolidate',
-  });
-
-  engine.registerJob({
-    id: 'drift-detection',
-    name: 'Lodestone Drift Detection',
-    schedule: { kind: 'cron', expr: '0 9 * * 1', tz: 'America/Toronto' },
-    description: 'Weekly check: behavior vs core principles',
-  });
-
+  console.log('[Lodestone] Tools registered: 39 built-in');
   console.log('[Lodestone] Proactive jobs registered: 3');
-
-  // 6. Start engine
-  await engine.start();
   console.log('[Lodestone] Engine started');
-
-  // 7. Create a session
-  const sessionId = engine.createSession();
   console.log(`[Lodestone] Session created: ${sessionId}`);
 
-  // 8. Create agent loop and wire it into the engine
-  const loop = new AgentLoop(engine);
-  engine.setAgentLoop(loop);
-
-  // 9. Log boot decision
+  // 4. Load identity
   const identity = await engine.identity.load();
   console.log(`[Lodestone] Identity loaded: ${identity.identity.name}`);
   console.log(`[Lodestone] User: ${identity.user.name}`);
 
-  // 10. Wire channels to agent loop (with streaming support)
+  // 5. Log channel status
   if (engine.channelManager) {
-    engine.channelManager.onMessage(async (message) => {
-      try {
-        // Find or create a session for this channel+user
-        let sessionId: string;
-        const existingSession = engine.sessions.list().find(s =>
-          s.metadata.channelSessionId === message.sessionId
-        );
-        if (existingSession) {
-          sessionId = existingSession.id;
-        } else {
-          sessionId = engine.createSession();
-          engine.sessions.updateState(sessionId, {
-            currentTask: `Chat via ${message.channelId}`,
-            progress: 'active',
-          });
-          // Track which channel session this belongs to
-          const session = engine.sessions.get(sessionId);
-          if (session) {
-            session.metadata.channelSessionId = message.sessionId;
-            session.metadata.channelId = message.channelId;
-          }
-        }
-
-        // Create a stream handler that bridges to the channel's streaming methods
-        const { StreamHandler } = await import('./streaming/handler.js');
-        const stream = new StreamHandler();
-        let streamedText = '';
-        stream.on('text_delta', (event: { data: unknown }) => {
-          const data = event.data as { text?: string };
-          if (data.text) {
-            streamedText += data.text;
-            // Send streaming delta to the channel
-            engine.channelManager?.streamDelta(message.sessionId, streamedText);
-          }
-        });
-
-        // Run the agent loop with streaming
-        const result = await loop.run(sessionId, message.content, stream);
-
-        // Send final response (channel may also have received streamed text)
-        return result.response;
-      } catch (err) {
-        console.error('[Lodestone] Channel message error:', err);
-        return 'Sorry, an error occurred processing your message.';
-      }
-    });
     console.log(`[Lodestone] Channels wired: ${engine.channelManager.listChannels().length} active`);
   }
 
-  // 11. Ready
+  // 6. Ready
   console.log('');
   console.log('🔮 Lodestone is ready.');
   console.log(`   Model: ${config.llm.default.model}`);

@@ -21,7 +21,7 @@ export interface ProviderConfig {
   baseUrl?: string;
   /** API key (not needed for local Ollama) */
   apiKey?: string;
-  /** Model identifier (e.g. 'glm-5.1:cloud', 'gpt-4o', 'claude-sonnet-4-20250514') */
+  /** Model identifier (e.g. 'glm-5.2:cloud', 'gpt-4o', 'claude-sonnet-4-20250514') */
   model: string;
   /** Context window size in tokens */
   contextWindow?: number;

@@ -29,7 +29,7 @@ const B = '\x1B[1m';
  */
 export async function startTUI(workspace?: string, model?: string): Promise<void> {
   let WORKSPACE = workspace || process.env.LODESTONE_WORKSPACE || '/tmp/lodestone-test/workspace';
-  const effectiveModel = model || process.env.LODESTONE_MODEL || 'glm-5.1:cloud';
+  const effectiveModel = model || process.env.LODESTONE_MODEL || 'glm-5.2:cloud';
 
   // ─── TUI Setup ────────────────────────────────────────────────────────
 

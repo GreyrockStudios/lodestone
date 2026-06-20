@@ -34,7 +34,7 @@ async function main() {
     llm: {
       default: {
         type: 'ollama',
-        model: 'glm-5.1:cloud',
+        model: 'glm-5.2:cloud',
         baseUrl: 'http://127.0.0.1:11434/api',
         contextWindow: 32768,
         maxTokens: 2048,
@@ -78,7 +78,7 @@ async function main() {
   });
 
   // 7. Send a test message
-  console.log('[7/7] Sending test message to glm-5.1:cloud...');
+  console.log('[7/7] Sending test message to glm-5.2:cloud...');
   console.log('   → "Hi! What are you and what can you do?"');
   console.log('');
 

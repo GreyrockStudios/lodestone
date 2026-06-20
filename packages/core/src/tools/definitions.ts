@@ -90,8 +90,10 @@ export interface AgentIdentity {
 }
 
 export interface MemoryAccess {
-  /** Store a fact in long-term memory */
+  /** Store a fact in long-term memory (raw vector store) */
   store(key: string, value: string, metadata?: Record<string, unknown>): Promise<void>;
+  /** Store a fact with compounding (entity extraction, cross-referencing) */
+  storeFact(text: string, category: string, importance?: number): Promise<void>;
   /** Recall facts from long-term memory */
   recall(query: string, limit?: number): Promise<MemoryResult[]>;
   /** Read a wiki page */

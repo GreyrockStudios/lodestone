@@ -79,7 +79,7 @@ async function main() {
     llm: {
       default: {
         type: 'ollama',
-        model: 'glm-5.1:cloud',
+        model: 'glm-5.2:cloud',
         baseUrl: 'http://127.0.0.1:11434/api',
         contextWindow: 32768,
         maxTokens: 4096,

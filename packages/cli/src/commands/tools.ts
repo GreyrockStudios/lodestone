@@ -5,12 +5,7 @@
 import { Command } from 'commander';
 import chalk from 'chalk';
 import { LodestoneEngine } from '@lodestone/core';
-import { WikiResolveTool, WikiSearchTool } from '@lodestone/core';
-import { SmartRetrieveTool } from '@lodestone/core';
-import { DecisionLogTool } from '@lodestone/core';
-import { ResumeStateTool } from '@lodestone/core';
-import { WatchdogTool } from '@lodestone/core';
-import { BusinessHoursTool } from '@lodestone/core';
+import { registerBuiltinTools } from '@lodestone/core';
 import { resolve } from 'path';
 import { readFile } from 'fs/promises';
 import { parse as parseYaml } from 'yaml';
@@ -39,7 +34,7 @@ export function toolsCommand(): Command {
           llm: {
             default: {
               type: 'ollama',
-              model: 'glm-5.1:cloud',
+              model: 'glm-5.2:cloud',
               baseUrl: 'http://127.0.0.1:11434/api',
               contextWindow: 128000,
               maxTokens: 8192,
@@ -48,13 +43,7 @@ export function toolsCommand(): Command {
         });
 
         // Register all built-in tools
-        engine.registerTool(new WikiResolveTool());
-        engine.registerTool(new WikiSearchTool());
-        engine.registerTool(new SmartRetrieveTool());
-        engine.registerTool(new DecisionLogTool(resolve(workspace, 'data/decisions.json')));
-        engine.registerTool(new ResumeStateTool());
-        engine.registerTool(new WatchdogTool());
-        engine.registerTool(new BusinessHoursTool());
+        registerBuiltinTools(engine, resolve(workspace));
 
         const tools = engine.tools.listDefinitions();
 
@@ -68,7 +57,7 @@ export function toolsCommand(): Command {
           console.log(chalk.dim(`    Side effects: ${tool.sideEffects ? 'yes' : 'no'} · Approval: ${tool.requiresApproval ? 'required' : 'auto'}`));
           if (tool.parameters.length > 0) {
             const paramList = tool.parameters
-              .map(p => `${p.name}${p.required ? '*' : ''}`)
+              .map((p: { name: string; required: boolean }) => `${p.name}${p.required ? '*' : ''}`)
               .join(', ');
             console.log(chalk.dim(`    Params: ${paramList}`));
           }

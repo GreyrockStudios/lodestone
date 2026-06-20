@@ -34,7 +34,7 @@ export function configCommand(): Command {
         if (config.llm?.default) {
           console.log(chalk.white('LLM:'));
           console.log(chalk.dim(`  Provider:       ${config.llm.default.type || 'ollama'}`));
-          console.log(chalk.dim(`  Model:          ${config.llm.default.model || 'glm-5.1:cloud'}`));
+          console.log(chalk.dim(`  Model:          ${config.llm.default.model || 'glm-5.2:cloud'}`));
           console.log(chalk.dim(`  Context window: ${config.llm.default.contextWindow || 128000}`));
           console.log(chalk.dim(`  Max tokens:     ${config.llm.default.maxTokens || 8192}`));
           if (config.llm.default.baseUrl) {

@@ -426,7 +426,7 @@ export class OnboardingWizard {
       templates: this.answers.templates || ['general'],
       personality: this.answers.personality || 'balanced',
       provider: this.answers.provider || 'ollama',
-      model: this.answers.model || 'glm-5.1:cloud',
+      model: this.answers.model || 'glm-5.2:cloud',
       workspacePath: identityDir,
     };
 
@@ -467,7 +467,7 @@ export class OnboardingWizard {
       templates: opts.template ? [opts.template] : (process.env.LODESTONE_TEMPLATE || 'general').split(',').map(s => s.trim()),
       personality: (opts.personality as 'concise' | 'balanced' | 'detailed') || (process.env.LODESTONE_PERSONALITY as 'concise' | 'balanced' | 'detailed') || 'balanced',
       provider: (opts.provider as 'ollama' | 'openai' | 'anthropic') || (process.env.LODESTONE_PROVIDER as 'ollama' | 'openai' | 'anthropic') || 'ollama',
-      model: opts.model || process.env.LODESTONE_MODEL || 'glm-5.1:cloud',
+      model: opts.model || process.env.LODESTONE_MODEL || 'glm-5.2:cloud',
       workspacePath: opts.workspacePath || resolve(workspaceRoot, 'workspace'),
     };
 

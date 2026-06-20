@@ -14,7 +14,7 @@ export function chatCommand(): Command {
 
   cmd
     .description('Start the TUI chat interface')
-    .option('-w, --workspace <path>', 'Workspace root directory', '/tmp/lodestone-test/workspace')
+    .option('-w, --workspace <path>', 'Workspace root directory', './workspace')
     .option('-m, --model <model>', 'Override default model')
     .action(async (options) => {
       console.log(chalk.cyan('\n🔮 Starting Lodestone TUI Chat...\n'));
@@ -26,7 +26,7 @@ export function chatCommand(): Command {
       // This avoids loading the heavy pi-tui dependency unless actually using chat
       try {
         const workspace = resolve(options.workspace);
-        const model = options.model || process.env.LODESTONE_MODEL || 'glm-5.1:cloud';
+        const model = options.model || process.env.LODESTONE_MODEL || 'glm-5.2:cloud';
 
         // Set env vars that the TUI chat will use
         process.env.LODESTONE_WORKSPACE = workspace;

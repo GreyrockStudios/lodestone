@@ -8,6 +8,10 @@
 // Engine
 export { LodestoneEngine, type LodestoneConfig, type EngineEvent } from './engine.js';
 
+// Boot + Config
+export { bootEngine, type BootResult } from './boot.js';
+export { loadConfigFromFile, type LoadConfigOptions } from './config-loader.js';
+
 // Agent Loop
 export { AgentLoop, type AgentLoopConfig, type AgentLoopResult, type ToolCallRecord } from './agent-loop.js';
 
@@ -16,7 +20,7 @@ export { LLMProvider, LLMRouter, type ProviderConfig, type ProviderCapabilities,
 
 // Memory
 export { MemorySystem, type MemorySystemConfig } from './memory/memory-system.js';
-export { WikiStore, type WikiPage, type WikiFrontmatter, type WikiSearchResult, type WikiConfig } from './memory/wiki-store.js';
+export { WikiStore, type WikiPage, type WikiFrontmatter, type WikiSearchResult, type WikiConfig, type WikiLintIssue, type WikiLintReport } from './memory/wiki-store.js';
 export { VectorMemory, type VectorMemoryConfig, type MemoryEntry } from './memory/vector-memory.js';
 export { ScratchBuffer, type ScratchConfig, type ScratchEntry } from './memory/scratch-buffer.js';
 
@@ -37,6 +41,7 @@ export { CalendarTool, type CalendarConfig } from './tools/impl/calendar.js';
 export { VisionTool, type VisionToolConfig } from './tools/impl/vision.js';
 export { VoiceTool, type VoiceToolConfig } from './tools/impl/voice.js';
 export { CoordinatorTool } from './tools/impl/coordinator.js';
+export { registerBuiltinTools } from './tools/register-builtin.js';
 
 // Session
 export { SessionManager, type Session, type SessionMessage, type SessionState, type CompactionConfig } from './session/manager.js';

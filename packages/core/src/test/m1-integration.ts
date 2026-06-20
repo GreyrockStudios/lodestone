@@ -180,6 +180,7 @@ async function runTest() {
       identity: { name: 'Lodestone', soul: '', rules: '', heartbeat: '', user: 'User' },
       memory: {
         store: async () => {},
+        storeFact: async () => {},
         recall: async () => [],
         wikiRead: async () => null,
         wikiWrite: async () => {},
@@ -249,6 +250,7 @@ async function runTest() {
       identity: { name: 'Lodestone', soul: '', rules: '', heartbeat: '', user: 'User' },
       memory: {
         store: async () => {},
+        storeFact: async () => {},
         recall: async () => [],
         wikiRead: async () => null,
         wikiWrite: async () => {},
@@ -266,6 +268,7 @@ async function runTest() {
       identity: { name: 'Lodestone', soul: '', rules: '', heartbeat: '', user: 'User' },
       memory: {
         store: async () => {},
+        storeFact: async () => {},
         recall: async () => [],
         wikiRead: async () => null,
         wikiWrite: async () => {},
@@ -288,6 +291,7 @@ async function runTest() {
       identity: { name: 'Lodestone', soul: '', rules: '', heartbeat: '', user: 'User' },
       memory: {
         store: async () => {},
+        storeFact: async () => {},
         recall: async () => [],
         wikiRead: async () => null,
         wikiWrite: async () => {},

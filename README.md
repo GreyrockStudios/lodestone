@@ -112,7 +112,7 @@ Edit `my-agent/workspace/SOUL.md` to define your agent's personality. Edit `lode
 llm:
   default:
     type: ollama                    # or openai, anthropic
-    model: glm-5.1:cloud
+    model: glm-5.2:cloud
     baseUrl: http://127.0.0.1:11434/api
 ```
 
@@ -153,14 +153,14 @@ Each example includes a README, identity files (SOUL.md, IDENTITY.md), and a sam
 llm:
   default:
     type: ollama                    # ollama | openai | anthropic
-    model: glm-5.1:cloud            # Model identifier
+    model: glm-5.2:cloud            # Model identifier
     baseUrl: http://127.0.0.1:11434/api
     contextWindow: 128000           # Context window (tokens)
     maxTokens: 8192                # Max output (tokens)
   routes:                           # Route tasks to different models
     fast:
       type: ollama
-      model: glm-5.1:cloud
+      model: glm-5.2:cloud
     smart:
       type: openai
       model: gpt-4o
@@ -447,7 +447,7 @@ import { createAgent } from '@lodestone/core';
 
 const agent = await createAgent({
   workspaceRoot: './my-agent',
-  llm: { type: 'ollama', model: 'glm-5.1:cloud' },
+  llm: { type: 'ollama', model: 'glm-5.2:cloud' },
 });
 
 // Process a message

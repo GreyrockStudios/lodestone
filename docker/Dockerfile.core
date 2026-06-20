@@ -26,10 +26,14 @@ RUN npm run build --workspace=@lodestone/core
 RUN npm run build --workspace=lodestone
 
 # Create data directories
-RUN mkdir -p /app/data/lancedb /app/data/logs /app/workspace/memory/wiki
+RUN mkdir -p /app/data/lancedb /app/data/logs /app/data/improvement /app/data/safety \
+    /app/workspace/memory/wiki /app/workspace/memory/raw /app/workspace/memory/agents \
+    /app/workspace/memory/00-inbox /app/workspace/data/lancedb /app/workspace/data/logs \
+    /app/workspace/data/improvement /app/workspace/data/safety
 
-# Expose API port
+# Expose API port and webchat port
 EXPOSE 18789
+EXPOSE 3001
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s \

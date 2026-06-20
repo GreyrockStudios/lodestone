@@ -49,6 +49,21 @@ export interface WikiConfig {
   onWrite?: (slug: string, content: string) => void | Promise<void>;
 }
 
+export interface WikiLintIssue {
+  slug: string;
+  severity: 'error' | 'warn' | 'info';
+  message: string;
+}
+
+export interface WikiLintReport {
+  totalPages: number;
+  issues: WikiLintIssue[];
+  errors: number;
+  warnings: number;
+  info: number;
+  lintedAt: string;
+}
+
 // ─── Default Categories ─────────────────────────────────────────────────────
 
 const DEFAULT_CATEGORIES = [
@@ -210,6 +225,23 @@ export class WikiStore {
         if (content.includes(term)) score += 1;
       }
 
+      // Fuzzy match — prefix matching for terms not found exactly
+      for (const term of terms) {
+        const termIdx = content.indexOf(term);
+        if (termIdx === -1) {
+          // Check if any word in the content starts with the term (prefix match)
+          const prefixPattern = new RegExp(`\\b${term.replace(/[.*+?^${}()|[\]\\\\]/g, '\\$&')}`, 'gi');
+          if (prefixPattern.test(content)) score += 1;
+          if (prefixPattern.test(title)) score += 2;
+        }
+      }
+
+      // Check for partial term matches (at least 60% of query terms must match)
+      const matchedTerms = terms.filter(t => content.includes(t) || title.includes(t) || tags.includes(t));
+      if (matchedTerms.length >= Math.ceil(terms.length * 0.6)) {
+        score += 3; // Boost for pages that match most terms
+      }
+
       // Recency bonus (updated in last 7 days)
       const updated = new Date(page.frontmatter.updated);
       const daysSinceUpdate = (Date.now() - updated.getTime()) / (86400000);
@@ -275,23 +307,116 @@ export class WikiStore {
   async rebuildIndex(): Promise<void> {
     await this.ensureLoaded();
 
+    const totalPages = this.cache.size;
+    const now = new Date().toISOString().split('T')[0];
+
     const lines: string[] = [
-      '# Wiki Index\n',
-      `Auto-generated index of all wiki pages. Last updated: ${new Date().toISOString().split('T')[0]}\n`,
+      '# Wiki Index',
+      '',
+      `Auto-generated index of all wiki pages. Last updated: ${now}`,
+      '',
+      `**Total pages: ${totalPages}**`,
+      '',
     ];
 
+    // Recently updated section (top 5)
+    const recent = Array.from(this.cache.values())
+      .sort((a, b) => new Date(b.frontmatter.updated).getTime() - new Date(a.frontmatter.updated).getTime())
+      .slice(0, 5);
+    if (recent.length > 0) {
+      lines.push('## Recently Updated');
+      lines.push('');
+      for (const page of recent) {
+        const date = page.frontmatter.updated;
+        lines.push(`- [[${page.slug}]] — ${page.frontmatter.title} _(${date})_`);
+      }
+      lines.push('');
+    }
+
+    // Pages grouped by category
     for (const category of this.config.categories) {
       const pages = await this.list(category);
       if (pages.length === 0) continue;
 
-      lines.push(`\n## ${category.charAt(0).toUpperCase() + category.slice(1)}\n`);
+      lines.push(`## ${category.charAt(0).toUpperCase() + category.slice(1)} (${pages.length})`);
+      lines.push('');
       for (const page of pages.sort((a, b) => a.frontmatter.title.localeCompare(b.frontmatter.title))) {
-        lines.push(`- [[${page.slug}]] — ${page.frontmatter.title}`);
+        lines.push(`- [[${page.slug}]] — ${page.frontmatter.title} _(${page.frontmatter.updated})_`);
       }
+      lines.push('');
     }
 
     const indexPath = join(this.config.rootDir, 'index.md');
     await writeFile(indexPath, lines.join('\n'), 'utf-8');
+  }
+
+  /**
+   * Lint the wiki: check for broken links, missing frontmatter, orphans, stale pages.
+   * Returns a report of issues found.
+   */
+  async lint(): Promise<WikiLintReport> {
+    await this.ensureLoaded();
+
+    const issues: WikiLintIssue[] = [];
+    const allSlugs = Array.from(this.cache.keys());
+
+    for (const [slug, page] of this.cache) {
+      // Check required frontmatter fields
+      const fm = page.frontmatter;
+      if (!fm.title) {
+        issues.push({ slug, severity: 'error', message: 'Missing frontmatter: title' });
+      }
+      if (!fm.created) {
+        issues.push({ slug, severity: 'error', message: 'Missing frontmatter: created' });
+      }
+      if (!fm.updated) {
+        issues.push({ slug, severity: 'error', message: 'Missing frontmatter: updated' });
+      }
+      if (!fm.status) {
+        issues.push({ slug, severity: 'warn', message: 'Missing frontmatter: status' });
+      }
+
+      // Find [[wikilinks]] in content
+      const linkPattern = /\[\[([a-z0-9-]+)\]\]/gi;
+      let match: RegExpExecArray | null;
+      while ((match = linkPattern.exec(page.content)) !== null) {
+        const linkSlug = match[1];
+        if (!allSlugs.includes(linkSlug)) {
+          issues.push({ slug, severity: 'error', message: `Broken wikilink: [[${linkSlug}]]` });
+        }
+      }
+
+      // Check for orphan pages (no incoming links and no outgoing links)
+      // Skip index.md
+      if (slug !== 'index') {
+        const hasOutgoing = linkPattern.test(page.content);
+        // Check if any other page links to this one
+        const hasIncoming = Array.from(this.cache.values()).some(p =>
+          p !== page && new RegExp(`\\[\\[${slug}\\]\\]`, 'i').test(p.content)
+        );
+        if (!hasOutgoing && !hasIncoming) {
+          issues.push({ slug, severity: 'warn', message: 'Orphan page — no incoming or outgoing links' });
+        }
+      }
+
+      // Check for stale pages (not updated in 90 days)
+      if (fm.updated) {
+        const updated = new Date(fm.updated);
+        const daysSinceUpdate = (Date.now() - updated.getTime()) / 86400000;
+        if (daysSinceUpdate > 90) {
+          issues.push({ slug, severity: 'info', message: `Stale page — last updated ${Math.floor(daysSinceUpdate)} days ago` });
+        }
+      }
+    }
+
+    return {
+      totalPages: allSlugs.length,
+      issues,
+      errors: issues.filter(i => i.severity === 'error').length,
+      warnings: issues.filter(i => i.severity === 'warn').length,
+      info: issues.filter(i => i.severity === 'info').length,
+      lintedAt: new Date().toISOString(),
+    };
   }
 
   // ─── Private ──────────────────────────────────────────────────────────
@@ -299,6 +424,17 @@ export class WikiStore {
   private async ensureLoaded(): Promise<void> {
     if (this.loaded) return;
     this.loaded = true;
+
+    // Ensure standard category directories exist
+    const categories = ['entities', 'concepts', 'decisions', 'projects', 'areas', 'research'];
+    for (const cat of categories) {
+      const dir = join(this.config.rootDir, cat);
+      try {
+        await mkdir(dir, { recursive: true });
+      } catch {
+        // Directory already exists — fine
+      }
+    }
 
     for (const category of this.config.categories) {
       const categoryDir = join(this.config.rootDir, category);

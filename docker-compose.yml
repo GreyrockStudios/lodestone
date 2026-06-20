@@ -9,9 +9,11 @@ services:
     restart: unless-stopped
     ports:
       - "18789:18789"
+      - "3001:3001"
     volumes:
       - ./workspace:/workspace
       - ./data:/data
+      - ./lodestone.config.yaml:/workspace/lodestone.config.yaml:ro
     environment:
       - LODESTONE_CONFIG=/workspace/lodestone.config.yaml
       - LODESTONE_LOG_LEVEL=info
@@ -19,6 +21,8 @@ services:
       - OLLAMA_BASE_URL=${OLLAMA_BASE_URL:-http://ollama:11434}
       - OPENAI_API_KEY=${OPENAI_API_KEY:-}
       - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
+      - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN:-}
+      - DISCORD_BOT_TOKEN=${DISCORD_BOT_TOKEN:-}
     depends_on:
       - ollama
     networks:

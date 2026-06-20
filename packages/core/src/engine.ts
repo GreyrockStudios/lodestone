@@ -58,6 +58,14 @@ export interface LodestoneConfig {
   wikiRoot: string;
   /** Memory/vector DB directory */
   memoryDir: string;
+  /** Embedding provider override (default: ollama) */
+  embeddingProvider?: string;
+  /** Embedding model override (default: nomic-embed-text) */
+  embeddingModel?: string;
+  /** Embedding dimensions override (default: 768) */
+  embeddingDimensions?: number;
+  /** Auto-capture setting override (default: true) */
+  autoCapture?: boolean;
   /** Maximum concurrent tool executions */
   maxConcurrentTools?: number;
   /** Maximum concurrent scheduled jobs */
@@ -178,12 +186,12 @@ export class LodestoneEngine {
       },
       vector: {
         dbPath: config.memoryDir,
-        embeddingProvider: 'ollama',
-        embeddingModel: 'nomic-embed-text',
-        dimensions: 768,
+        embeddingProvider: (config.embeddingProvider as 'ollama' | 'openai') || 'ollama',
+        embeddingModel: config.embeddingModel || 'nomic-embed-text',
+        dimensions: config.embeddingDimensions || 768,
         recallMaxChars: 800,
         autoRecall: true,
-        autoCapture: false,
+        autoCapture: config.autoCapture ?? true,
       },
       scratch: {
         dbPath: join(config.workspaceRoot, 'data/scratch.json'),
@@ -392,7 +400,7 @@ export class LodestoneEngine {
       }));
       this.dashboard.registerProvider('memory', async () => ({
         wikiPages: (await this.memory.wiki.list()).length,
-        scratchKeys: this.memory.scratch.list(),
+        scratchKeys: await this.memory.scratch.list(),
         compounding: this.memory.getCompoundingStats(),
         knowledgeGraph: this.memory.knowledgeGraph.getStats(),
       }));

@@ -61,7 +61,13 @@ const CHAT_UI_HTML = `<!DOCTYPE html>
   </div>
   <script src="/socket.io/socket.io.js"></script>
   <script>
-    const socket = io();
+    // Persistent client ID for session continuity across reconnections
+    let clientId = localStorage.getItem('lodestone_client_id');
+    if (!clientId) {
+      clientId = crypto.randomUUID();
+      localStorage.setItem('lodestone_client_id', clientId);
+    }
+    const socket = io({ auth: { clientId } });
     const messages = document.getElementById('messages');
     const input = document.getElementById('msg-input');
     const sendBtn = document.getElementById('send-btn');
@@ -191,8 +197,20 @@ export class WebChatChannel extends Channel {
     this.io.on('connection', (socket: any) => {
       this.logger.info('Client connected', { socketId: socket.id });
 
-      // Generate a session for this connection
-      const sessionId = `webchat-${socket.id}`;
+      // Use persistent client ID if provided, otherwise fall back to socket ID
+      // This allows session continuity across reconnections
+      const persistentId = socket.handshake?.auth?.clientId || socket.handshake?.query?.clientId;
+      const sessionId = persistentId ? `webchat-${persistentId}` : `webchat-${socket.id}`;
+      // For persistent sessions, update the socket mapping to the latest connection.
+      // This prevents stale socket references when a client reconnects or opens a new tab.
+      if (persistentId) {
+        // Remove any stale socket entries for this session
+        for (const [sid, sess] of this.sessionMap.entries()) {
+          if (sess === sessionId && sid !== socket.id) {
+            this.sessionMap.delete(sid);
+          }
+        }
+      }
       this.sessionMap.set(socket.id, sessionId);
 
       // Notify the client they're connected
@@ -207,7 +225,7 @@ export class WebChatChannel extends Channel {
           sessionId,
           content: text,
           senderId: socket.id,
-          senderName: `webchat-user-${socket.id.slice(0, 8)}`,
+          senderName: `webchat-user-${(persistentId || socket.id).slice(0, 8)}`,
           channelId: this.id,
           timestamp: new Date().toISOString(),
           metadata: {
