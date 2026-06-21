@@ -1,0 +1,669 @@
+<!DOCTYPE html>
+<html lang="en" class="scroll-smooth">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Lodestone 🔮 — Turn Any LLM Into a Self-Improving Agent</title>
+<meta name="description" content="Lodestone is a standalone agent engine that gives LLMs persistent memory, self-improvement loops, proactive scheduling, and 39 built-in tools. Open source. TypeScript. Docker-ready.">
+<meta name="keywords" content="AI agent, LLM agent, autonomous agent, self-improving AI, agent framework, TypeScript, open source, RAG, vector memory, n8n alternative">
+<meta property="og:title" content="Lodestone 🔮 — Turn Any LLM Into a Self-Improving Agent">
+<meta property="og:description" content="39 tools. 290 tests. Memory that compounds. An agent that improves itself. Open source.">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://lodestone.greyrockstudios.com">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Lodestone 🔮 — Self-Improving AI Agent Engine">
+<meta name="twitter:description" content="39 tools. 290 tests. Memory that compounds. Open source.">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🔮</text></svg>">
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+tailwind.config = {
+  theme: {
+    extend: {
+      colors: {
+        'lodestone': {
+          'dark': '#0a0a0f',
+          'darker': '#050508',
+          'card': '#12121a',
+          'border': '#1e1e2e',
+          'purple': '#8b5cf6',
+          'cyan': '#06b6d4',
+          'pink': '#ec4899',
+          'amber': '#f59e0b',
+          'green': '#10b981',
+        }
+      },
+      animation: {
+        'fade-in': 'fadeIn 0.6s ease-out',
+        'slide-up': 'slideUp 0.6s ease-out',
+        'glow': 'glow 3s ease-in-out infinite alternate',
+      },
+      keyframes: {
+        fadeIn: { '0%': { opacity: 0 }, '100%': { opacity: 1 } },
+        slideUp: { '0%': { opacity: 0, transform: 'translateY(20px)' }, '100%': { opacity: 1, transform: 'translateY(0)' } },
+        glow: { '0%': { boxShadow: '0 0 20px rgba(139, 92, 246, 0.3)' }, '100%': { boxShadow: '0 0 40px rgba(139, 92, 246, 0.6)' } },
+      }
+    }
+  }
+}
+</script>
+<style>
+body { background: #0a0a0f; }
+.gradient-text { background: linear-gradient(135deg, #8b5cf6, #06b6d4); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
+.gradient-border { border: 1px solid; border-image: linear-gradient(135deg, #8b5cf6, #06b6d4) 1; }
+.glow-purple { box-shadow: 0 0 30px rgba(139, 92, 246, 0.15); }
+.glow-cyan { box-shadow: 0 0 30px rgba(6, 182, 212, 0.15); }
+.grid-bg { background-image: linear-gradient(rgba(139, 92, 246, 0.05) 1px, transparent 1px), linear-gradient(90deg, rgba(139, 92, 246, 0.05) 1px, transparent 1px); background-size: 40px 40px; }
+code { background: #1a1a2e; padding: 2px 6px; border-radius: 4px; font-size: 0.9em; color: #06b6d4; }
+pre { background: #0d0d14; border: 1px solid #1e1e2e; border-radius: 12px; padding: 20px; overflow-x: auto; }
+pre code { background: none; padding: 0; color: #e0e0e0; }
+</style>
+</head>
+<body class="bg-lodestone-dark text-gray-200 font-sans antialiased">
+
+<!-- Nav -->
+<nav class="fixed top-0 w-full z-50 bg-lodestone-dark/80 backdrop-blur-md border-b border-lodestone-border">
+  <div class="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
+    <a href="#" class="flex items-center gap-2 text-xl font-bold">
+      <span class="text-2xl">🔮</span>
+      <span class="gradient-text">Lodestone</span>
+    </a>
+    <div class="hidden md:flex items-center gap-8 text-sm">
+      <a href="#features" class="hover:text-lodestone-purple transition">Features</a>
+      <a href="#tools" class="hover:text-lodestone-purple transition">Tools</a>
+      <a href="#how" class="hover:text-lodestone-purple transition">How It Works</a>
+      <a href="#pricing" class="hover:text-lodestone-purple transition">Pricing</a>
+      <a href="#docs" class="hover:text-lodestone-purple transition">Docs</a>
+    </div>
+    <div class="flex items-center gap-3">
+      <a href="https://github.com/greyrock-studios/lodestone" class="text-sm text-gray-400 hover:text-white transition hidden sm:inline">GitHub</a>
+      <a href="#pricing" class="px-4 py-2 bg-gradient-to-r from-lodestone-purple to-lodestone-cyan text-white rounded-lg text-sm font-semibold hover:opacity-90 transition">Get Started</a>
+    </div>
+  </div>
+</nav>
+
+<!-- Hero -->
+<section class="pt-32 pb-20 grid-bg relative overflow-hidden">
+  <div class="max-w-7xl mx-auto px-6 text-center">
+    <div class="inline-block px-4 py-1.5 bg-lodestone-card border border-lodestone-border rounded-full text-sm text-lodestone-cyan mb-6 animate-fade-in">
+      🔥 39 built-in tools · 290 tests · MIT licensed
+    </div>
+    <h1 class="text-5xl md:text-7xl font-bold mb-6 animate-slide-up">
+      Turn any LLM into a<br>
+      <span class="gradient-text">self-improving agent</span>
+    </h1>
+    <p class="text-xl md:text-2xl text-gray-400 max-w-3xl mx-auto mb-10 animate-slide-up" style="animation-delay:0.1s">
+      Persistent memory. Self-improvement loops. Proactive scheduling. 39 tools.
+      One command. Your agent doesn't just answer questions — it gets better at its job.
+    </p>
+    <div class="flex flex-wrap justify-center gap-4 animate-slide-up" style="animation-delay:0.2s">
+      <a href="#pricing" class="px-8 py-4 bg-gradient-to-r from-lodestone-purple to-lodestone-cyan text-white rounded-xl font-semibold text-lg hover:opacity-90 transition glow-purple">
+        Get Lodestone Free →
+      </a>
+      <a href="#how" class="px-8 py-4 border border-lodestone-border bg-lodestone-card text-gray-300 rounded-xl font-semibold text-lg hover:border-lodestone-purple transition">
+        See How It Works
+      </a>
+    </div>
+    <div class="mt-12 animate-fade-in" style="animation-delay:0.4s">
+      <pre class="text-left max-w-md mx-auto text-sm"><code class="language-bash"><span class="text-gray-500"># Install and run in 30 seconds</span>
+<span class="text-lodestone-green">npx</span> lodestone init --template developer
+<span class="text-lodestone-green">cd</span> my-agent
+<span class="text-lodestone-green">lodestone</span> start
+
+<span class="text-gray-500"># Your agent is now thinking. 🤔</span>
+<span class="text-lodestone-cyan">✓</span> Memory system loaded
+<span class="text-lodestone-cyan">✓</span> 39 tools registered
+<span class="text-lodestone-cyan">✓</span> Self-improvement active
+<span class="text-lodestone-cyan">✓</span> Heartbeat running</code></pre>
+    </div>
+  </div>
+</section>
+
+<!-- Stats Bar -->
+<section class="border-y border-lodestone-border bg-lodestone-darker">
+  <div class="max-w-7xl mx-auto px-6 py-12 grid grid-cols-2 md:grid-cols-4 gap-8">
+    <div class="text-center">
+      <div class="text-4xl font-bold gradient-text">39</div>
+      <div class="text-sm text-gray-500 mt-1">Built-in Tools</div>
+    </div>
+    <div class="text-center">
+      <div class="text-4xl font-bold gradient-text">290</div>
+      <div class="text-sm text-gray-500 mt-1">Tests Passing</div>
+    </div>
+    <div class="text-center">
+      <div class="text-4xl font-bold gradient-text">52K+</div>
+      <div class="text-sm text-gray-500 mt-1">Lines of TypeScript</div>
+    </div>
+    <div class="text-center">
+      <div class="text-4xl font-bold gradient-text">MIT</div>
+      <div class="text-sm text-gray-500 mt-1">Open Source</div>
+    </div>
+  </div>
+</section>
+
+<!-- Features -->
+<section id="features" class="py-24">
+  <div class="max-w-7xl mx-auto px-6">
+    <h2 class="text-4xl font-bold text-center mb-4">What makes it different?</h2>
+    <p class="text-gray-400 text-center mb-16 max-w-2xl mx-auto">Most LLM wrappers give you a chatbot. Lodestone gives you an agent that remembers, learns, and works on its own.</p>
+    <div class="grid md:grid-cols-3 gap-6">
+
+      <div class="bg-lodestone-card border border-lodestone-border rounded-2xl p-8 hover:border-lodestone-purple transition glow-purple">
+        <div class="text-4xl mb-4">🧠</div>
+        <h3 class="text-xl font-semibold mb-3">Memory That Compounds</h3>
+        <p class="text-gray-400">Three-layer memory: vector recall, curated wiki, session scratch. Ask something Tuesday, get the answer instantly Thursday. Knowledge builds on itself.</p>
+        <div class="mt-4 flex gap-2 flex-wrap">
+          <span class="text-xs px-2 py-1 bg-lodestone-dark rounded text-lodestone-cyan">LanceDB</span>
+          <span class="text-xs px-2 py-1 bg-lodestone-dark rounded text-lodestone-cyan">Markdown wiki</span>
+          <span class="text-xs px-2 py-1 bg-lodestone-dark rounded text-lodestone-cyan">Auto-capture</span>
+        </div>
+      </div>
+
+      <div class="bg-lodestone-card border border-lodestone-border rounded-2xl p-8 hover:border-lodestone-cyan transition glow-cyan">
+        <div class="text-4xl mb-4">📈</div>
+        <h3 class="text-xl font-semibold mb-3">Self-Improvement Engine</h3>
+        <p class="text-gray-400">Prediction journals, pre-mortems, drift detection, calibration loops, skill synthesis. The agent learns from mistakes and gets better over time.</p>
+        <div class="mt-4 flex gap-2 flex-wrap">
+          <span class="text-xs px-2 py-1 bg-lodestone-dark rounded text-lodestone-purple">Calibration</span>
+          <span class="text-xs px-2 py-1 bg-lodestone-dark rounded text-lodestone-purple">Drift detection</span>
+          <span class="text-xs px-2 py-1 bg-lodestone-dark rounded text-lodestone-purple">Skill synthesis</span>
+        </div>
+      </div>
+
+      <div class="bg-lodestone-card border border-lodestone-border rounded-2xl p-8 hover:border-lodestone-pink transition">
+        <div class="text-4xl mb-4">⏰</div>
+        <h3 class="text-xl font-semibold mb-3">Proactive Scheduling</h3>
+        <p class="text-gray-400">Health checks, consolidation cycles, morning briefs, and dream mode. The agent thinks even when you're not talking to it. It works while you sleep.</p>
+        <div class="mt-4 flex gap-2 flex-wrap">
+          <span class="text-xs px-2 py-1 bg-lodestone-dark rounded text-lodestone-pink">Cron jobs</span>
+          <span class="text-xs px-2 py-1 bg-lodestone-dark rounded text-lodestone-pink">Heartbeat</span>
+          <span class="text-xs px-2 py-1 bg-lodestone-dark rounded text-lodestone-pink">Sleep cycle</span>
+        </div>
+      </div>
+
+      <div class="bg-lodestone-card border border-lodestone-border rounded-2xl p-8 hover:border-lodestone-amber transition">
+        <div class="text-4xl mb-4">🛡️</div>
+        <h3 class="text-xl font-semibold mb-3">Safety Systems</h3>
+        <p class="text-gray-400">Behavioral learning, quality gates, self-constraints, intent prediction, explainability traces. The agent enforces its own guardrails.</p>
+        <div class="mt-4 flex gap-2 flex-wrap">
+          <span class="text-xs px-2 py-1 bg-lodestone-dark rounded text-lodestone-amber">Quality gates</span>
+          <span class="text-xs px-2 py-1 bg-lodestone-dark rounded text-lodestone-amber">Explainability</span>
+          <span class="text-xs px-2 py-1 bg-lodestone-dark rounded text-lodestone-amber">Intent prediction</span>
+        </div>
+      </div>
+
+      <div class="bg-lodestone-card border border-lodestone-border rounded-2xl p-8 hover:border-lodestone-green transition">
+        <div class="text-4xl mb-4">🎭</div>
+        <h3 class="text-xl font-semibold mb-3">Real Identity</h3>
+        <p class="text-gray-400">You define WHO it is (SOUL.md), WHAT it knows (wiki), HOW it operates (RULES.md), and WHAT it focuses on (HEARTBEAT.md). Not a blank slate — a shaped tool.</p>
+        <div class="mt-4 flex gap-2 flex-wrap">
+          <span class="text-xs px-2 py-1 bg-lodestone-dark rounded text-lodestone-green">SOUL.md</span>
+          <span class="text-xs px-2 py-1 bg-lodestone-dark rounded text-lodestone-green">Templates</span>
+          <span class="text-xs px-2 py-1 bg-lodestone-dark rounded text-lodestone-green">Customizable</span>
+        </div>
+      </div>
+
+      <div class="bg-lodestone-card border border-lodestone-border rounded-2xl p-8 hover:border-lodestone-purple transition">
+        <div class="text-4xl mb-4">🔌</div>
+        <h3 class="text-xl font-semibold mb-3">Multi-Channel</h3>
+        <p class="text-gray-400">Telegram, Discord, Email (M365/IMAP), and Webchat out of the box. Your agent talks to you where you already work.</p>
+        <div class="mt-4 flex gap-2 flex-wrap">
+          <span class="text-xs px-2 py-1 bg-lodestone-dark rounded text-lodestone-purple">Telegram</span>
+          <span class="text-xs px-2 py-1 bg-lodestone-dark rounded text-lodestone-purple">Discord</span>
+          <span class="text-xs px-2 py-1 bg-lodestone-dark rounded text-lodestone-purple">Webchat</span>
+          <span class="text-xs px-2 py-1 bg-lodestone-dark rounded text-lodestone-purple">Email</span>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+<!-- Tools -->
+<section id="tools" class="py-24 bg-lodestone-darker border-y border-lodestone-border">
+  <div class="max-w-7xl mx-auto px-6">
+    <h2 class="text-4xl font-bold text-center mb-4">39 Built-in Tools</h2>
+    <p class="text-gray-400 text-center mb-16 max-w-2xl mx-auto">Everything your agent needs to actually do work — not just talk about it.</p>
+    <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+      <!-- Tool cards generated -->
+      <div class="bg-lodestone-card border border-lodestone-border rounded-lg p-4 hover:border-lodestone-purple transition">
+        <div class="text-2xl mb-1">📝</div>
+        <div class="font-semibold text-sm">wiki-resolve</div>
+        <div class="text-xs text-gray-500">Resolve wikilinks</div>
+      </div>
+      <div class="bg-lodestone-card border border-lodestone-border rounded-lg p-4 hover:border-lodestone-purple transition">
+        <div class="text-2xl mb-1">🔍</div>
+        <div class="font-semibold text-sm">wiki-search</div>
+        <div class="text-xs text-gray-500">Search wiki pages</div>
+      </div>
+      <div class="bg-lodestone-card border border-lodestone-border rounded-lg p-4 hover:border-lodestone-purple transition">
+        <div class="text-2xl mb-1">✍️</div>
+        <div class="font-semibold text-sm">wiki-write</div>
+        <div class="text-xs text-gray-500">Create/update pages</div>
+      </div>
+      <div class="bg-lodestone-card border border-lodestone-border rounded-lg p-4 hover:border-lodestone-purple transition">
+        <div class="text-2xl mb-1">📖</div>
+        <div class="font-semibold text-sm">wiki-read</div>
+        <div class="text-xs text-gray-500">Read page contents</div>
+      </div>
+      <div class="bg-lodestone-card border border-lodestone-border rounded-lg p-4 hover:border-lodestone-purple transition">
+        <div class="text-2xl mb-1">💾</div>
+        <div class="font-semibold text-sm">memory-store</div>
+        <div class="text-xs text-gray-500">Long-term memory</div>
+      </div>
+      <div class="bg-lodestone-card border border-lodestone-border rounded-lg p-4 hover:border-lodestone-purple transition">
+        <div class="text-2xl mb-1">🧠</div>
+        <div class="font-semibold text-sm">memory-recall</div>
+        <div class="text-xs text-gray-500">Recall memories</div>
+      </div>
+      <div class="bg-lodestone-card border border-lodestone-border rounded-lg p-4 hover:border-lodestone-purple transition">
+        <div class="text-2xl mb-1">🎯</div>
+        <div class="font-semibold text-sm">smart-retrieve</div>
+        <div class="text-xs text-gray-500">Ranked retrieval</div>
+      </div>
+      <div class="bg-lodestone-card border border-lodestone-border rounded-lg p-4 hover:border-lodestone-purple transition">
+        <div class="text-2xl mb-1">📋</div>
+        <div class="font-semibold text-sm">decision-log</div>
+        <div class="text-xs text-gray-500">Record decisions</div>
+      </div>
+      <div class="bg-lodestone-card border border-lodestone-border rounded-lg p-4 hover:border-lodestone-purple transition">
+        <div class="text-2xl mb-1">⏸️</div>
+        <div class="font-semibold text-sm">resume-state</div>
+        <div class="text-xs text-gray-500">Save/resume state</div>
+      </div>
+      <div class="bg-lodestone-card border border-lodestone-border rounded-lg p-4 hover:border-lodestone-purple transition">
+        <div class="text-2xl mb-1">⏰</div>
+        <div class="font-semibold text-sm">watchdog</div>
+        <div class="text-xs text-gray-500">Monitor outcomes</div>
+      </div>
+      <div class="bg-lodestone-card border border-lodestone-border rounded-lg p-4 hover:border-lodestone-purple transition">
+        <div class="text-2xl mb-1">🕐</div>
+        <div class="font-semibold text-sm">business-hours</div>
+        <div class="text-xs text-gray-500">Time-aware actions</div>
+      </div>
+      <div class="bg-lodestone-card border border-lodestone-border rounded-lg p-4 hover:border-lodestone-purple transition">
+        <div class="text-2xl mb-1">🌐</div>
+        <div class="font-semibold text-sm">web-search</div>
+        <div class="text-xs text-gray-500">Search the web</div>
+      </div>
+      <div class="bg-lodestone-card border border-lodestone-border rounded-lg p-4 hover:border-lodestone-purple transition">
+        <div class="text-2xl mb-1">📄</div>
+        <div class="font-semibold text-sm">web-fetch</div>
+        <div class="text-xs text-gray-500">Fetch URLs</div>
+      </div>
+      <div class="bg-lodestone-card border border-lodestone-border rounded-lg p-4 hover:border-lodestone-purple transition">
+        <div class="text-2xl mb-1">📁</div>
+        <div class="font-semibold text-sm">file-ops</div>
+        <div class="text-xs text-gray-500">File operations</div>
+      </div>
+      <div class="bg-lodestone-card border border-lodestone-border rounded-lg p-4 hover:border-lodestone-purple transition">
+        <div class="text-2xl mb-1">⚡</div>
+        <div class="font-semibold text-sm">code-exec</div>
+        <div class="text-xs text-gray-500">Execute code</div>
+      </div>
+      <div class="bg-lodestone-card border border-lodestone-border rounded-lg p-4 hover:border-lodestone-purple transition">
+        <div class="text-2xl mb-1">🖥️</div>
+        <div class="font-semibold text-sm">shell</div>
+        <div class="text-xs text-gray-500">Run shell commands</div>
+      </div>
+      <div class="bg-lodestone-card border border-lodestone-border rounded-lg p-4 hover:border-lodestone-purple transition">
+        <div class="text-2xl mb-1">🔗</div>
+        <div class="font-semibold text-sm">http</div>
+        <div class="text-xs text-gray-500">HTTP requests</div>
+      </div>
+      <div class="bg-lodestone-card border border-lodestone-border rounded-lg p-4 hover:border-lodestone-purple transition">
+        <div class="text-2xl mb-1">⚙️</div>
+        <div class="font-semibold text-sm">process-manager</div>
+        <div class="text-xs text-gray-500">Manage processes</div>
+      </div>
+      <div class="bg-lodestone-card border border-lodestone-border rounded-lg p-4 hover:border-lodestone-purple transition">
+        <div class="text-2xl mb-1">📝</div>
+        <div class="font-semibold text-sm">diff-patch</div>
+        <div class="text-xs text-gray-500">File editing</div>
+      </div>
+      <div class="bg-lodestone-card border border-lodestone-border rounded-lg p-4 hover:border-lodestone-purple transition">
+        <div class="text-2xl mb-1">🌿</div>
+        <div class="font-semibold text-sm">git</div>
+        <div class="text-xs text-gray-500">Git operations</div>
+      </div>
+      <div class="bg-lodestone-card border border-lodestone-border rounded-lg p-4 hover:border-lodestone-purple transition">
+        <div class="text-2xl mb-1">🌍</div>
+        <div class="font-semibold text-sm">browser</div>
+        <div class="text-xs text-gray-500">Browser automation</div>
+      </div>
+      <div class="bg-lodestone-card border border-lodestone-border rounded-lg p-4 hover:border-lodestone-purple transition">
+        <div class="text-2xl mb-1">📅</div>
+        <div class="font-semibold text-sm">scheduler</div>
+        <div class="text-xs text-gray-500">Cron scheduling</div>
+      </div>
+      <div class="bg-lodestone-card border border-lodestone-border rounded-lg p-4 hover:border-lodestone-purple transition">
+        <div class="text-2xl mb-1">💬</div>
+        <div class="font-semibold text-sm">send-message</div>
+        <div class="text-xs text-gray-500">Cross-channel comms</div>
+      </div>
+      <div class="bg-lodestone-card border border-lodestone-border rounded-lg p-4 hover:border-lodestone-purple transition">
+        <div class="text-2xl mb-1">🗄️</div>
+        <div class="font-semibold text-sm">database</div>
+        <div class="text-xs text-gray-500">SQLite + PostgreSQL</div>
+      </div>
+      <div class="bg-lodestone-card border border-lodestone-border rounded-lg p-4 hover:border-lodestone-purple transition">
+        <div class="text-2xl mb-1">🔌</div>
+        <div class="font-semibold text-sm">mcp-client</div>
+        <div class="text-xs text-gray-500">MCP protocol</div>
+      </div>
+      <div class="bg-lodestone-card border border-lodestone-border rounded-lg p-4 hover:border-lodestone-purple transition">
+        <div class="text-2xl mb-1">🎨</div>
+        <div class="font-semibold text-sm">image-gen</div>
+        <div class="text-xs text-gray-500">DALL-E / local</div>
+      </div>
+      <div class="bg-lodestone-card border border-lodestone-border rounded-lg p-4 hover:border-lodestone-purple transition">
+        <div class="text-2xl mb-1">👁️</div>
+        <div class="font-semibold text-sm">ocr</div>
+        <div class="text-xs text-gray-500">Text extraction</div>
+      </div>
+      <div class="bg-lodestone-card border border-lodestone-border rounded-lg p-4 hover:border-lodestone-purple transition">
+        <div class="text-2xl mb-1">🎙️</div>
+        <div class="font-semibold text-sm">transcribe</div>
+        <div class="text-xs text-gray-500">Audio transcription</div>
+      </div>
+      <div class="bg-lodestone-card border border-lodestone-border rounded-lg p-4 hover:border-lodestone-purple transition">
+        <div class="text-2xl mb-1">📋</div>
+        <div class="font-semibold text-sm">clipboard</div>
+        <div class="text-xs text-gray-500">System clipboard</div>
+      </div>
+      <div class="bg-lodestone-card border border-lodestone-border rounded-lg p-4 hover:border-lodestone-purple transition">
+        <div class="text-2xl mb-1">🔔</div>
+        <div class="font-semibold text-sm">notify</div>
+        <div class="text-xs text-gray-500">Push notifications</div>
+      </div>
+      <div class="bg-lodestone-card border border-lodestone-border rounded-lg p-4 hover:border-lodestone-purple transition">
+        <div class="text-2xl mb-1">🔐</div>
+        <div class="font-semibold text-sm">secrets</div>
+        <div class="text-xs text-gray-500">Secret management</div>
+      </div>
+      <div class="bg-lodestone-card border border-lodestone-border rounded-lg p-4 hover:border-lodestone-purple transition">
+        <div class="text-2xl mb-1">🔎</div>
+        <div class="font-semibold text-sm">search-engine</div>
+        <div class="text-xs text-gray-500">DuckDuckGo / Brave</div>
+      </div>
+      <div class="bg-lodestone-card border border-lodestone-border rounded-lg p-4 hover:border-lodestone-purple transition">
+        <div class="text-2xl mb-1">📸</div>
+        <div class="font-semibold text-sm">screenshot</div>
+        <div class="text-xs text-gray-500">Screen capture</div>
+      </div>
+      <div class="bg-lodestone-card border border-lodestone-border rounded-lg p-4 hover:border-lodestone-purple transition">
+        <div class="text-2xl mb-1">📦</div>
+        <div class="font-semibold text-sm">archive</div>
+        <div class="text-xs text-gray-500">Zip/unzip files</div>
+      </div>
+      <div class="bg-lodestone-card border border-lodestone-border rounded-lg p-4 hover:border-lodestone-purple transition">
+        <div class="text-2xl mb-1">🔣</div>
+        <div class="font-semibold text-sm">lsp</div>
+        <div class="text-xs text-gray-500">Language server</div>
+      </div>
+      <div class="bg-lodestone-card border border-lodestone-border rounded-lg p-4 hover:border-lodestone-purple transition">
+        <div class="text-2xl mb-1">📆</div>
+        <div class="font-semibold text-sm">calendar</div>
+        <div class="text-xs text-gray-500">Calendar access</div>
+      </div>
+      <div class="bg-lodestone-card border border-lodestone-border rounded-lg p-4 hover:border-lodestone-purple transition">
+        <div class="text-2xl mb-1">👁️</div>
+        <div class="font-semibold text-sm">vision</div>
+        <div class="text-xs text-gray-500">Image analysis</div>
+      </div>
+      <div class="bg-lodestone-card border border-lodestone-border rounded-lg p-4 hover:border-lodestone-purple transition">
+        <div class="text-2xl mb-1">🗣️</div>
+        <div class="font-semibold text-sm">voice</div>
+        <div class="text-xs text-gray-500">TTS output</div>
+      </div>
+      <div class="bg-lodestone-card border border-lodestone-border rounded-lg p-4 hover:border-lodestone-purple transition">
+        <div class="text-2xl mb-1">🤖</div>
+        <div class="font-semibold text-sm">coordinator</div>
+        <div class="text-xs text gray-500">Multi-agent orchestration</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- How It Works -->
+<section id="how" class="py-24">
+  <div class="max-w-5xl mx-auto px-6">
+    <h2 class="text-4xl font-bold text-center mb-4">How it works</h2>
+    <p class="text-gray-400 text-center mb-16">Three layers. One agent. Infinite possibilities.</p>
+
+    <div class="space-y-8">
+      <div class="flex gap-6 items-start">
+        <div class="text-5xl font-bold gradient-text shrink-0 w-16">01</div>
+        <div class="flex-1 bg-lodestone-card border border-lodestone-border rounded-2xl p-6">
+          <h3 class="text-xl font-semibold mb-2">Define identity</h3>
+          <p class="text-gray-400 mb-3">Tell your agent who it is. SOUL.md for personality, IDENTITY.md for facts, USER.md for context about you, RULES.md for behavioral constraints.</p>
+          <pre class="text-xs"><code><span class="text-gray-500"># SOUL.md</span>
+I'm Atlas. I help manage infrastructure and automate ops.
+Be direct. Be fast. Don't ask permission for routine tasks.
+
+<span class="text-gray-500"># HEARTBEAT.md</span>
+Check server health every 30 min. If anything is down, alert Jay.</code></pre>
+        </div>
+      </div>
+
+      <div class="flex gap-6 items-start">
+        <div class="text-5xl font-bold gradient-text shrink-0 w-16">02</div>
+        <div class="flex-1 bg-lodestone-card border border-lodestone-border rounded-2xl p-6">
+          <h3 class="text-xl font-semibold mb-2">Pick your model</h3>
+          <p class="text-gray-400 mb-3">Works with any LLM — cloud or local. OpenAI, Anthropic, Ollama, LM Studio, anything that speaks the OpenAI API format.</p>
+          <pre class="text-xs"><code><span class="text-gray-500"># lodestone.config.yaml</span>
+model:
+  provider: ollama
+  name: glm-5.2:cloud
+  fallback: glm-5.1:cloud</code></pre>
+        </div>
+      </div>
+
+      <div class="flex gap-6 items-start">
+        <div class="text-5xl font-bold gradient-text shrink-0 w-16">03</div>
+        <div class="flex-1 bg-lodestone-card border border-lodestone-border rounded-2xl p-6">
+          <h3 class="text-xl font-semibold mb-2">Start. It thinks.</h3>
+          <p class="text-gray-400 mb-3">Your agent boots up, loads its identity, initializes memory, registers 39 tools, and starts its heartbeat. It works proactively — even when you're not watching.</p>
+          <pre class="text-xs"><code><span class="text-lodestone-green">$</span> lodestone start
+<span class="text-lodestone-cyan">✓</span> Identity loaded: Atlas
+<span class="text-lodestone-cyan">✓</span> Memory: 1,247 facts, 89 wiki pages
+<span class="text-lodestone-cyan">✓</span> Tools: 39 registered
+<span class="text-lodestone-cyan">✓</span> Heartbeat: every 30 min
+<span class="text-lodestone-cyan">✓</span> Channels: Telegram, Webchat
+
+Atlas is now thinking. 💭</code></pre>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Pricing -->
+<section id="pricing" class="py-24 bg-lodestone-darker border-y border-lodestone-border">
+  <div class="max-w-5xl mx-auto px-6">
+    <h2 class="text-4xl font-bold text-center mb-4">Pricing</h2>
+    <p class="text-gray-400 text-center mb-16">Open source forever. Pro for teams.</p>
+    <div class="grid md:grid-cols-3 gap-6">
+
+      <div class="bg-lodestone-card border border-lodestone-border rounded-2xl p-8">
+        <div class="text-2xl font-bold mb-2">Community</div>
+        <div class="text-4xl font-bold mb-1">$0</div>
+        <div class="text-sm text-gray-500 mb-6">MIT licensed. Forever.</div>
+        <ul class="space-y-3 text-sm text-gray-400 mb-8">
+          <li class="flex gap-2"><span class="text-lodestone-green">✓</span> 39 built-in tools</li>
+          <li class="flex gap-2"><span class="text-lodestone-green">✓</span> Full memory system</li>
+          <li class="flex gap-2"><span class="text-lodestone-green">✓</span> Self-improvement engine</li>
+          <li class="flex gap-2"><span class="text-lodestone-green">✓</span> 5 identity templates</li>
+          <li class="flex gap-2"><span class="text-lodestone-green">✓</span> Telegram + Webchat</li>
+          <li class="flex gap-2"><span class="text-lodestone-green">✓</span> Community support</li>
+        </ul>
+        <a href="https://github.com/greyrock-studios/lodestone" class="block text-center py-3 border border-lodestone-border rounded-lg hover:border-lodestone-purple transition text-sm font-semibold">Get on GitHub →</a>
+      </div>
+
+      <div class="bg-gradient-to-b from-lodestone-card to-lodestone-dark border-2 border-lodestone-purple rounded-2xl p-8 relative glow-purple">
+        <div class="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-1 bg-lodestone-purple text-white text-xs rounded-full font-semibold">MOST POPULAR</div>
+        <div class="text-2xl font-bold mb-2">Pro</div>
+        <div class="text-4xl font-bold mb-1">$197</div>
+        <div class="text-sm text-gray-500 mb-6">One-time. Lifetime updates.</div>
+        <ul class="space-y-3 text-sm text-gray-300 mb-8">
+          <li class="flex gap-2"><span class="text-lodestone-green">✓</span> Everything in Community</li>
+          <li class="flex gap-2"><span class="text-lodestone-green">✓</span> Discord + Email channels</li>
+          <li class="flex gap-2"><span class="text-lodestone-green">✓</span> MCP client integration</li>
+          <li class="flex gap-2"><span class="text-lodestone-green">✓</span> Priority email support</li>
+          <li class="flex gap-2"><span class="text-lodestone-green">✓</span> Setup wizard + onboarding</li>
+          <li class="flex gap-2"><span class="text-lodestone-green">✓</span> Pre-built automation recipes</li>
+          <li class="flex gap-2"><span class="text-lodestone-green">✓</span> Commercial license</li>
+        </ul>
+        <a href="#early-access" class="block text-center py-3 bg-gradient-to-r from-lodestone-purple to-lodestone-cyan text-white rounded-lg hover:opacity-90 transition text-sm font-semibold">Get Pro License →</a>
+      </div>
+
+      <div class="bg-lodestone-card border border-lodestone-border rounded-2xl p-8">
+        <div class="text-2xl font-bold mb-2">Enterprise</div>
+        <div class="text-4xl font-bold mb-1">$997</div>
+        <div class="text-sm text-gray-500 mb-6">One-time. Team license.</div>
+        <ul class="space-y-3 text-sm text-gray-400 mb-8">
+          <li class="flex gap-2"><span class="text-lodestone-green">✓</span> Everything in Pro</li>
+          <li class="flex gap-2"><span class="text-lodestone-green">✓</span> 5-seat team license</li>
+          <li class="flex gap-2"><span class="text-lodestone-green">✓</span> Custom tool development</li>
+          <li class="flex gap-2"><span class="text-lodestone-green">✓</span> Dedicated support channel</li>
+          <li class="flex gap-2"><span class="text-lodestone-green">✓</span> On-premise deployment</li>
+          <li class="flex gap-2"><span class="text-lodestone-green">✓</span> SLA + 1-hr response</li>
+        </ul>
+        <a href="mailto:support@greyrockstudios.com?subject=Lodestone Enterprise" class="block text-center py-3 border border-lodestone-border rounded-lg hover:border-lodestone-purple transition text-sm font-semibold">Contact Sales →</a>
+      </div>
+
+    </div>
+
+    <div id="early-access" class="mt-12 text-center">
+      <div class="inline-block bg-lodestone-card border border-lodestone-border rounded-2xl p-8 max-w-md">
+        <div class="text-lg font-semibold mb-2">🔥 Early Access Special</div>
+        <p class="text-gray-400 text-sm mb-4">First 50 buyers get Pro for <span class="text-lodestone-cyan font-bold">$97</span> (normally $197). 12 spots left.</p>
+        <a href="https://gumroad.com/l/lodestone" class="inline-block px-6 py-3 bg-gradient-to-r from-lodestone-purple to-lodestone-cyan text-white rounded-lg font-semibold hover:opacity-90 transition">Claim Early Access →</a>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Templates -->
+<section class="py-24">
+  <div class="max-w-5xl mx-auto px-6">
+    <h2 class="text-4xl font-bold text-center mb-4">Start from a template</h2>
+    <p class="text-gray-400 text-center mb-16">Pre-built identities for common use cases. Customize everything.</p>
+    <div class="grid md:grid-cols-5 gap-4">
+      <div class="bg-lodestone-card border border-lodestone-border rounded-xl p-6 text-center hover:border-lodestone-purple transition">
+        <div class="text-4xl mb-3">💻</div>
+        <div class="font-semibold">Developer</div>
+        <div class="text-xs text-gray-500 mt-1">Code, debug, deploy</div>
+      </div>
+      <div class="bg-lodestone-card border border-lodestone-border rounded-xl p-6 text-center hover:border-lodestone-purple transition">
+        <div class="text-4xl mb-3">📊</div>
+        <div class="font-semibold">Business</div>
+        <div class="text-xs text-gray-500 mt-1">Ops, finance, clients</div>
+      </div>
+      <div class="bg-lodestone-card border border-lodestone-border rounded-xl p-6 text-center hover:border-lodestone-purple transition">
+        <div class="text-4xl mb-3">🎨</div>
+        <div class="font-semibold">Creative</div>
+        <div class="text-xs text-gray-500 mt-1">Write, design, brainstorm</div>
+      </div>
+      <div class="bg-lodestone-card border border-lodestone-border rounded-xl p-6 text-center hover:border-lodestone-purple transition">
+        <div class="text-4xl mb-3">🔬</div>
+        <div class="font-semibold">Researcher</div>
+        <div class="text-xs text-gray-500 mt-1">Analyze, summarize, cite</div>
+      </div>
+      <div class="bg-lodestone-card border border-lodestone-border rounded-xl p-6 text-center hover:border-lodestone-purple transition">
+        <div class="text-4xl mb-3">🧩</div>
+        <div class="font-semibold">General</div>
+        <div class="text-xs text-gray-500 mt-1">Start from scratch</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Architecture -->
+<section id="docs" class="py-24 bg-lodestone-darker border-y border-lodestone-border">
+  <div class="max-w-5xl mx-auto px-6">
+    <h2 class="text-4xl font-bold text-center mb-4">Architecture</h2>
+    <p class="text-gray-400 text-center mb-16">Three layers. Clean separation. Everything swappable.</p>
+    <div class="space-y-6">
+      <div class="bg-lodestone-card border border-lodestone-border rounded-2xl p-8">
+        <h3 class="text-xl font-semibold mb-3 text-lodestone-purple">Identity Layer</h3>
+        <p class="text-gray-400">You define the agent's personality, knowledge, rules, and focus. Markdown files — no config hell.</p>
+        <div class="flex gap-2 flex-wrap mt-4">
+          <code>SOUL.md</code> <code>IDENTITY.md</code> <code>USER.md</code> <code>RULES.md</code> <code>HEARTBEAT.md</code>
+        </div>
+      </div>
+      <div class="bg-lodestone-card border border-lodestone-border rounded-2xl p-8">
+        <h3 class="text-xl font-semibold mb-3 text-lodestone-cyan">Engine Core</h3>
+        <p class="text-gray-400">Memory, self-improvement, proactive scheduling, safety systems, session management, and the tool runtime. 39 tools wired and tested.</p>
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-2 mt-4 text-xs">
+          <code>Memory</code> <code>Self-Improvement</code> <code>Sensorium</code> <code>Safety</code>
+          <code>Sessions</code> <code>Scheduler</code> <code>Tools (39)</code> <code>Channels</code>
+        </div>
+      </div>
+      <div class="bg-lodestone-card border border-lodestone-border rounded-2xl p-8">
+        <h3 class="text-xl font-semibold mb-3 text-lodestone-pink">Runtime Layer</h3>
+        <p class="text-gray-400">Custom LLM orchestration with streaming, tool execution, multi-session support, and real-time channels. Socket.IO for webchat. Docker-ready.</p>
+        <div class="flex gap-2 flex-wrap mt-4">
+          <code>TypeScript</code> <code>Socket.IO</code> <code>Docker</code> <code>LanceDB</code> <code>Node.js</code>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- CTA -->
+<section class="py-24">
+  <div class="max-w-3xl mx-auto px-6 text-center">
+    <h2 class="text-4xl font-bold mb-6">Stop chatting. Start shipping.</h2>
+    <p class="text-xl text-gray-400 mb-10">Your agent should work for you, not the other way around.</p>
+    <div class="flex flex-wrap justify-center gap-4">
+      <a href="https://github.com/greyrock-studios/lodestone" class="px-8 py-4 bg-gradient-to-r from-lodestone-purple to-lodestone-cyan text-white rounded-xl font-semibold text-lg hover:opacity-90 transition glow-purple">
+        Star on GitHub →
+      </a>
+      <a href="#early-access" class="px-8 py-4 border border-lodestone-border bg-lodestone-card text-gray-300 rounded-xl font-semibold text-lg hover:border-lodestone-purple transition">
+        Get Pro — $97 Early Access →
+      </a>
+    </div>
+  </div>
+</section>
+
+<!-- Footer -->
+<footer class="border-t border-lodestone-border bg-lodestone-darker">
+  <div class="max-w-7xl mx-auto px-6 py-12 flex flex-col md:flex-row justify-between items-center gap-4">
+    <div class="flex items-center gap-2">
+      <span class="text-xl">🔮</span>
+      <span class="font-semibold">Lodestone</span>
+      <span class="text-gray-500 text-sm ml-2">by Greyrock Studio</span>
+    </div>
+    <div class="flex gap-6 text-sm text-gray-500">
+      <a href="#features" class="hover:text-white transition">Features</a>
+      <a href="#tools" class="hover:text-white transition">Tools</a>
+      <a href="#pricing" class="hover:text-white transition">Pricing</a>
+      <a href="https://github.com/greyrock-studios/lodestone" class="hover:text-white transition">GitHub</a>
+      <a href="https://gumroad.com/l/lodestone" class="hover:text-white transition">Gumroad</a>
+      <a href="mailto:support@greyrockstudios.com" class="hover:text-white transition">Contact</a>
+    </div>
+    <div class="text-sm text-gray-600">© 2026 Greyrock Studio · MIT License</div>
+  </div>
+</footer>
+
+<!-- JSON-LD -->
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "SoftwareApplication",
+  "name": "Lodestone",
+  "applicationCategory": "DeveloperApplication",
+  "operatingSystem": "Cross-platform",
+  "description": "Standalone agent engine that gives LLMs persistent memory, self-improvement loops, proactive scheduling, and 39 built-in tools.",
+  "author": { "@type": "Organization", "name": "Greyrock Studio" },
+  "license": "MIT",
+  "offers": [
+    { "@type": "Offer", "price": "0", "priceCurrency": "USD", "name": "Community" },
+    { "@type": "Offer", "price": "197", "priceCurrency": "USD", "name": "Pro" },
+    { "@type": "Offer", "price": "997", "priceCurrency": "USD", "name": "Enterprise" }
+  ]
+}
+</script>
+
+</body>
+</html>
