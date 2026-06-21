@@ -14,9 +14,9 @@ export interface GitToolConfig {
   defaultRepo?: string;
 }
 
-type GitOperation = 'status' | 'diff' | 'log' | 'branch' | 'commit' | 'checkout' | 'add' | 'push' | 'pull';
+type GitOperation = 'status' | 'diff' | 'log' | 'branch' | 'commit' | 'checkout' | 'add' | 'push' | 'pull' | 'listBranches' | 'merge' | 'currentBranch';
 
-const MUTATING_OPS: GitOperation[] = ['commit', 'checkout', 'add', 'push', 'pull'];
+const MUTATING_OPS: GitOperation[] = ['commit', 'checkout', 'add', 'push', 'pull', 'merge'];
 
 export class GitTool implements Tool {
   readonly definition: ToolDefinition = {
@@ -24,9 +24,10 @@ export class GitTool implements Tool {
     name: 'Git Operations',
     description: 'Structured git operations: status, diff, log, branch, commit, checkout, add, push, pull.',
     parameters: [
-      { name: 'operation', type: 'string', description: 'Git operation: status, diff, log, branch, commit, checkout, add, push, pull', required: true, enum: ['status', 'diff', 'log', 'branch', 'commit', 'checkout', 'add', 'push', 'pull'] },
-      { name: 'args', type: 'string', description: 'Extra arguments (e.g., commit message for commit)', required: false },
+      { name: 'operation', type: 'string', description: 'Git operation: status, diff, log, branch, listBranches, merge, currentBranch, commit, checkout, add, push, pull', required: true, enum: ['status', 'diff', 'log', 'branch', 'listBranches', 'merge', 'currentBranch', 'commit', 'checkout', 'add', 'push', 'pull'] },
+      { name: 'args', type: 'string', description: 'Extra arguments (e.g., commit message for commit, branch name for merge)', required: false },
       { name: 'repo', type: 'string', description: 'Path to git repo (default: workspace root)', required: false },
+      { name: 'mergeMode', type: 'string', description: 'Merge mode: merge (default), squash, no-ff', required: false, enum: ['merge', 'squash', 'no-ff'] },
     ],
     sideEffects: true,
     requiresApproval: true,
@@ -46,7 +47,7 @@ export class GitTool implements Tool {
     const start = Date.now();
 
     // Validate operation
-    const validOps: GitOperation[] = ['status', 'diff', 'log', 'branch', 'commit', 'checkout', 'add', 'push', 'pull'];
+    const validOps: GitOperation[] = ['status', 'diff', 'log', 'branch', 'listBranches', 'merge', 'currentBranch', 'commit', 'checkout', 'add', 'push', 'pull'];
     if (!validOps.includes(operation)) {
       return {
         success: false,
@@ -81,6 +82,12 @@ export class GitTool implements Tool {
           return await this.log(repo, start);
         case 'branch':
           return await this.branch(repo, start);
+        case 'listBranches':
+          return await this.listBranches(repo, start);
+        case 'merge':
+          return await this.merge(repo, args, params.mergeMode as string | undefined, start);
+        case 'currentBranch':
+          return await this.currentBranch(repo, start);
         case 'commit':
           return await this.commit(repo, args, start);
         case 'checkout':
@@ -105,8 +112,8 @@ export class GitTool implements Tool {
       return {
         success: false,
         data: null,
-        summary: `Git ${operation} failed: ${err}`,
-        error: String(err),
+        summary: `Git ${operation} failed: ${err instanceof Error ? err.message : String(err)}`,
+        error: `Git ${operation} failed: ${err instanceof Error ? err.message : String(err)}`,
         durationMs: Date.now() - start,
         includeInContext: false,
       };
@@ -137,12 +144,12 @@ export class GitTool implements Tool {
   }
 
   private async status(repo: string, start: number): Promise<ToolResult> {
-    const { stdout, exitCode } = await this.runGit(repo, ['status', '--porcelain=v1']);
+    const { stdout, exitCode, stderr } = await this.runGit(repo, ['status', '--porcelain=v1']);
     if (exitCode !== 0) {
       return {
         success: false, data: null,
-        summary: 'git status failed',
-        error: 'GitError',
+        summary: `git status failed: ${stderr.slice(0, 200)}`,
+        error: `Git status failed: ${stderr.slice(0, 200)}`,
         durationMs: Date.now() - start, includeInContext: false,
       };
     }
@@ -175,12 +182,12 @@ export class GitTool implements Tool {
   private async diff(repo: string, args: string, start: number): Promise<ToolResult> {
     const gitArgs = ['diff'];
     if (args) gitArgs.push(...args.split(/\s+/));
-    const { stdout, exitCode } = await this.runGit(repo, gitArgs);
+    const { stdout, exitCode, stderr } = await this.runGit(repo, gitArgs);
     if (exitCode !== 0) {
       return {
         success: false, data: null,
-        summary: 'git diff failed',
-        error: 'GitError',
+        summary: `git diff failed: ${stderr.slice(0, 200)}`,
+        error: `Git diff failed: ${stderr.slice(0, 200)}`,
         durationMs: Date.now() - start, includeInContext: false,
       };
     }
@@ -194,12 +201,12 @@ export class GitTool implements Tool {
   }
 
   private async log(repo: string, start: number): Promise<ToolResult> {
-    const { stdout, exitCode } = await this.runGit(repo, ['log', '--pretty=format:%H|%an|%ad|%s', '--date=iso', '-20']);
+    const { stdout, exitCode, stderr } = await this.runGit(repo, ['log', '--pretty=format:%H|%an|%ad|%s', '--date=iso', '-20']);
     if (exitCode !== 0) {
       return {
         success: false, data: null,
-        summary: 'git log failed',
-        error: 'GitError',
+        summary: `git log failed: ${stderr.slice(0, 200)}`,
+        error: `Git log failed: ${stderr.slice(0, 200)}`,
         durationMs: Date.now() - start, includeInContext: false,
       };
     }
@@ -224,12 +231,12 @@ export class GitTool implements Tool {
   }
 
   private async branch(repo: string, start: number): Promise<ToolResult> {
-    const { stdout, exitCode } = await this.runGit(repo, ['branch', '--list', '--all', '--format=%(refname:short)%(upstream:short)']);
+    const { stdout, exitCode, stderr } = await this.runGit(repo, ['branch', '--list', '--all', '--format=%(refname:short)%09%(upstream:short)']);
     if (exitCode !== 0) {
       return {
         success: false, data: null,
-        summary: 'git branch failed',
-        error: 'GitError',
+        summary: `git branch failed: ${stderr.slice(0, 200)}`,
+        error: `Git branch failed: ${stderr.slice(0, 200)}`,
         durationMs: Date.now() - start, includeInContext: false,
       };
     }
@@ -252,6 +259,146 @@ export class GitTool implements Tool {
       success: true,
       data: { branches, currentBranch },
       summary: `git branch: ${branches.length} branches (current: ${currentBranch})`,
+      durationMs: Date.now() - start,
+      includeInContext: true,
+    };
+  }
+
+  /**
+   * List all local and remote branches with tracking info.
+   * Returns structured data including remote tracking branches.
+   */
+  private async listBranches(repo: string, start: number): Promise<ToolResult> {
+    const { stdout, exitCode, stderr } = await this.runGit(repo, ['branch', '--list', '--all', '--format=%(refname:short)%09%(upstream:short)%09%(objectname:short)']);
+    if (exitCode !== 0) {
+      return {
+        success: false, data: null,
+        summary: `git listBranches failed: ${stderr.slice(0, 200)}`,
+        error: `Git listBranches failed: ${stderr.slice(0, 200)}`,
+        durationMs: Date.now() - start, includeInContext: false,
+      };
+    }
+
+    // Get current branch
+    const { stdout: currentOut } = await this.runGit(repo, ['branch', '--show-current']);
+    const currentBranchName = currentOut.trim();
+
+    const local: Array<{ name: string; current: boolean; upstream: string | null }> = [];
+    const remote: Array<{ name: string; upstream: string | null }> = [];
+
+    for (const line of stdout.split('\n').filter((l) => l.length > 0)) {
+      const parts = line.split('\t');
+      const name = parts[0]?.trim() || '';
+      const upstream = parts[1]?.trim() || null;
+
+      // Remote branches appear as 'origin/branch-name' with %(refname:short)
+      // They don't start with 'remotes/' — that prefix is already stripped
+      const isRemote = name.includes('/') && !name.startsWith('HEAD');
+
+      if (isRemote && !local.some((b) => b.name === name.split('/').slice(1).join('/'))) {
+        remote.push({ name, upstream });
+      } else if (!isRemote) {
+        local.push({ name, current: name === currentBranchName, upstream });
+      }
+    }
+
+    return {
+      success: true,
+      data: { local, remote, currentBranch: currentBranchName, total: local.length + remote.length },
+      summary: `git listBranches: ${local.length} local, ${remote.length} remote (current: ${currentBranchName})`,
+      durationMs: Date.now() - start,
+      includeInContext: true,
+    };
+  }
+
+  /**
+   * Get the current branch name.
+   */
+  private async currentBranch(repo: string, start: number): Promise<ToolResult> {
+    const { stdout, exitCode, stderr } = await this.runGit(repo, ['branch', '--show-current']);
+    if (exitCode !== 0) {
+      return {
+        success: false, data: null,
+        summary: `git currentBranch failed: ${stderr.slice(0, 200)}`,
+        error: `Git currentBranch failed: ${stderr.slice(0, 200)}`,
+        durationMs: Date.now() - start, includeInContext: false,
+      };
+    }
+
+    const branchName = stdout.trim();
+    return {
+      success: true,
+      data: { branch: branchName },
+      summary: `Current branch: ${branchName}`,
+      durationMs: Date.now() - start,
+      includeInContext: true,
+    };
+  }
+
+  /**
+   * Merge a branch into the current branch.
+   * Supports merge modes: merge (default), squash, no-ff.
+   */
+  private async merge(repo: string, args: string, mergeMode: string | undefined, start: number): Promise<ToolResult> {
+    if (!args) {
+      return {
+        success: false, data: null,
+        summary: 'Branch name required for merge (pass as args)',
+        error: 'MissingBranch: merge requires a branch name as args',
+        durationMs: Date.now() - start, includeInContext: false,
+      };
+    }
+
+    const branchToMerge = args.trim().split(/\s+/)[0];
+    const mode = mergeMode || 'merge';
+
+    // Build merge args based on mode
+    const mergeArgs: string[] = ['merge'];
+    if (mode === 'squash') {
+      mergeArgs.push('--squash');
+    } else if (mode === 'no-ff') {
+      mergeArgs.push('--no-ff');
+    }
+    mergeArgs.push(branchToMerge);
+
+    const { stdout, stderr, exitCode } = await this.runGit(repo, mergeArgs);
+    if (exitCode !== 0) {
+      return {
+        success: false, data: null,
+        summary: `git merge failed: ${stderr.slice(0, 200)}`,
+        error: `Git merge of '${branchToMerge}' failed: ${stderr.slice(0, 200)}`,
+        durationMs: Date.now() - start, includeInContext: false,
+      };
+    }
+
+    // For squash merge, need to commit
+    if (mode === 'squash') {
+      const commitMsg = `Squash merge '${branchToMerge}'`;
+      const { exitCode: commitExitCode, stderr: commitStderr } = await this.runGit(repo, ['commit', '-m', commitMsg]);
+      if (commitExitCode !== 0) {
+        return {
+          success: false, data: null,
+          summary: `git merge squash commit failed: ${commitStderr.slice(0, 200)}`,
+          error: `Git squash merge commit failed: ${commitStderr.slice(0, 200)}`,
+          durationMs: Date.now() - start, includeInContext: false,
+        };
+      }
+    }
+
+    // Get resulting HEAD info
+    const { stdout: hashOut } = await this.runGit(repo, ['rev-parse', 'HEAD']);
+    const { stdout: currentOut } = await this.runGit(repo, ['branch', '--show-current']);
+
+    return {
+      success: true,
+      data: {
+        mergedBranch: branchToMerge,
+        intoBranch: currentOut.trim(),
+        mode,
+        resultingHash: hashOut.trim(),
+        output: stdout,
+      },
+      summary: `Merged '${branchToMerge}' into '${currentOut.trim()}' (${mode})`,
       durationMs: Date.now() - start,
       includeInContext: true,
     };

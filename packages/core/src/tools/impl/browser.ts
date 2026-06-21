@@ -33,11 +33,14 @@ export class BrowserTool implements Tool {
     parameters: [
       { name: 'action', type: 'string', description: 'Action: navigate, screenshot, click, type, extract, evaluate, close', required: true, enum: ['navigate', 'screenshot', 'click', 'type', 'extract', 'evaluate', 'close'] },
       { name: 'url', type: 'string', description: 'URL to navigate to (for navigate action)', required: false },
-      { name: 'selector', type: 'string', description: 'CSS selector (for click, type, extract)', required: false },
+      { name: 'selector', type: 'string', description: 'CSS selector (for click, type, extract, or screenshot target)', required: false },
       { name: 'text', type: 'string', description: 'Text to type (for type action)', required: false },
       { name: 'script', type: 'string', description: 'JS to evaluate in page context (for evaluate action)', required: false },
       { name: 'width', type: 'number', description: 'Viewport width (default: 1280)', required: false, default: 1280 },
       { name: 'height', type: 'number', description: 'Viewport height (default: 720)', required: false, default: 720 },
+      { name: 'format', type: 'string', description: 'Screenshot format: png or jpeg (default: png)', required: false, enum: ['png', 'jpeg'] },
+      { name: 'fullPage', type: 'boolean', description: 'Capture full page screenshot (default: false)', required: false, default: false },
+      { name: 'saveTo', type: 'string', description: 'File path to save screenshot (optional, returns base64 if not provided)', required: false },
     ],
     sideEffects: true,
     requiresApproval: true,
@@ -130,15 +133,63 @@ export class BrowserTool implements Tool {
   private async screenshot(params: Record<string, unknown>, start: number): Promise<ToolResult> {
     const width = (params.width as number) || 1280;
     const height = (params.height as number) || 720;
+    const format = (params.format as string) || 'png';
+    const fullPage = (params.fullPage as boolean) ?? false;
+    const selector = params.selector as string | undefined;
+    const saveTo = params.saveTo as string | undefined;
+
     const page = await this.ensureBrowser(width, height);
     if (!page) throw new Error('Failed to initialize browser page');
-    const buffer = await page.screenshot({ type: 'png', fullPage: false });
+
+    // If a selector is provided, screenshot just that element
+    // Otherwise take a full page or viewport screenshot
+    const screenshotOpts: Record<string, unknown> = {
+      type: format === 'jpeg' ? 'jpeg' : 'png',
+      fullPage,
+    };
+
+    // If selector is provided, we need to clip to that element
+    // Playwright's element screenshot isn't available in our minimal interface,
+    // so we use evaluate to get the bounding box and pass clip option
+    if (selector) {
+      const bbox = await page.evaluate(`(() => {
+        const el = document.querySelector(${JSON.stringify(selector)});
+        if (!el) return null;
+        const rect = el.getBoundingClientRect();
+        return { x: rect.x, y: rect.y, width: rect.width, height: rect.height };
+      })()`);
+      if (!bbox) {
+        return {
+          success: false, data: null,
+          summary: `Element not found for screenshot: ${selector}`,
+          error: `No element matches "${selector}"`,
+          durationMs: Date.now() - start, includeInContext: false,
+        };
+      }
+      screenshotOpts.clip = bbox;
+      screenshotOpts.fullPage = false;
+    }
+
+    const buffer = await page.screenshot(screenshotOpts);
     const base64 = buffer.toString('base64');
+
+    // If saveTo is provided, write to file
+    if (saveTo) {
+      const { writeFile } = await import('fs/promises');
+      await writeFile(saveTo, buffer);
+      return {
+        success: true,
+        data: { path: saveTo, width, height, format, fullPage, selector: selector || null },
+        summary: `Screenshot saved to ${saveTo} (${width}x${height}${fullPage ? ' fullPage' : ''}${selector ? ` selector: ${selector}` : ''})`,
+        durationMs: Date.now() - start,
+        includeInContext: true,
+      };
+    }
 
     return {
       success: true,
-      data: { screenshot: `data:image/png;base64,${base64}`, width, height },
-      summary: `Screenshot taken (${width}x${height})`,
+      data: { screenshot: `data:image/${format};base64,${base64}`, width, height, format, fullPage, selector: selector || null },
+      summary: `Screenshot taken (${width}x${height}${fullPage ? ' fullPage' : ''}${selector ? ` selector: ${selector}` : ''})`,
       durationMs: Date.now() - start,
       includeInContext: false, // Don't inject base64 into LLM context
     };
