@@ -165,7 +165,7 @@ export class NotifyTool implements Tool {
       try {
         await execFileAsync('notify-send', args, { timeout: 8000 });
       } catch {
-        throw new Error('notify-send not available. Install: apt install libnotify-bin');
+        throw new Error('notify-send not available on this system. Install: apt install libnotify-bin (Linux) or use a different notification provider.');
       }
     }
   }
@@ -225,7 +225,7 @@ export class NotifyTool implements Tool {
 
     if (!res.ok) {
       const text = await res.text();
-      throw new Error(`Pushover API error ${res.status}: ${text}`);
+      throw new Error(`Pushover notification failed (HTTP ${res.status}): ${text}. Check that PUSHOVER_USER_KEY and PUSHOVER_API_TOKEN are valid.`);
     }
   }
 
@@ -247,7 +247,7 @@ export class NotifyTool implements Tool {
 
     if (!res.ok) {
       const data = await res.text();
-      throw new Error(`Telegram API error ${res.status}: ${data}`);
+      throw new Error(`Telegram notification failed (HTTP ${res.status}): ${data}. Check that TELEGRAM_BOT_TOKEN is valid.`);
     }
   }
 

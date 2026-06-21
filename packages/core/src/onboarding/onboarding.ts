@@ -473,12 +473,12 @@ export class OnboardingWizard {
 
     // Validate template
     if (!TEMPLATE_INFO[answers.templates[0]]) {
-      throw new Error(`Invalid template: ${answers.templates[0]}. Valid: ${Object.keys(TEMPLATE_INFO).join(', ')}`);
+      throw new Error(`Invalid template '${answers.templates[0]}'. Valid templates: ${Object.keys(TEMPLATE_INFO).join(', ')}. Check your onboarding configuration.`);
     }
 
     // Validate provider
     if (!PROVIDER_INFO[answers.provider]) {
-      throw new Error(`Invalid provider: ${answers.provider}. Valid: ${Object.keys(PROVIDER_INFO).join(', ')}`);
+      throw new Error(`Invalid provider '${answers.provider}'. Valid providers: ${Object.keys(PROVIDER_INFO).join(', ')}. Check your onboarding configuration.`);
     }
 
     // Validate model

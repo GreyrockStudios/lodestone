@@ -61,7 +61,7 @@ export class WebSearchTool implements Tool {
   private async searchSearXNG(query: string, count: number) {
     const url = `${this.config.searxngUrl}/search?q=${encodeURIComponent(query)}&format=json&count=${count}`;
     const res = await fetch(url);
-    if (!res.ok) throw new Error(`SearXNG returned ${res.status}`);
+    if (!res.ok) throw new Error(`SearXNG search failed with HTTP ${res.status}. Check that SearXNG is running at ${this.config.searxngUrl}.`);
     const data = await res.json() as { results: Array<{ title?: string; url?: string; content?: string }> };
     return data.results.slice(0, count).map(r => ({
       title: r.title, url: r.url, snippet: r.content, source: 'searxng',
@@ -71,7 +71,7 @@ export class WebSearchTool implements Tool {
   private async searchBrave(query: string, count: number) {
     const url = `https://api.search.brave.com/res/v1/web/search?q=${encodeURIComponent(query)}&count=${count}`;
     const res = await fetch(url, { headers: { 'X-Subscription-Token': this.config.braveApiKey || '' } });
-    if (!res.ok) throw new Error(`Brave returned ${res.status}`);
+    if (!res.ok) throw new Error(`Brave Search API returned HTTP ${res.status}. Verify your Brave API key is valid.`);
     const data = await res.json() as { web: { results: Array<{ title?: string; url?: string; description?: string }> } };
     return data.web.results.slice(0, count).map(r => ({
       title: r.title, url: r.url, snippet: r.description, source: 'brave',

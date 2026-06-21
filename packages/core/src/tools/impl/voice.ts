@@ -197,7 +197,7 @@ export class VoiceTool implements Tool {
           break;
 
         default:
-          throw new Error(`Unknown STT provider: ${provider}`);
+          throw new Error(`Unknown STT provider '${provider}'. Supported: 'openai', 'whisper-local', 'system'.`);
       }
 
       return {
@@ -222,7 +222,7 @@ export class VoiceTool implements Tool {
   private async transcribeWhisperAPI(audioPath: string): Promise<string> {
     const cfg = this.config.sttConfig || {};
     const apiKey = cfg.apiKey || process.env.OPENAI_API_KEY;
-    if (!apiKey) throw new Error('OpenAI API key required for whisper-api');
+    if (!apiKey) throw new Error('Whisper API transcription requires OPENAI_API_KEY. Set it in your environment or voice config.');
 
     const baseUrl = cfg.baseUrl || 'https://api.openai.com/v1';
     const model = cfg.model || 'whisper-1';
@@ -243,7 +243,7 @@ export class VoiceTool implements Tool {
 
     if (!res.ok) {
       const body = await res.text();
-      throw new Error(`Whisper API error ${res.status}: ${body}`);
+      throw new Error(`Whisper API transcription failed (HTTP ${res.status}): ${body}. Check API key validity and quota.`);
     }
 
     const data = await res.json() as { text: string };
@@ -315,7 +315,7 @@ export class VoiceTool implements Tool {
           break;
 
         default:
-          throw new Error(`Unknown TTS provider: ${provider}`);
+          throw new Error(`Unknown TTS provider '${provider}'. Supported: 'openai', 'system'.`);
       }
 
       // Save to file
@@ -345,7 +345,7 @@ export class VoiceTool implements Tool {
   private async synthesizeOpenAI(text: string, opts: SynthOpts): Promise<Buffer> {
     const cfg = this.config.ttsConfig || {};
     const apiKey = cfg.apiKey || process.env.OPENAI_API_KEY;
-    if (!apiKey) throw new Error('OpenAI API key required for openai TTS');
+    if (!apiKey) throw new Error('OpenAI TTS requires OPENAI_API_KEY. Set it in your environment or voice config.');
 
     const baseUrl = cfg.baseUrl || 'https://api.openai.com/v1';
     const model = cfg.model || 'tts-1';
@@ -364,7 +364,7 @@ export class VoiceTool implements Tool {
 
     if (!res.ok) {
       const body = await res.text();
-      throw new Error(`OpenAI TTS error ${res.status}: ${body}`);
+      throw new Error(`OpenAI TTS failed (HTTP ${res.status}): ${body}. Check API key validity and quota.`);
     }
 
     const arrayBuffer = await res.arrayBuffer();

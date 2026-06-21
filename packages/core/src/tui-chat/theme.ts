@@ -66,6 +66,11 @@ export const B = '\x1B[1m';
 export const D = '\x1B[2m';
 export const I = '\x1B[3m';
 
+/**
+ * Convert a hex color string to a 24-bit foreground ANSI escape sequence.
+ * @param c - Hex color string (e.g. "#FF6EC7").
+ * @returns ANSI escape sequence for foreground color.
+ */
 export function fg(c: string): string {
   const r = parseInt(c.slice(1, 3), 16);
   const g = parseInt(c.slice(3, 5), 16);
@@ -73,6 +78,11 @@ export function fg(c: string): string {
   return `\x1B[38;2;${r};${g};${b}m`;
 }
 
+/**
+ * Convert a hex color string to a 24-bit background ANSI escape sequence.
+ * @param c - Hex color string (e.g. "#1E232A").
+ * @returns ANSI escape sequence for background color.
+ */
 export function bg(c: string): string {
   const r = parseInt(c.slice(1, 3), 16);
   const g = parseInt(c.slice(3, 5), 16);
@@ -286,12 +296,22 @@ export const THEMES: Record<string, Theme> = {
 export const THEME_NAMES = Object.keys(THEMES);
 export const DEFAULT_THEME = 'dark';
 
+/**
+ * Look up a theme by name, falling back to the default theme if not found.
+ * @param name - Theme name (e.g. "dark", "midnight", "forest", "light", "cyber").
+ * @returns The matching Theme object or the default dark theme.
+ */
 export function getTheme(name: string): Theme {
   return THEMES[name] ?? THEMES[DEFAULT_THEME];
 }
 
 // ─── Theme-aware Formatting Helpers ───────────────────────────────────────────
 
+/**
+ * Create a set of theme-aware formatting helpers for the TUI.
+ * @param t - The theme to derive formatters from.
+ * @returns Object with formatting functions for timestamps, durations, user/assistant/tool labels.
+ */
 export function themeFormatters(t: Theme) {
   const P = t.colors;
   return {

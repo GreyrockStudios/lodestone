@@ -322,7 +322,7 @@ export class CalendarTool implements Tool {
 
   private async getCaldavEvents(from: Date, to: Date): Promise<CalendarEvent[]> {
     const url = this.config.url;
-    if (!url) throw new Error('CalDAV url not configured');
+    if (!url) throw new Error('CalDAV URL not configured. Set calendar.url in your config file.');
 
     const calendarPath = this.config.calendarPath || '/calendars/user/calendar/';
     const fullUrl = url.replace(/\/$/, '') + calendarPath;
@@ -367,7 +367,7 @@ export class CalendarTool implements Tool {
     });
 
     if (!response.ok) {
-      throw new Error(`CalDAV REPORT failed: ${response.status} ${response.statusText}`);
+      throw new Error(`CalDAV REPORT failed: HTTP ${response.status} ${response.statusText}. Check CalDAV URL and credentials.`);
     }
 
     const xmlText = await response.text();
@@ -376,7 +376,7 @@ export class CalendarTool implements Tool {
 
   private async createCaldavEvent(event: CalendarEvent): Promise<void> {
     const url = this.config.url;
-    if (!url) throw new Error('CalDAV url not configured');
+    if (!url) throw new Error('CalDAV URL not configured. Set calendar.url in your config file.');
 
     const calendarPath = this.config.calendarPath || '/calendars/user/calendar/';
     const eventUrl = url.replace(/\/$/, '') + calendarPath + event.id + '.ics';
@@ -402,7 +402,7 @@ export class CalendarTool implements Tool {
     });
 
     if (!response.ok) {
-      throw new Error(`CalDAV PUT failed: ${response.status} ${response.statusText}`);
+      throw new Error(`CalDAV PUT failed: HTTP ${response.status} ${response.statusText}. Check CalDAV URL and credentials.`);
     }
 
     this.log.info(`[Calendar] Created CalDAV event: ${event.title} (${event.id})`);
@@ -530,7 +530,7 @@ export class CalendarTool implements Tool {
 
   private async getGoogleEvents(from: Date, to: Date): Promise<CalendarEvent[]> {
     const token = this.config.googleToken;
-    if (!token) throw new Error('Google OAuth token not configured');
+    if (!token) throw new Error('Google OAuth token not configured. Set calendar.token in your config file.');
 
     const calendarId = this.config.calendarId || 'primary';
     const url = new URL(`https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calendarId)}/events`);
@@ -544,7 +544,7 @@ export class CalendarTool implements Tool {
     });
 
     if (!response.ok) {
-      throw new Error(`Google Calendar API failed: ${response.status} ${response.statusText}`);
+      throw new Error(`Google Calendar API request failed (HTTP ${response.status} ${response.statusText}). Check OAuth token validity.`);
     }
 
     const data = await response.json() as { items?: Array<Record<string, unknown>> };
@@ -553,7 +553,7 @@ export class CalendarTool implements Tool {
 
   private async createGoogleEvent(event: CalendarEvent): Promise<void> {
     const token = this.config.googleToken;
-    if (!token) throw new Error('Google OAuth token not configured');
+    if (!token) throw new Error('Google OAuth token not configured. Set calendar.token in your config file.');
 
     const calendarId = this.config.calendarId || 'primary';
     const url = `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calendarId)}/events`;
@@ -578,7 +578,7 @@ export class CalendarTool implements Tool {
     });
 
     if (!response.ok) {
-      throw new Error(`Google Calendar create failed: ${response.status} ${response.statusText}`);
+      throw new Error(`Google Calendar event creation failed (HTTP ${response.status} ${response.statusText}). Check OAuth token validity.`);
     }
 
     this.log.info(`[Calendar] Created Google event: ${event.title} (${event.id})`);

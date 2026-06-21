@@ -104,7 +104,7 @@ export class ImageGenTool implements Tool {
 
   private async generateOpenAI(prompt: string, size: string, count: number, outputDir: string): Promise<string[]> {
     const apiKey = process.env.OPENAI_API_KEY;
-    if (!apiKey) throw new Error('OPENAI_API_KEY is required for the openai provider');
+    if (!apiKey) throw new Error('Image generation with the openai provider requires OPENAI_API_KEY. Set it in your environment or config.');
 
     // Map size to OpenAI format
     const openaiSize = size as '256x256' | '512x512' | '1024x1024';
@@ -126,7 +126,7 @@ export class ImageGenTool implements Tool {
 
     if (!res.ok) {
       const body = await res.text();
-      throw new Error(`OpenAI image API error ${res.status}: ${body}`);
+      throw new Error(`OpenAI image generation failed (HTTP ${res.status}): ${body}. Check API key validity and quota.`);
     }
 
     const data = await res.json() as { data: Array<{ b64_json: string }> };
@@ -147,7 +147,7 @@ export class ImageGenTool implements Tool {
 
   private async generateStability(prompt: string, size: string, count: number, outputDir: string): Promise<string[]> {
     const apiKey = process.env.STABILITY_API_KEY;
-    if (!apiKey) throw new Error('STABILITY_API_KEY is required for the stability provider');
+    if (!apiKey) throw new Error('Image generation with the stability provider requires STABILITY_API_KEY. Set it in your environment or config.');
 
     const [width, height] = size.split('x').map(Number);
     const paths: string[] = [];
@@ -172,7 +172,7 @@ export class ImageGenTool implements Tool {
 
       if (!res.ok) {
         const body = await res.text();
-        throw new Error(`Stability AI error ${res.status}: ${body}`);
+        throw new Error(`Stability AI image generation failed (HTTP ${res.status}): ${body}. Check API key validity and credits.`);
       }
 
       const data = await res.json() as { artifacts: Array<{ base64: string }> };
@@ -209,7 +209,7 @@ export class ImageGenTool implements Tool {
 
       if (!res.ok) {
         const body = await res.text();
-        throw new Error(`Ollama image generation error ${res.status}: ${body}`);
+        throw new Error(`Ollama image generation failed (HTTP ${res.status}): ${body}. Verify the model supports image output.`);
       }
 
       const data = await res.json() as { images?: string[]; response?: string };
@@ -247,10 +247,10 @@ print("done")
               paths.push(outputPath);
             }
           } else {
-            throw new Error('Local model did not return image data and no diffusers fallback available');
+            throw new Error('Local image model did not return image data and no diffusers fallback is available. Try a different model or install diffusers (pip install diffusers).');
           }
         } catch {
-          throw new Error('Local image generation requires either an Ollama image model or the diffusers Python package');
+          throw new Error('Local image generation requires either an Ollama image model (e.g. llava) or the diffusers Python package (pip install diffusers).');
         }
       }
     }

@@ -456,7 +456,7 @@ export class DiffPatchTool implements Tool {
       } else if (line.startsWith('+++ ')) {
         // We already have currentFile from the --- line
         if (!currentFile) {
-          throw new Error(`+++ header without preceding --- header at line ${i + 1}`);
+          throw new Error(`Invalid diff format: '+++' header at line ${i + 1} has no preceding '---' file header. Ensure the diff starts with '--- a/file'.`);
         }
         const newPath = line.slice(4).trim();
         // Prefer the +++ path if it differs from --- (rename case), otherwise keep --- path
@@ -467,14 +467,14 @@ export class DiffPatchTool implements Tool {
       } else if (line.startsWith('@@')) {
         // Hunk header: @@ -oldStart,oldLen +newStart,newLen @@
         if (!currentFile) {
-          throw new Error(`Hunk header without file header at line ${i + 1}`);
+          throw new Error(`Invalid diff format: hunk header '@@' at line ${i + 1} has no preceding file header. Expected '--- a/file' and '+++ b/file' before hunks.`);
         }
         if (currentHunk) {
           currentFile.hunks.push(currentHunk);
         }
         const match = line.match(/^@@ -(\d+)(?:,(\d+))? \+(\d+)(?:,(\d+))? @@/);
         if (!match) {
-          throw new Error(`Invalid hunk header at line ${i + 1}: '${line}'`);
+          throw new Error(`Invalid hunk header at line ${i + 1}: '${line}'. Expected format: '@@ -oldStart,oldLen +newStart,newLen @@'`);
         }
         currentHunk = {
           oldStart: parseInt(match[1], 10),

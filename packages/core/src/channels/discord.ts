@@ -73,7 +73,7 @@ export class DiscordChannel extends Channel {
       SlashCommandBuilder = discordJs.SlashCommandBuilder;
     } catch {
       this.logger.error('discord.js package not installed. Install with: npm install discord.js');
-      throw new Error('discord.js package is required for the Discord channel. Install with: npm install discord.js');
+      throw new Error('discord.js package is required for the Discord channel. Install it with: npm install discord.js. See https://discord.js.org for setup.');
     }
 
     // Create client with necessary intents

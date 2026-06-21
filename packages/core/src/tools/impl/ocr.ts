@@ -240,7 +240,7 @@ export class OcrTool implements Tool {
 
   private async downloadFile(url: string, destPath: string): Promise<void> {
     const res = await fetch(url);
-    if (!res.ok) throw new Error(`Failed to download: HTTP ${res.status}`);
+    if (!res.ok) throw new Error(`Failed to download ${url}: HTTP ${res.status} ${res.statusText}`);
     const buffer = Buffer.from(await res.arrayBuffer());
     await writeFileAsync(destPath, buffer);
   }

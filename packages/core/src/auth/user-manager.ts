@@ -158,7 +158,7 @@ export class UserManager {
    */
   createUser(config: UserConfig): User {
     if (this.users.has(config.id)) {
-      throw new Error(`User already exists: ${config.id}`);
+      throw new Error(`User '${config.id}' already exists. Use a unique user ID or call updateUser() instead.`);
     }
 
     // Validate config
@@ -261,7 +261,7 @@ export class UserManager {
    */
   assignToken(userId: string, token: string): string {
     const user = this.users.get(userId);
-    if (!user) throw new Error(`User not found: ${userId}`);
+    if (!user) throw new Error(`User '${userId}' not found. Use listUsers() to see registered users.`);
 
     this.tokens.set(token, userId);
     this.save();

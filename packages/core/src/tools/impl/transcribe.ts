@@ -148,7 +148,7 @@ export class TranscribeTool implements Tool {
 
   private async transcribeWithOpenAI(filePath: string, language: string): Promise<TranscribeResult> {
     const apiKey = process.env.OPENAI_API_KEY;
-    if (!apiKey) throw new Error('OPENAI_API_KEY is required for API transcription');
+    if (!apiKey) throw new Error('Audio transcription via the Whisper API requires OPENAI_API_KEY. Set it in your environment or config.');
 
     const buffer = await readFile(filePath);
     const filename = filePath.split('/').pop() || 'audio.wav';
@@ -169,7 +169,7 @@ export class TranscribeTool implements Tool {
 
     if (!res.ok) {
       const body = await res.text();
-      throw new Error(`OpenAI Whisper API error ${res.status}: ${body}`);
+      throw new Error(`OpenAI Whisper API transcription failed (HTTP ${res.status}): ${body}. Check API key validity and quota.`);
     }
 
     const data = await res.json() as {
@@ -224,7 +224,7 @@ export class TranscribeTool implements Tool {
       const files = (await readdir(tempDir)).filter(f => f.endsWith('.json'));
 
       if (files.length === 0) {
-        throw new Error('Whisper CLI did not produce output');
+        throw new Error('Whisper CLI ran but produced no output files. Check that the audio file is valid and the model can transcribe it.');
       }
 
       const { readFile: readFileAsync } = await import('fs/promises');
@@ -289,7 +289,7 @@ export class TranscribeTool implements Tool {
 
   private async downloadFile(url: string, destPath: string): Promise<void> {
     const res = await fetch(url);
-    if (!res.ok) throw new Error(`Failed to download: HTTP ${res.status}`);
+    if (!res.ok) throw new Error(`Failed to download ${url}: HTTP ${res.status} ${res.statusText}`);
     const buffer = Buffer.from(await res.arrayBuffer());
     await writeFileAsync(destPath, buffer);
   }

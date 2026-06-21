@@ -656,7 +656,7 @@ export class LodestoneEngine {
   /** Process a message through the agent loop (convenience method) */
   async processMessage(sessionId: string, content: string): Promise<{ response: string; toolCalls: unknown[]; totalTokens: number; rounds: number }> {
     if (!this.agentLoop) {
-      throw new Error('Agent loop not set. Call setAgentLoop() first.');
+      throw new Error('Agent loop not set. Call engine.setAgentLoop() before calling processMessage().');
     }
     return this.agentLoop.run(sessionId, content);
   }

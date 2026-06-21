@@ -11,6 +11,13 @@ const R = '\x1B[0m';
 const B = '\x1B[1m';
 const D = '\x1B[2m';
 
+/**
+ * Build a formatted dashboard string showing self-improvement system status,
+ * including predictions, drift, skills, and sleep cycle metrics.
+ * @param engine - The LodestoneEngine instance (typed as any for TUI flexibility).
+ * @param theme - The active theme for coloring.
+ * @returns ANSI-formatted string for display in the TUI.
+ */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any -- TUI engine type varies
 export async function buildImproveDashboard(engine: any, theme: Theme): Promise<string> {
   const P = theme.colors;

@@ -122,7 +122,7 @@ export class McpClientTool implements Tool {
       const errMsg = err instanceof Error ? err.message : String(err);
       if (errMsg.includes('Cannot find module') || errMsg.includes('MODULE_NOT_FOUND')) {
         throw new Error(
-          '@modelcontextprotocol/sdk is not installed. Install it with: npm install @modelcontextprotocol/sdk'
+          '@modelcontextprotocol/sdk is not installed. Install it with: npm install @modelcontextprotocol/sdk. This is required for MCP (Model Context Protocol) client connections.'
         );
       }
       throw err;

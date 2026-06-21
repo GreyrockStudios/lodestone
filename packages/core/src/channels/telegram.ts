@@ -77,7 +77,7 @@ export class TelegramChannel extends Channel {
       Bot = grammy.Bot;
     } catch {
       this.logger.error('grammy package not installed. Install with: npm install grammy');
-      throw new Error('grammy package is required for the Telegram channel. Install with: npm install grammy');
+      throw new Error('grammy package is required for the Telegram channel. Install it with: npm install grammy. See https://grammy.dev for setup.');
     }
 
     this.bot = new Bot(this.config.botToken as string);
@@ -286,12 +286,12 @@ export class TelegramChannel extends Channel {
   /** Send a raw message — base class handles retry, rate limiting, and splitting */
   protected async sendRaw(sessionId: string, message: string): Promise<void> {
     if (!this.bot) {
-      throw new Error('Bot not initialized — cannot send');
+      throw new Error('Telegram bot not initialized. Call channel.start() before sending messages.');
     }
 
     const chatId = this.getChatId(sessionId);
     if (!chatId) {
-      throw new Error(`No chat ID for session: ${sessionId}`);
+      throw new Error(`No Telegram chat ID found for session '${sessionId}'. Ensure the session is associated with a Telegram chat.`);
     }
 
     // Per-chat rate limit (additional to base class rate limiting)

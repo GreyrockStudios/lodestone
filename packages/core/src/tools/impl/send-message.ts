@@ -80,7 +80,7 @@ export class SendMessageTool implements Tool {
       body: JSON.stringify(payload),
     });
 
-    if (!res.ok) throw new Error(`Webhook returned HTTP ${res.status}`);
+    if (!res.ok) throw new Error(`Webhook delivery failed: HTTP ${res.status} ${res.statusText}. Check the webhook URL is valid.`);
 
     return {
       success: true,
@@ -96,7 +96,7 @@ export class SendMessageTool implements Tool {
   private async sendSlack(channel: string, message: string, start: number): Promise<ToolResult> {
     const token = process.env.SLACK_BOT_TOKEN;
     if (!token) {
-      throw new Error('SLACK_BOT_TOKEN environment variable is not set');
+      throw new Error('SLACK_BOT_TOKEN environment variable is not set. Create a Slack app at https://api.slack.com/apps and set the bot token.');
     }
 
     const res = await fetch('https://slack.com/api/chat.postMessage', {
@@ -109,7 +109,7 @@ export class SendMessageTool implements Tool {
     });
 
     const data = await res.json() as { ok: boolean; error?: string; ts?: string };
-    if (!data.ok) throw new Error(`Slack API error: ${data.error || 'unknown'}`);
+    if (!data.ok) throw new Error(`Slack API error: ${data.error || 'unknown'}. Check that the bot token is valid and the bot has access to the channel.`);
 
     return {
       success: true,
@@ -125,7 +125,7 @@ export class SendMessageTool implements Tool {
   private async sendDiscord(channelId: string, message: string, start: number): Promise<ToolResult> {
     const token = process.env.DISCORD_BOT_TOKEN;
     if (!token) {
-      throw new Error('DISCORD_BOT_TOKEN environment variable is not set');
+      throw new Error('DISCORD_BOT_TOKEN environment variable is not set. Create a Discord app at https://discord.com/developers/applications and set the bot token.');
     }
 
     const res = await fetch(`https://discord.com/api/v10/channels/${channelId}/messages`, {
@@ -158,7 +158,7 @@ export class SendMessageTool implements Tool {
   private async sendTelegram(chatId: string, message: string, start: number): Promise<ToolResult> {
     const token = process.env.TELEGRAM_BOT_TOKEN;
     if (!token) {
-      throw new Error('TELEGRAM_BOT_TOKEN environment variable is not set');
+      throw new Error('TELEGRAM_BOT_TOKEN environment variable is not set. Create a bot with @BotFather on Telegram and set the token.');
     }
 
     const res = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
@@ -168,7 +168,7 @@ export class SendMessageTool implements Tool {
     });
 
     const data = await res.json() as { ok: boolean; description?: string; result?: { message_id: number } };
-    if (!data.ok) throw new Error(`Telegram API error: ${data.description || 'unknown'}`);
+      throw new Error(`Telegram API error: ${data.description || 'unknown'}. Check that TELEGRAM_BOT_TOKEN is valid.`);
 
     return {
       success: true,

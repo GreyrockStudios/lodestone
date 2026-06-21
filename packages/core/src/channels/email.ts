@@ -276,7 +276,7 @@ export class EmailChannel extends Channel {
   async sendEmail(message: EmailMessage): Promise<void> {
     if (!this.smtpTransport) {
       this.log.warn('[Channel:Email] Cannot send — SMTP not connected');
-      throw new Error('SMTP transport not available. Install nodemailer: npm install nodemailer');
+      throw new Error('SMTP transport not available. Install nodemailer: npm install nodemailer. Also ensure SMTP credentials are configured in the email channel config.');
     }
 
     const cfg = this.config as EmailConfig;
@@ -321,10 +321,10 @@ export class EmailChannel extends Channel {
   async approveDraft(draftId: string): Promise<void> {
     const d = this.drafts.get(draftId);
     if (!d) {
-      throw new Error(`Draft not found: ${draftId}`);
+      throw new Error(`Email draft '${draftId}' not found. Use listDrafts() to see available drafts.`);
     }
     if (d.status !== 'draft') {
-      throw new Error(`Draft ${draftId} is ${d.status}, not draft`);
+      throw new Error(`Email draft '${draftId}' is in '${d.status}' status, not 'draft'. Only drafts can be approved.`);
     }
 
     d.status = 'approved';
@@ -350,7 +350,7 @@ export class EmailChannel extends Channel {
   rejectDraft(draftId: string, reason: string): void {
     const d = this.drafts.get(draftId);
     if (!d) {
-      throw new Error(`Draft not found: ${draftId}`);
+      throw new Error(`Email draft '${draftId}' not found. Use listDrafts() to see available drafts.`);
     }
     d.status = 'rejected';
     d.rejectionReason = reason;
@@ -435,7 +435,7 @@ export class EmailChannel extends Channel {
     try {
       return await import(name);
     } catch {
-      throw new Error(`Package '${name}' not installed. Install with: npm install ${name}`);
+      throw new Error(`Package '${name}' is not installed. Install it with: npm install ${name}. This package is required for email channel functionality.`);
     }
   }
 

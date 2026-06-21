@@ -142,7 +142,7 @@ export class ABTesting {
    */
   registerTest(test: ABTest): void {
     if (this.tests.has(test.id)) {
-      throw new Error(`Test ${test.id} already exists`);
+      throw new Error(`A/B test '${test.id}' already exists. Use a unique test ID.`);
     }
 
     const now = new Date().toISOString();
@@ -166,8 +166,8 @@ export class ABTesting {
    */
   getVariant(testId: string, sessionId: string): PromptVariant {
     const test = this.tests.get(testId);
-    if (!test) throw new Error(`Test ${testId} not found`);
-    if (test.status !== 'running') throw new Error(`Test ${testId} is not running (status: ${test.status})`);
+    if (!test) throw new Error(`A/B test '${testId}' not found. Use listTests() to see available tests.`);
+    if (test.status !== 'running') throw new Error(`A/B test '${testId}' is not running (current status: ${test.status}). Only running tests can record outcomes.`);
 
     const strategy = test.assignment || 'round-robin';
 
@@ -190,11 +190,11 @@ export class ABTesting {
    */
   recordResult(testId: string, variantId: string, outcome: ABOutcome): void {
     const test = this.tests.get(testId);
-    if (!test) throw new Error(`Test ${testId} not found`);
+    if (!test) throw new Error(`A/B test '${testId}' not found. Use listTests() to see available tests.`);
 
     // Validate variant belongs to test
     const variant = test.variants.find(v => v.id === variantId);
-    if (!variant) throw new Error(`Variant ${variantId} not in test ${testId}`);
+    if (!variant) throw new Error(`Variant '${variantId}' not found in A/B test '${testId}'. Check getTest() for available variants.`);
 
     const outcomes = this.outcomes.get(testId) || [];
     outcomes.push({
@@ -216,7 +216,7 @@ export class ABTesting {
    */
   getResults(testId: string): ABResults {
     const test = this.tests.get(testId);
-    if (!test) throw new Error(`Test ${testId} not found`);
+    if (!test) throw new Error(`A/B test '${testId}' not found. Use listTests() to see available tests.`);
 
     const outcomes = this.outcomes.get(testId) || [];
     const variantResults: VariantResult[] = test.variants.map(variant => {
@@ -254,7 +254,7 @@ export class ABTesting {
    */
   getStatisticalSignificance(testId: string): SignificanceResult {
     const test = this.tests.get(testId);
-    if (!test) throw new Error(`Test ${testId} not found`);
+    if (!test) throw new Error(`A/B test '${testId}' not found. Use listTests() to see available tests.`);
 
     const results = this.getResults(testId);
 
@@ -325,7 +325,7 @@ export class ABTesting {
    */
   promoteWinner(testId: string): PromptVariant | null {
     const test = this.tests.get(testId);
-    if (!test) throw new Error(`Test ${testId} not found`);
+    if (!test) throw new Error(`A/B test '${testId}' not found. Use listTests() to see available tests.`);
 
     const sig = this.getStatisticalSignificance(testId);
 

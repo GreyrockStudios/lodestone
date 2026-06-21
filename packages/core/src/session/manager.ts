@@ -118,7 +118,7 @@ export class SessionManager {
   /** Add a message to a session */
   addMessage(sessionId: string, message: Omit<SessionMessage, 'id' | 'timestamp'>): SessionMessage {
     const session = this.sessions.get(sessionId);
-    if (!session) throw new Error(`Session ${sessionId} not found`);
+    if (!session) throw new Error(`Session '${sessionId}' not found. Use engine.createSession() to create a new session first.`);
 
     const fullMessage: SessionMessage = {
       ...message,
@@ -148,7 +148,7 @@ export class SessionManager {
     summaryFn: (messages: SessionMessage[]) => Promise<string>
   ): Promise<Session> {
     const session = this.sessions.get(sessionId);
-    if (!session) throw new Error(`Session ${sessionId} not found`);
+    if (!session) throw new Error(`Session '${sessionId}' not found. Use engine.createSession() to create a new session first.`);
 
     const { keepRecentCount, keepSystemPrompt } = this.compactionConfig;
 
@@ -205,7 +205,7 @@ export class SessionManager {
   /** Update session state */
   updateState(sessionId: string, update: Partial<SessionState>): void {
     const session = this.sessions.get(sessionId);
-    if (!session) throw new Error(`Session ${sessionId} not found`);
+    if (!session) throw new Error(`Session '${sessionId}' not found. Use engine.createSession() to create a new session first.`);
 
     session.state = { ...session.state, ...update };
     session.updatedAt = new Date().toISOString();

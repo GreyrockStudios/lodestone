@@ -166,7 +166,7 @@ export class WebChatChannel extends Channel {
       ({ Server } = await import('socket.io'));
     } catch (err) {
       this.logger.error('express or socket.io not installed. Install with: npm install express socket.io');
-      throw new Error('express and socket.io packages are required for the WebChat channel. Install with: npm install express socket.io');
+      throw new Error('express and socket.io packages are required for the WebChat channel. Install them with: npm install express socket.io');
     }
 
     const app = express();

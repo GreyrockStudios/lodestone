@@ -97,7 +97,7 @@ export class BrowserTool implements Tool {
       // @ts-ignore — playwright may not be installed
       playwright = await import('playwright');
     } catch {
-      throw new Error('Playwright is not installed. Install it with: npm install playwright && npx playwright install chromium');
+      throw new Error('Playwright is not installed. Install it with: npm install playwright and npx playwright install chromium. See https://playwright.dev for setup.');
     }
 
     const browser = await playwright.chromium.launch({ headless: true });
@@ -117,7 +117,7 @@ export class BrowserTool implements Tool {
     const width = (params.width as number) || 1280;
     const height = (params.height as number) || 720;
     const page = await this.ensureBrowser(width, height);
-    if (!page) throw new Error('Failed to initialize browser page');
+    if (!page) throw new Error('Failed to initialize browser page. Ensure Playwright is installed and no other browser instance is locking the profile.');
     const response = await page.goto(url, { waitUntil: 'domcontentloaded' });
     const title = await page.title();
 
@@ -139,7 +139,7 @@ export class BrowserTool implements Tool {
     const saveTo = params.saveTo as string | undefined;
 
     const page = await this.ensureBrowser(width, height);
-    if (!page) throw new Error('Failed to initialize browser page');
+    if (!page) throw new Error('Failed to initialize browser page. Ensure Playwright is installed and no other browser instance is locking the profile.');
 
     // If a selector is provided, screenshot just that element
     // Otherwise take a full page or viewport screenshot
@@ -200,7 +200,7 @@ export class BrowserTool implements Tool {
     if (!selector) return this.missingParam('selector', start);
 
     const page = await this.ensureBrowser(1280, 720);
-    if (!page) throw new Error('Failed to initialize browser page');
+    if (!page) throw new Error('Failed to initialize browser page. Ensure Playwright is installed and no other browser instance is locking the profile.');
     await page.click(selector);
 
     return {
@@ -219,7 +219,7 @@ export class BrowserTool implements Tool {
     if (!text) return this.missingParam('text', start);
 
     const page = await this.ensureBrowser(1280, 720);
-    if (!page) throw new Error('Failed to initialize browser page');
+    if (!page) throw new Error('Failed to initialize browser page. Ensure Playwright is installed and no other browser instance is locking the profile.');
     await page.fill(selector, text);
 
     return {
@@ -234,7 +234,7 @@ export class BrowserTool implements Tool {
   private async extract(params: Record<string, unknown>, start: number): Promise<ToolResult> {
     const selector = params.selector as string | undefined;
     const page = await this.ensureBrowser(1280, 720);
-    if (!page) throw new Error('Failed to initialize browser page');
+    if (!page) throw new Error('Failed to initialize browser page. Ensure Playwright is installed and no other browser instance is locking the profile.');
 
     let text: string;
     if (selector) {
@@ -267,7 +267,7 @@ export class BrowserTool implements Tool {
     if (!script) return this.missingParam('script', start);
 
     const page = await this.ensureBrowser(1280, 720);
-    if (!page) throw new Error('Failed to initialize browser page');
+    if (!page) throw new Error('Failed to initialize browser page. Ensure Playwright is installed and no other browser instance is locking the profile.');
     const result = await page.evaluate(script);
 
     return {

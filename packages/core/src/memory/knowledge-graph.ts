@@ -241,10 +241,10 @@ export class KnowledgeGraph {
   async addEdge(edge: Omit<GraphEdge, 'id' | 'createdAt'>): Promise<GraphEdge> {
     // Validate that both nodes exist
     if (!this.nodes.has(edge.from)) {
-      throw new Error(`Source node "${edge.from}" does not exist`);
+      throw new Error(`Cannot add edge: source node "${edge.from}" does not exist. Create it first with addNode().`);
     }
     if (!this.nodes.has(edge.to)) {
-      throw new Error(`Target node "${edge.to}" does not exist`);
+      throw new Error(`Cannot add edge: target node "${edge.to}" does not exist. Create it first with addNode().`);
     }
 
     // Check for duplicate edges

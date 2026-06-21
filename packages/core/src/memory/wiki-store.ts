@@ -157,7 +157,7 @@ export class WikiStore {
     try {
       await writeFile(filePath, fileContent, 'utf-8');
     } catch (err) {
-      throw new Error(`Failed to write wiki page "${slug}" to ${filePath}: ${err instanceof Error ? err.message : String(err)}`);
+      throw new Error(`Failed to write wiki page "${slug}" to ${filePath}: ${err instanceof Error ? err.message : String(err)}. Check directory permissions and disk space.`);
     }
 
     // Update cache
@@ -191,7 +191,7 @@ export class WikiStore {
     try {
       await unlink(filePath);
     } catch (err) {
-      throw new Error(`Failed to delete wiki page "${slug}" at ${filePath}: ${err instanceof Error ? err.message : String(err)}`);
+      throw new Error(`Failed to delete wiki page "${slug}" at ${filePath}: ${err instanceof Error ? err.message : String(err)}. Check file permissions.`);
     }
     this.cache.delete(slug);
     this.indexCache.delete(slug);

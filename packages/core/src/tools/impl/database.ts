@@ -83,7 +83,7 @@ export class DatabaseTool implements Tool {
       const mod = await import('better-sqlite3');
       Database = mod.default;
     } catch {
-      throw new Error('better-sqlite3 is not installed. Install it with: npm install better-sqlite3');
+      throw new Error('better-sqlite3 is not installed. Install it with: npm install better-sqlite3. This is required for SQLite database operations.');
     }
 
     // Ensure directory exists for SQLite
@@ -198,7 +198,7 @@ export class DatabaseTool implements Tool {
       const mod = await import('pg');
       Client = mod.Client;
     } catch {
-      throw new Error('pg is not installed. Install it with: npm install pg');
+      throw new Error('pg is not installed. Install it with: npm install pg. This is required for PostgreSQL database operations.');
     }
 
     const client = new Client({ connectionString });

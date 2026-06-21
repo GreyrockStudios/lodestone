@@ -136,7 +136,7 @@ export class MigrationSystem {
         const durationMs = Date.now() - start;
 
         if (!success) {
-          throw new Error(`Migration ${migration.name} returned false`);
+          throw new Error(`Migration '${migration.name}' (version ${migration.version}) returned false — migration did not complete successfully. Check the migration's up() logic.`);
         }
 
         // Update current version

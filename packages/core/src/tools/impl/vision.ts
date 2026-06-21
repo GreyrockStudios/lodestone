@@ -378,7 +378,7 @@ export class VisionTool implements Tool {
         redirect: 'follow',
       });
 
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      if (!res.ok) throw new Error(`Failed to fetch ${url}: HTTP ${res.status} ${res.statusText}`);
 
       const html = await res.text();
       const titleMatch = html.match(/<title[^>]*>(.*?)<\/title>/i);
@@ -431,7 +431,7 @@ export class VisionTool implements Tool {
         return await this.extractTextTesseract(imagePath);
 
       default:
-        throw new Error(`Unknown vision provider: ${provider}`);
+        throw new Error(`Unknown vision provider '${provider}'. Supported: 'openai', 'ollama', 'tesseract'.`);
     }
   }
 
@@ -442,7 +442,7 @@ export class VisionTool implements Tool {
 
     if (provider === 'openai') {
       const apiKey = this.config.apiKey || process.env.OPENAI_API_KEY;
-      if (!apiKey) throw new Error('OpenAI API key required for vision');
+      if (!apiKey) throw new Error('OpenAI Vision requires OPENAI_API_KEY. Set it in your environment or vision config.');
 
       const baseUrl = this.config.baseUrl || 'https://api.openai.com/v1';
       const model = this.config.model || 'gpt-4o';
@@ -467,7 +467,7 @@ export class VisionTool implements Tool {
         }),
       });
 
-      if (!res.ok) throw new Error(`OpenAI Vision error ${res.status}: ${await res.text()}`);
+      if (!res.ok) throw new Error(`OpenAI Vision request failed (HTTP ${res.status}): ${await res.text()}. Check API key validity.`);
       const data = await res.json() as { choices: Array<{ message: { content: string } }> };
       return data.choices[0].message.content;
     }
@@ -480,7 +480,7 @@ export class VisionTool implements Tool {
 
   private async callOpenAIVision(base64: string, prompt: string): Promise<string> {
     const apiKey = this.config.apiKey || process.env.OPENAI_API_KEY;
-    if (!apiKey) throw new Error('OpenAI API key required for vision');
+    if (!apiKey) throw new Error('OpenAI Vision requires OPENAI_API_KEY. Set it in your environment or vision config.');
 
     const baseUrl = this.config.baseUrl || 'https://api.openai.com/v1';
     const model = this.config.model || 'gpt-4o';
@@ -507,7 +507,7 @@ export class VisionTool implements Tool {
 
     if (!res.ok) {
       const body = await res.text();
-      throw new Error(`OpenAI Vision error ${res.status}: ${body}`);
+      throw new Error(`OpenAI Vision request failed (HTTP ${res.status}): ${body}. Check API key validity and quota.`);
     }
 
     const data = await res.json() as { choices: Array<{ message: { content: string } }> };
@@ -532,7 +532,7 @@ export class VisionTool implements Tool {
 
     if (!res.ok) {
       const body = await res.text();
-      throw new Error(`Ollama Vision error ${res.status}: ${body}`);
+      throw new Error(`Ollama Vision request failed (HTTP ${res.status}): ${body}. Check that the model supports vision (e.g. llava).`);
     }
 
     const data = await res.json() as { response?: string };

@@ -78,8 +78,16 @@ export class AgentLoop {
   }
 
   /**
-   * Run one turn of the agent loop.
-   * Returns the full response text and any tool calls made.
+   * Run one turn of the agent loop: receive a user message, construct
+   * a system prompt with identity + memory + rules, send to LLM, parse
+   * tool calls, execute them, feed results back, and stream the final
+   * response. Returns the full response text and any tool calls made.
+   *
+   * @param sessionId - The session to run the turn in.
+   * @param userMessage - The user's input message.
+   * @param streamHandler - Optional streaming handler for real-time output.
+   * @returns The agent's response, tool calls, token usage, and round count.
+   * @throws {Error} If the session ID is not found.
    */
   async run(
     sessionId: string,
@@ -87,7 +95,7 @@ export class AgentLoop {
     streamHandler?: StreamHandler
   ): Promise<AgentLoopResult> {
     const session = this.engine.sessions.get(sessionId);
-    if (!session) throw new Error(`Session ${sessionId} not found`);
+    if (!session) throw new Error(`Session '${sessionId}' not found. Create it first with engine.createSession().`);
 
     const startTime = Date.now();
     let totalTokens = 0;
@@ -439,7 +447,7 @@ export class AgentLoop {
 
   private async buildSystemPrompt(sessionId: string): Promise<string> {
     const session = this.engine.sessions.get(sessionId);
-    if (!session) throw new Error(`Session ${sessionId} not found`);
+    if (!session) throw new Error(`Session '${sessionId}' not found. Create it first with engine.createSession().`);
 
     // Load identity
     const identity = await this.engine.identity.load();
@@ -591,7 +599,7 @@ export class AgentLoop {
 
   private buildMessageHistory(sessionId: string, systemPrompt: string): ModelMessage[] {
     const session = this.engine.sessions.get(sessionId);
-    if (!session) throw new Error(`Session ${sessionId} not found`);
+    if (!session) throw new Error(`Session '${sessionId}' not found. Create it first with engine.createSession().`);
 
     const messages: ModelMessage[] = [
       { role: 'system', content: systemPrompt },
@@ -640,7 +648,7 @@ export class AgentLoop {
     }
 
     // Should not reach here, but TypeScript needs it
-    throw new Error('LLM call failed after all retries');
+    throw new Error('LLM call failed after all retries. Check that the model is available and the API endpoint is reachable.');
   }
 
   private async callLLMInternal(

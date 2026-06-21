@@ -176,7 +176,7 @@ export class SearchEngineTool implements Tool {
     const res = await fetch(url, { headers: { 'User-Agent': 'Lodestone/0.1' } });
     if (!res.ok) {
       const body = await res.text();
-      throw new Error(`Google CSE error ${res.status}: ${body}`);
+      throw new Error(`Google CSE search failed (HTTP ${res.status}): ${body}. Check API key and CX ID.`);
     }
 
     const data = await res.json() as {
@@ -237,7 +237,7 @@ export class SearchEngineTool implements Tool {
     });
     if (!res.ok) {
       const body = await res.text();
-      throw new Error(`Bing Search error ${res.status}: ${body}`);
+      throw new Error(`Bing Search API failed (HTTP ${res.status}): ${body}. Check API key validity.`);
     }
 
     const data = await res.json() as {
@@ -289,7 +289,7 @@ export class SearchEngineTool implements Tool {
     const res = await fetch(url, { headers: { 'User-Agent': 'Lodestone/0.1' } });
     if (!res.ok) {
       const body = await res.text();
-      throw new Error(`SearXNG error ${res.status}: ${body}`);
+      throw new Error(`SearXNG search failed (HTTP ${res.status}): ${body}. Check that SearXNG is running and reachable.`);
     }
 
     const data = await res.json() as {

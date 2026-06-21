@@ -332,7 +332,7 @@ export class SelfPatching {
     if (!patch) return null;
 
     if (patch.status !== 'validated') {
-      throw new Error(`Cannot approve patch in '${patch.status}' status — must be 'validated'`);
+      throw new Error(`Cannot approve patch in '${patch.status}' status — must be 'validated' first. Run validatePatch() before approving.`);
     }
 
     patch.status = 'approved';
@@ -369,7 +369,7 @@ export class SelfPatching {
     if (!patch) return null;
 
     if (patch.status !== 'approved') {
-      throw new Error(`Cannot test patch in '${patch.status}' status — must be 'approved'`);
+      throw new Error(`Cannot test patch in '${patch.status}' status — must be 'approved' first. Run approvePatch() before testing.`);
     }
 
     const startTime = Date.now();
@@ -443,7 +443,7 @@ export class SelfPatching {
     if (!patch) return null;
 
     if (patch.status !== 'tested') {
-      throw new Error(`Cannot apply patch in '${patch.status}' status — must be 'tested'`);
+      throw new Error(`Cannot apply patch in '${patch.status}' status — must be 'tested' first. Run testPatch() before applying.`);
     }
 
     // Create a backup (rollback point) before applying
@@ -460,7 +460,7 @@ export class SelfPatching {
       const patchedContent = currentContent.replace(patch.oldContent, patch.newContent);
 
       if (patchedContent === currentContent) {
-        throw new Error('Patch application had no effect — file may have changed');
+        throw new Error('Patch application had no effect — the target file may have changed since the patch was created. Re-validate and regenerate the patch.');
       }
 
       await writeFile(targetPath, patchedContent, 'utf-8');
@@ -513,7 +513,7 @@ export class SelfPatching {
       const backupFile = files.find(f => f.startsWith(patch.id));
 
       if (!backupFile) {
-        throw new Error(`No backup found for patch ${patch.id}`);
+        throw new Error(`No backup found for patch ${patch.id}. The backup may have been cleaned up or the patch was never applied.`);
       }
 
       // Restore from backup

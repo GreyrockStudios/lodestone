@@ -269,7 +269,7 @@ export class RateLimiter {
     }
 
     throw new Error(
-      `Rate limiter: could not acquire ${tokens} tokens after ${maxAttempts} attempts`,
+      `Rate limiter: could not acquire ${tokens} tokens after ${maxAttempts} attempts. The LLM provider may be rate-limiting your requests. Consider reducing request frequency or increasing the rate limit.`,
     );
   }
 

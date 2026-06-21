@@ -171,7 +171,7 @@ export class VoiceChannel extends Channel {
           return await this.transcribeWhisperLocal(audioPath);
 
         default:
-          throw new Error(`Unknown STT provider: ${this.voiceConfig.sttProvider}`);
+          throw new Error(`Unknown STT provider '${this.voiceConfig.sttProvider}'. Supported: 'openai', 'whisper-local', 'system'.`);
       }
     } catch (err) {
       this.logger.error('[Channel:Voice] Transcription failed', { error: String(err), audioPath });
@@ -184,7 +184,7 @@ export class VoiceChannel extends Channel {
   private async transcribeWhisperAPI(audioBuffer: Buffer, audioPath: string): Promise<string> {
     const cfg = this.voiceConfig.sttConfig || {};
     const apiKey = cfg.apiKey || process.env.OPENAI_API_KEY;
-    if (!apiKey) throw new Error('OpenAI API key required for whisper-api STT');
+    if (!apiKey) throw new Error('Whisper API STT requires OPENAI_API_KEY. Set it in your environment or voice channel config.');
 
     const baseUrl = cfg.baseUrl || 'https://api.openai.com/v1';
     const model = cfg.model || 'whisper-1';
@@ -205,7 +205,7 @@ export class VoiceChannel extends Channel {
 
     if (!res.ok) {
       const body = await res.text();
-      throw new Error(`Whisper API error ${res.status}: ${body}`);
+      throw new Error(`Whisper API STT failed (HTTP ${res.status}): ${body}. Check API key validity and quota.`);
     }
 
     const data = await res.json() as { text: string };
@@ -258,7 +258,7 @@ export class VoiceChannel extends Channel {
           break;
 
         default:
-          throw new Error(`Unknown TTS provider: ${this.voiceConfig.ttsProvider}`);
+          throw new Error(`Unknown TTS provider '${this.voiceConfig.ttsProvider}'. Supported: 'openai', 'system'.`);
       }
 
       this.logger.debug(`[Channel:Voice] Synthesize took ${Date.now() - start}ms`);
@@ -272,7 +272,7 @@ export class VoiceChannel extends Channel {
   private async synthesizeOpenAI(text: string, opts?: SynthOpts): Promise<Buffer> {
     const cfg = this.voiceConfig.ttsConfig || {};
     const apiKey = cfg.apiKey || process.env.OPENAI_API_KEY;
-    if (!apiKey) throw new Error('OpenAI API key required for openai TTS');
+    if (!apiKey) throw new Error('OpenAI TTS requires OPENAI_API_KEY. Set it in your environment or voice channel config.');
 
     const baseUrl = cfg.baseUrl || 'https://api.openai.com/v1';
     const model = cfg.model || 'tts-1';
@@ -291,7 +291,7 @@ export class VoiceChannel extends Channel {
 
     if (!res.ok) {
       const body = await res.text();
-      throw new Error(`OpenAI TTS error ${res.status}: ${body}`);
+      throw new Error(`OpenAI TTS failed (HTTP ${res.status}): ${body}. Check API key validity and quota.`);
     }
 
     const arrayBuffer = await res.arrayBuffer();

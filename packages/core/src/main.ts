@@ -146,7 +146,11 @@ main().catch(err => {
   process.exit(1);
 });
 
-// Exported boot function for CLI usage
+/**
+ * Boot Lodestone in headless mode — loads config, runs onboarding if needed,
+ * starts the engine, and keeps the process alive.
+ * Entry point for Docker containers and direct `node` invocation.
+ */
 export async function boot(): Promise<void> {
   await main();
 }

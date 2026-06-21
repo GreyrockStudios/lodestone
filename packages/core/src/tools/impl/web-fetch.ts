@@ -36,7 +36,7 @@ export class WebFetchTool implements Tool {
       });
       clearTimeout(timeout);
 
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      if (!res.ok) throw new Error(`Failed to fetch ${url}: HTTP ${res.status} ${res.statusText}`);
 
       const contentType = res.headers.get('content-type') || '';
       const raw = await res.text();

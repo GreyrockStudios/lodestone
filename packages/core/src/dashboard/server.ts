@@ -587,7 +587,7 @@ export class DashboardServer {
     try {
       const fileStat = await stat(filePath);
       if (!fileStat.isFile()) {
-        throw new Error('Not a file');
+        throw new Error(`Path '${filePath}' is not a file. Only files can be served.`);
       }
 
       const content = await readFile(filePath);

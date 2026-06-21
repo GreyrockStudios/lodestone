@@ -119,7 +119,7 @@ export class PredictionJournal {
 
     const entry = this.predictions.get(predictionId);
     if (!entry) {
-      throw new Error(`Prediction ${predictionId} not found`);
+      throw new Error(`Prediction '${predictionId}' not found. Use listPredictions() to see available predictions.`);
     }
 
     entry.actualOutcome = actualOutcome;

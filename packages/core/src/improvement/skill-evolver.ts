@@ -165,7 +165,7 @@ export class SkillEvolver {
 
     const lesson = this.lessons.get(lessonId);
     if (!lesson) {
-      throw new Error(`Lesson ${lessonId} not found`);
+      throw new Error(`Lesson '${lessonId}' not found. Use listLessons() to see available lessons.`);
     }
 
     lesson.validations++;
@@ -182,7 +182,7 @@ export class SkillEvolver {
 
     const lesson = this.lessons.get(lessonId);
     if (!lesson) {
-      throw new Error(`Lesson ${lessonId} not found`);
+      throw new Error(`Lesson '${lessonId}' not found. Use listLessons() to see available lessons.`);
     }
 
     lesson.contradictions++;
@@ -206,7 +206,7 @@ export class SkillEvolver {
       ));
 
     if (matchingLessons.length === 0) {
-      throw new Error(`No lessons found matching "${skillName}"`);
+      throw new Error(`No lessons found matching skill '${skillName}'. Check available skills with listSkills().`);
     }
 
     // Mark lessons as promoted

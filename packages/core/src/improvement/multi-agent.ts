@@ -301,7 +301,7 @@ export class MultiAgentCoordinator {
     timeoutMs?: number;
   }): SubAgentTask {
     if (this.activeAgents.size >= this.config.maxConcurrent) {
-      throw new Error(`Maximum concurrent sub-agents reached (${this.config.maxConcurrent})`);
+      throw new Error(`Maximum concurrent sub-agents reached (${this.config.maxConcurrent}). Wait for a running sub-agent to finish before spawning another.`);
     }
 
     const task: SubAgentTask = {
