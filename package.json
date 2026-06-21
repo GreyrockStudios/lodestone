@@ -7,7 +7,7 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/greyrock-studios/lodestone.git"
+    "url": "https://github.com/GreyrockStudios/lodestone.git"
   },
   "keywords": [
     "ai",
@@ -73,7 +73,7 @@
   "author": "Greyrock Studio",
   "homepage": "https://lodestone.greyrockstudios.com",
   "bugs": {
-    "url": "https://github.com/greyrock-studios/lodestone/issues"
+    "url": "https://github.com/GreyrockStudios/lodestone/issues"
   },
   "publishConfig": {
     "access": "public"

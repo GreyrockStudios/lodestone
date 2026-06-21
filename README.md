@@ -5,11 +5,13 @@
 ### Turn any LLM into a self-improving agent that remembers everything, works proactively, and gets better over time.
 
 [![MIT License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
-[![TypeScript](https://img.shields.io/badge/TypeScript-5.5+-blue.svg)](https://www.typescriptlang.org/)
-[![Tests](https://img.shields.io/badge/tests-290%20passing-green.svg)](#testing)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5.7-blue.svg)](https://www.typescriptlang.org/)
+[![Tests](https://img.shields.io/badge/tests-290%20passing-brightgreen.svg)](#testing)
 [![Tools](https://img.shields.io/badge/tools-39%20built--in-purple.svg)](#built-in-tools)
+[![Node.js](https://img.shields.io/badge/node-%3E%3D22-brightgreen.svg)](https://nodejs.org/)
+[![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](CONTRIBUTING.md)
 
-[🌐 Website](https://lodestone.greyrockstudios.com) · [📦 npm](https://npmjs.com/package/lodestone) · [📚 Docs](docs/getting-started.md) · [💬 Discord](https://discord.gg/greyrock)
+[🌐 Website](https://lodestone.greyrockstudios.com) · [📦 npm](https://www.npmjs.com/package/lodestone) · [📚 Docs](docs/getting-started.md) · [💬 Discord](https://discord.gg/greyrock)
 
 </div>
 
@@ -189,7 +191,7 @@ memory:
   vectorDb:
     provider: lancedb               # Local, no server needed
     autoRecall: true                 # Auto-inject relevant memories
-    autoCapture: false              # Auto-store all turns
+    autoCapture: false               # Auto-store all turns
   wiki:
     autoLint: true                  # Nightly wiki lint
     autoIndex: true                 # Auto-generate index.md
@@ -287,7 +289,7 @@ Built-in TUI chat (`lodestone chat`) works out of the box. For a web interface, 
 ### Setup
 
 ```bash
-git clone https://github.com/greyrock-studios/lodestone.git
+git clone https://github.com/GreyrockStudios/lodestone.git
 cd lodestone
 npm install
 npm run build
@@ -354,7 +356,7 @@ node packages/core/dist/test/tool-tests-2.js  # 47 additional tool tests
 | Lines of TypeScript | 52,000+ |
 | Tests | 290 (all passing) |
 | Built-in tools | 39 |
-| Channels | 5 (CLI, TUI, Telegram, Discord, Email) |
+| Channels | 5 (CLI, Telegram, Discord, Email, Webchat) |
 | Self-improvement systems | 8 |
 | Safety systems | 8 |
 | Plugin hooks | 5 lifecycle events |
@@ -386,6 +388,6 @@ MIT — do whatever you want. See [LICENSE](LICENSE).
 
 **Built with 🔮 by [Greyrock Studio](https://greyrockstudios.com)**
 
-[Website](https://lodestone.greyrockstudios.com) · [GitHub](https://github.com/greyrock-studios/lodestone) · [npm](https://npmjs.com/package/lodestone) · [Docs](docs/getting-started.md)
+[Website](https://lodestone.greyrockstudios.com) · [GitHub](https://github.com/GreyrockStudios/lodestone) · [npm](https://www.npmjs.com/package/lodestone) · [Docs](docs/getting-started.md)
 
 </div>

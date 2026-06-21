@@ -1,0 +1,57 @@
+# Dependencies
+node_modules/
+
+# Version control
+.git/
+.gitignore
+
+# CI/CD
+.github/
+
+# Docker
+docker/
+.dockerignore
+
+# Scripts and tooling
+scripts/
+chat.sh
+
+# Documentation (keep README.md and CHANGELOG.md)
+*.md
+!README.md
+!CHANGELOG.md
+
+# Site and docs
+site/
+
+# Examples and templates
+examples/
+templates/
+
+# Runtime data
+memory/
+data/
+workspace/
+
+# Build artifacts
+*.tsbuildinfo
+coverage/
+dist/
+
+# Environment
+.env
+.env.*
+!.env.example
+
+# Config
+lodestone.config.yaml
+
+# Internal planning / audit docs
+qa-sweep-*.md
+AUDIT.md
+GAP_PROGRESS.md
+PLAN.md
+RECOVERY.md
+REPO_SETUP.md
+ADRS.md
+gumroad-listing.md
