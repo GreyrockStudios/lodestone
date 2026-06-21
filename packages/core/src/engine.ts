@@ -72,6 +72,18 @@ export interface LodestoneConfig {
   maxConcurrentJobs?: number;
   /** Session compaction threshold (0-1) */
   compactionThreshold?: number;
+  /** Session config: keep recent messages count */
+  sessionKeepRecentCount?: number;
+  /** Session config: max message entries */
+  sessionMaxEntries?: number;
+  /** Session config: prune after duration string (e.g. '7d') */
+  sessionPruneAfter?: string;
+  /** Scratch buffer path */
+  scratchPath?: string;
+  /** Auto-recall from vector DB (default: true) */
+  autoRecall?: boolean;
+  /** Logging configuration */
+  logging?: { level?: string; file?: string; format?: string };
   /** Channel configuration */
   channels?: ChannelManagerConfig;
   /** Safety configuration (capability tiers, behavioral learning, memory promotion) */
@@ -160,7 +172,7 @@ export class LodestoneEngine {
   private lastDriftCorrections: DriftCorrection[] = [];
   readonly pluginManager: PluginManager;
   private agentLoop: AgentLoopLike | null = null;
-  readonly sessionPersistence: SessionPersistence | null;
+  sessionPersistence: SessionPersistence | null;
 
   // State
   private running = false;
@@ -175,6 +187,7 @@ export class LodestoneEngine {
     this.tools = new ToolRegistry();
     this.sessions = new SessionManager({
       thresholdPercent: config.compactionThreshold || 0.5,
+      keepRecentCount: config.sessionKeepRecentCount,
     });
     this.scheduler = new Scheduler(config.maxConcurrentJobs || 4);
     this.memory = new MemorySystem({
@@ -190,11 +203,11 @@ export class LodestoneEngine {
         embeddingModel: config.embeddingModel || 'nomic-embed-text',
         dimensions: config.embeddingDimensions || 768,
         recallMaxChars: 800,
-        autoRecall: true,
+        autoRecall: config.autoRecall ?? true,
         autoCapture: config.autoCapture ?? true,
       },
       scratch: {
-        dbPath: join(config.workspaceRoot, 'data/scratch.json'),
+        dbPath: config.scratchPath || join(config.workspaceRoot, 'data/scratch.json'),
         defaultTtlMs: null,
       },
     });
@@ -337,7 +350,7 @@ export class LodestoneEngine {
     // Try to initialize session persistence (optional, requires better-sqlite3)
     try {
       const persistence = new SessionPersistence(join(this.config.workspaceRoot, 'data/sessions'));
-      (this as any).sessionPersistence = persistence;
+      this.sessionPersistence = persistence;
       this.logger.info('Session persistence enabled (SQLite)');
     } catch {
       this.logger.info('Session persistence disabled (better-sqlite3 not available)');
@@ -489,10 +502,10 @@ export class LodestoneEngine {
         this.logger.info('Config reloaded', { llm: newConfig.llm?.default?.model });
         // Update what we safely can at runtime
         if (newConfig.maxConcurrentJobs) {
-          (this.scheduler as any).maxConcurrent = newConfig.maxConcurrentJobs;
+          // Scheduler maxConcurrent is set at construction time; config changes take effect on restart
         }
         if (newConfig.maxConcurrentTools) {
-          (this as any).config.maxConcurrentTools = newConfig.maxConcurrentTools;
+          this.config.maxConcurrentTools = newConfig.maxConcurrentTools;
         }
         // Note: LLM provider changes require restart — just log
         if (newConfig.llm?.default?.model !== this.config.llm.default.model) {

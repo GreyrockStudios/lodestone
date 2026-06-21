@@ -659,20 +659,41 @@ export class SelfConstraints {
     }
   }
 
+  private async saveWithRetry(saveFn: () => Promise<void>, name: string, maxRetries = 2): Promise<void> {
+    for (let attempt = 0; attempt <= maxRetries; attempt++) {
+      try {
+        await saveFn();
+        return;
+      } catch (err: unknown) {
+        if (attempt === maxRetries) {
+          this.logger.warn(`[SelfConstraints] Failed to save ${name} after ${maxRetries + 1} attempts: ${err}`);
+          return;
+        }
+        await new Promise(resolve => setTimeout(resolve, 500 * Math.pow(2, attempt)));
+      }
+    }
+  }
+
   private async saveNearMisses(): Promise<void> {
-    await mkdir(join(this.nearMissesFile, '..'), { recursive: true });
-    await writeFile(this.nearMissesFile, JSON.stringify(this.nearMisses, null, 2), 'utf-8');
+    await this.saveWithRetry(async () => {
+      await mkdir(join(this.nearMissesFile, '..'), { recursive: true });
+      await writeFile(this.nearMissesFile, JSON.stringify(this.nearMisses, null, 2), 'utf-8');
+    }, 'near-misses');
   }
 
   private async saveProposals(): Promise<void> {
-    const data = Array.from(this.proposals.values());
-    await mkdir(join(this.proposalsFile, '..'), { recursive: true });
-    await writeFile(this.proposalsFile, JSON.stringify(data, null, 2), 'utf-8');
+    await this.saveWithRetry(async () => {
+      const data = Array.from(this.proposals.values());
+      await mkdir(join(this.proposalsFile, '..'), { recursive: true });
+      await writeFile(this.proposalsFile, JSON.stringify(data, null, 2), 'utf-8');
+    }, 'proposals');
   }
 
   private async saveConstraints(): Promise<void> {
-    const data = Array.from(this.activeConstraints.values());
-    await mkdir(join(this.constraintsFile, '..'), { recursive: true });
-    await writeFile(this.constraintsFile, JSON.stringify(data, null, 2), 'utf-8');
+    await this.saveWithRetry(async () => {
+      const data = Array.from(this.activeConstraints.values());
+      await mkdir(join(this.constraintsFile, '..'), { recursive: true });
+      await writeFile(this.constraintsFile, JSON.stringify(data, null, 2), 'utf-8');
+    }, 'constraints');
   }
 }

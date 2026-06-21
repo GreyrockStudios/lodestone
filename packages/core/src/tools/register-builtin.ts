@@ -9,7 +9,8 @@
 import type { LodestoneEngine } from '../engine.js';
 import { resolve } from 'path';
 
-import { WikiResolveTool, WikiSearchTool } from './impl/wiki-resolve.js';
+import { WikiResolveTool } from './impl/wiki-resolve.js';
+import { WikiSearchTool } from './impl/wiki-search.js';
 import { WikiWriteTool } from './impl/wiki-write.js';
 import { WikiReadTool } from './impl/wiki-read.js';
 import { MemoryStoreTool } from './impl/memory-store.js';
@@ -45,7 +46,7 @@ import { NotifyTool } from './impl/notify.js';
 import { SecretsTool } from './impl/secrets.js';
 import { SearchEngineTool } from './impl/search-engine.js';
 import { ScreenshotTool } from './impl/screenshot.js';
-import { ArchiveTool } from './impl/zip.js';
+import { ArchiveTool } from './impl/archive.js';
 import { LspTool } from './impl/lsp.js';
 
 /**
@@ -95,4 +96,30 @@ export function registerBuiltinTools(engine: LodestoneEngine, workspaceRoot: str
   engine.registerTool(new ScreenshotTool());
   engine.registerTool(new ArchiveTool());
   engine.registerTool(new LspTool());
+}
+
+/**
+ * Return the names of all built-in tools (in registration order).
+ * Used by the CLI `status` command to avoid duplicating the tool list.
+ */
+export function getBuiltinToolNames(): string[] {
+  return [
+    'wiki-resolve', 'wiki-search', 'wiki-write', 'wiki-read',
+    'memory-store', 'memory-recall', 'smart-retrieve',
+    'decision-log', 'resume-state', 'watchdog', 'business-hours',
+    'web-search', 'web-fetch', 'file-ops', 'code-exec',
+    'calendar', 'vision', 'voice', 'coordinator',
+    'shell', 'http', 'process-manager', 'diff-patch', 'git',
+    'browser', 'scheduler', 'send-message', 'database', 'mcp-client',
+    'image-gen', 'ocr', 'transcribe', 'clipboard', 'notify',
+    'secrets', 'search-engine', 'screenshot', 'archive', 'lsp',
+  ];
+}
+
+/**
+ * Return the names of all built-in proactive jobs.
+ * Used by the CLI `status` command to avoid duplicating the job list.
+ */
+export function getBuiltinJobNames(): string[] {
+  return ['sensorium', 'sleep-cycle', 'drift-detection'];
 }

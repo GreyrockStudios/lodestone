@@ -584,10 +584,24 @@ export class TruthBinding {
 
   /**
    * Get statistics about guard passes.
+   *
+   * TODO: Implement persistent guard statistics tracking. This method
+   * currently returns zeros because guard results are not being aggregated
+   * into a persistent store. To implement:
+   * 1. Add a private `guardStats` field to this class that accumulates counts
+   *    per guard (totalChecks, byGuard) and tracks block/warn/pass counts.
+   * 2. Update the `process()` method to call a private `recordStats()` helper
+   *    that increments the counters after each guard run.
+   * 3. Persist the stats to disk (e.g. data/truth-binding-stats.json) so they
+   *    survive restarts, with a flush in the constructor to load on startup.
+   * 4. Optionally expose a resetStats() method for testing.
+   *
+   * The blockRate should be computed as blocks / totalChecks * 100.
+   *
+   * Until this is implemented, the zeros returned here are intentional —
+   * the stats are simply not yet tracked.
    */
   getStats(): { totalChecks: number; byGuard: Record<string, number>; blockRate: number } {
-    // This would normally come from persistent storage
-    // For now, return a placeholder
     return {
       totalChecks: 0,
       byGuard: {},

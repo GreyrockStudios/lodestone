@@ -27,7 +27,8 @@ export { ScratchBuffer, type ScratchConfig, type ScratchEntry } from './memory/s
 // Tools
 export { ToolRegistry, type Tool, type ToolDefinition, type ToolResult, type ToolContext, type MemoryAccess, type ToolLogger } from './tools/definitions.js';
 export type { AgentIdentity as ToolAgentIdentity } from './tools/definitions.js';
-export { WikiResolveTool, WikiSearchTool } from './tools/impl/wiki-resolve.js';
+export { WikiResolveTool } from './tools/impl/wiki-resolve.js';
+export { WikiSearchTool } from './tools/impl/wiki-search.js';
 export { SmartRetrieveTool } from './tools/impl/smart-retrieve.js';
 export { DecisionLogTool, type DecisionEntry } from './tools/impl/decision-log.js';
 export { ResumeStateTool } from './tools/impl/resume-state.js';
@@ -41,7 +42,7 @@ export { CalendarTool, type CalendarConfig } from './tools/impl/calendar.js';
 export { VisionTool, type VisionToolConfig } from './tools/impl/vision.js';
 export { VoiceTool, type VoiceToolConfig } from './tools/impl/voice.js';
 export { CoordinatorTool } from './tools/impl/coordinator.js';
-export { registerBuiltinTools } from './tools/register-builtin.js';
+export { registerBuiltinTools, getBuiltinToolNames, getBuiltinJobNames } from './tools/register-builtin.js';
 
 // Session
 export { SessionManager, type Session, type SessionMessage, type SessionState, type CompactionConfig } from './session/manager.js';
@@ -79,6 +80,7 @@ export { ChannelManager, type ChannelManagerConfig } from './channels/manager.js
 
 // Utils — Error types
 export { LodestoneError, LodestoneConfigError, LLMError, ToolError, ChannelError, MemoryError, SafetyError, isLodestoneError, errorMessage, errorContext } from './utils/errors.js';
+export { ConfigValidator, type ConfigError, type ConfigWarning, type ConfigSchema, type ConfigField } from './utils/config-validator.js';
 
 // Sprint 6: Knowledge Transfer
 export { KnowledgeTransfer, type TransferPackage, type TransferItem, type ReceiveResult, type ApplyResult, type KnowledgeType } from './memory/knowledge-transfer.js';

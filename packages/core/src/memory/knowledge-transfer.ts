@@ -184,7 +184,7 @@ export class KnowledgeTransfer {
    * Apply a transfer to the agent's memory system.
    * Stores each accepted item as a vector memory entry.
    */
-  applyTransfer(transferId: string, memory: import('../memory/memory-system.js').MemorySystem): ApplyResult {
+  async applyTransfer(transferId: string, memory: import('../memory/memory-system.js').MemorySystem): Promise<ApplyResult> {
     const pkg = this.transfers.find(t => t.id === transferId);
     if (!pkg) {
       return { applied: 0, skipped: 0 };
@@ -210,16 +210,18 @@ export class KnowledgeTransfer {
         continue;
       }
 
-      // Store in vector memory asynchronously (fire-and-forget, but we track count synchronously)
+      // Store in vector memory asynchronously
       const key = `transfer_${pkg.id}_${applied}`;
-      memory.vector.store(key, item.content, {
-        category: item.type,
-        importance: item.confidence,
-        source: item.source,
-        transferId: pkg.id,
-      }).catch(err => {
+      try {
+        await memory.vector.store(key, item.content, {
+          category: item.type,
+          importance: item.confidence,
+          source: item.source,
+          transferId: pkg.id,
+        });
+      } catch (err: unknown) {
         this.logger.error(`[KnowledgeTransfer] Failed to store item ${key}: ${err}`);
-      });
+      }
 
       applied++;
     }

@@ -154,7 +154,11 @@ export class WikiStore {
 
     // Render frontmatter + content
     const fileContent = matter.stringify(content, cleanFm);
-    await writeFile(filePath, fileContent, 'utf-8');
+    try {
+      await writeFile(filePath, fileContent, 'utf-8');
+    } catch (err) {
+      throw new Error(`Failed to write wiki page "${slug}" to ${filePath}: ${err instanceof Error ? err.message : String(err)}`);
+    }
 
     // Update cache
     const page = await this.loadFile(filePath);
@@ -184,7 +188,11 @@ export class WikiStore {
     const filePath = await this.resolveSlug(slug);
     if (!filePath) return false;
 
-    await unlink(filePath);
+    try {
+      await unlink(filePath);
+    } catch (err) {
+      throw new Error(`Failed to delete wiki page "${slug}" at ${filePath}: ${err instanceof Error ? err.message : String(err)}`);
+    }
     this.cache.delete(slug);
     this.indexCache.delete(slug);
 

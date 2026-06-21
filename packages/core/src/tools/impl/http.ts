@@ -41,7 +41,7 @@ export class HttpRequestTool implements Tool {
     };
   }
 
-  async execute(params: Record<string, unknown>, _context: ToolContext): Promise<ToolResult> {
+  async execute(params: Record<string, unknown>, context: ToolContext): Promise<ToolResult> {
     const method = (params.method as string).toUpperCase();
     const url = params.url as string;
     const headers = (params.headers as Record<string, string>) || {};
@@ -117,6 +117,7 @@ export class HttpRequestTool implements Tool {
         includeInContext: true,
       };
     } catch (err) {
+      context.log.warn('HTTP request failed', { error: err instanceof Error ? err.message : String(err), url, method });
       return {
         success: false,
         data: null,

@@ -44,6 +44,7 @@ export interface ConfigField {
   enum?: unknown[];
   items?: ConfigField;
   properties?: ConfigSchema;
+  additionalProperties?: boolean;
   description?: string;
 }
 
@@ -261,6 +262,42 @@ export const lodestoneSchema: ConfigSchema = {
     properties: {
       maxConcurrent: { type: 'number', min: 1, max: 50 },
     },
+  },
+  // ─── Engine-level config sections ────────────────────────────────────────
+  costTracking: {
+    type: 'object',
+    additionalProperties: true,
+    description: 'Cost tracking configuration (monthly budget, pricing)',
+  },
+  modelRouting: {
+    type: 'object',
+    additionalProperties: true,
+    description: 'Multi-model routing configuration (routes, escalation)',
+  },
+  webhooks: {
+    type: 'object',
+    additionalProperties: true,
+    description: 'Webhook integration configuration (incoming/outgoing)',
+  },
+  abTesting: {
+    type: 'object',
+    additionalProperties: true,
+    description: 'A/B prompt testing configuration',
+  },
+  email: {
+    type: 'object',
+    additionalProperties: true,
+    description: 'Email channel configuration (IMAP/SMTP)',
+  },
+  calendar: {
+    type: 'object',
+    additionalProperties: true,
+    description: 'Calendar integration configuration',
+  },
+  auth: {
+    type: 'object',
+    additionalProperties: true,
+    description: 'Auth/multi-user configuration',
   },
 };
 

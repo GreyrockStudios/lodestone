@@ -76,7 +76,7 @@ export interface ToolContext {
   /** Access to the memory system */
   memory: MemoryAccess;
   /** Access to the engine (for coordinator, safety, improvement systems) */
-  engine?: any;
+  engine?: EngineAccess;
   /** Logger */
   log: ToolLogger;
 }
@@ -120,6 +120,10 @@ export interface WikiSearchResult {
   excerpt: string;
   score: number;
 }
+
+/** Minimal engine access interface for tools (avoids circular dependency) */
+/** Engine access — typed as any to avoid circular dependency between definitions.ts and engine.ts */
+export type EngineAccess = any;
 
 export interface ToolLogger {
   info(message: string, data?: unknown): void;

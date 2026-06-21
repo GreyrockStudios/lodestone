@@ -8,7 +8,8 @@
 
 import { LodestoneEngine } from '../engine.js';
 import { AgentLoop } from '../agent-loop.js';
-import { WikiResolveTool, WikiSearchTool } from '../tools/impl/wiki-resolve.js';
+import { WikiResolveTool } from '../tools/impl/wiki-resolve.js';
+import { WikiSearchTool } from '../tools/impl/wiki-search.js';
 import { SmartRetrieveTool } from '../tools/impl/smart-retrieve.js';
 import { DecisionLogTool } from '../tools/impl/decision-log.js';
 import { ResumeStateTool } from '../tools/impl/resume-state.js';

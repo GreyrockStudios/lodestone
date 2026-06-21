@@ -82,7 +82,8 @@ export class ResumeStateTool implements Tool {
             durationMs: Date.now() - start,
             includeInContext: true,
           };
-        } catch {
+        } catch (err) {
+          context.log.warn('Failed to parse saved resume state', { error: err instanceof Error ? err.message : String(err) });
           return {
             success: false, data: null,
             summary: 'Failed to parse saved state',

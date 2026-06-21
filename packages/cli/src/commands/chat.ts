@@ -33,6 +33,10 @@ export function chatCommand(): Command {
         process.env.LODESTONE_MODEL = model;
 
         // Import the TUI chat — it's self-contained
+        // TODO: The TUI chat module currently lives in core/dist/test/tui-chat.js,
+        // which is a test directory. This is a known issue — the TUI chat should be
+        // moved to a proper location (e.g. packages/core/src/tui/ or a separate
+        // @lodestone/tui package) in a future release. Do not rely on this path.
         const tuiPath = resolve(__dirname, '../../../core/dist/test/tui-chat.js');
 
         try {

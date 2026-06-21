@@ -183,14 +183,19 @@ export class VectorMemory implements Partial<MemoryAccess> {
 
   private async embedOllama(text: string): Promise<number[]> {
     const baseUrl = this.config.embeddingBaseUrl || 'http://127.0.0.1:11434';
-    const response = await fetch(`${baseUrl}/api/embeddings`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        model: this.config.embeddingModel,
-        prompt: text,
-      }),
-    });
+    let response: Response;
+    try {
+      response = await fetch(`${baseUrl}/api/embeddings`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          model: this.config.embeddingModel,
+          prompt: text,
+        }),
+      });
+    } catch (err) {
+      throw new MemoryError('Ollama embedding request failed', { context: { baseUrl, model: this.config.embeddingModel, error: err instanceof Error ? err.message : String(err) }, recoverable: true });
+    }
 
     if (!response.ok) {
       throw new MemoryError(`Ollama embedding failed: ${response.statusText}`, { context: { status: response.status }, recoverable: true });
@@ -202,17 +207,22 @@ export class VectorMemory implements Partial<MemoryAccess> {
 
   private async embedOpenAI(text: string): Promise<number[]> {
     const baseUrl = this.config.embeddingBaseUrl || 'https://api.openai.com/v1';
-    const response = await fetch(`${baseUrl}/embeddings`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${this.config.embeddingApiKey}`,
-      },
-      body: JSON.stringify({
-        model: this.config.embeddingModel,
-        input: text,
-      }),
-    });
+    let response: Response;
+    try {
+      response = await fetch(`${baseUrl}/embeddings`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${this.config.embeddingApiKey}`,
+        },
+        body: JSON.stringify({
+          model: this.config.embeddingModel,
+          input: text,
+        }),
+      });
+    } catch (err) {
+      throw new MemoryError('OpenAI embedding request failed', { context: { baseUrl, model: this.config.embeddingModel, error: err instanceof Error ? err.message : String(err) }, recoverable: true });
+    }
 
     if (!response.ok) {
       throw new MemoryError(`OpenAI embedding failed: ${response.statusText}`, { context: { status: response.status }, recoverable: true });

@@ -7,6 +7,7 @@ import chalk from 'chalk';
 import { readFile, writeFile } from 'fs/promises';
 import { resolve } from 'path';
 import { parse as parseYaml, stringify as stringifyYaml } from 'yaml';
+import { ConfigValidator } from '@lodestone/core';
 
 export function configCommand(): Command {
   const cmd = new Command('config');
@@ -144,6 +145,22 @@ export function configCommand(): Command {
         await writeFile(configPath, yaml, 'utf-8');
 
         console.log(chalk.green('✓') + ` Set ${chalk.white(key)} = ${chalk.white(String(parsedValue))}`);
+
+        // Validate the updated config and warn if there are issues
+        const validator = new ConfigValidator();
+        const result = validator.validate(config);
+        if (!result.valid) {
+          console.log(chalk.yellow('⚠') + ' Config validation issues:');
+          for (const err of result.errors) {
+            console.log(chalk.dim(`    ${err.path}: ${err.message}`));
+          }
+          console.log(chalk.dim('    Config was saved anyway. Fix the issues above or run `lodestone config show` to review.'));
+        }
+        if (result.warnings.length > 0) {
+          for (const warn of result.warnings) {
+            console.log(chalk.dim(`    ${chalk.yellow('⚠')} ${warn.path}: ${warn.message}`));
+          }
+        }
 
       } catch (err) {
         console.error(chalk.red(`Error: ${err instanceof Error ? err.message : String(err)}`));

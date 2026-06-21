@@ -697,24 +697,42 @@ ${steps.join('\n')}
 
   // ─── Private: Persistence ────────────────────────────────────────────────
 
+  private async saveWithRetry(saveFn: () => Promise<void>, name: string, maxRetries = 2): Promise<void> {
+    for (let attempt = 0; attempt <= maxRetries; attempt++) {
+      try {
+        await saveFn();
+        return;
+      } catch (err: unknown) {
+        if (attempt === maxRetries) {
+          this.logger.warn(`[SkillSynthesizer] Failed to save ${name} after ${maxRetries + 1} attempts: ${err}`);
+          return;
+        }
+        await new Promise(resolve => setTimeout(resolve, 500 * Math.pow(2, attempt)));
+      }
+    }
+  }
+
   private async saveSequences(): Promise<void> {
-    const data = Array.from(this.sequences.entries()).map(([sessionId, calls]) => ({
-      sessionId,
-      calls,
-    }));
-    await mkdir(join(this.sequencesFile, '..'), { recursive: true });
-    await writeFile(this.sequencesFile, JSON.stringify(data, null, 2), 'utf-8');
+    await this.saveWithRetry(async () => {
+      const data = Array.from(this.sequences.entries()).map(([sessionId, calls]) => ({ sessionId, calls }));
+      await mkdir(join(this.sequencesFile, '..'), { recursive: true });
+      await writeFile(this.sequencesFile, JSON.stringify(data, null, 2), 'utf-8');
+    }, 'sequences');
   }
 
   private async savePatterns(): Promise<void> {
-    const data = Array.from(this.patterns.values());
-    await mkdir(join(this.patternsFile, '..'), { recursive: true });
-    await writeFile(this.patternsFile, JSON.stringify(data, null, 2), 'utf-8');
+    await this.saveWithRetry(async () => {
+      const data = Array.from(this.patterns.values());
+      await mkdir(join(this.patternsFile, '..'), { recursive: true });
+      await writeFile(this.patternsFile, JSON.stringify(data, null, 2), 'utf-8');
+    }, 'patterns');
   }
 
   private async saveProposals(): Promise<void> {
-    const data = Array.from(this.proposals.values());
-    await mkdir(join(this.proposalsFile, '..'), { recursive: true });
-    await writeFile(this.proposalsFile, JSON.stringify(data, null, 2), 'utf-8');
+    await this.saveWithRetry(async () => {
+      const data = Array.from(this.proposals.values());
+      await mkdir(join(this.proposalsFile, '..'), { recursive: true });
+      await writeFile(this.proposalsFile, JSON.stringify(data, null, 2), 'utf-8');
+    }, 'proposals');
   }
 }

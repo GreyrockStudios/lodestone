@@ -10,6 +10,7 @@ import { readFile } from 'fs/promises';
 import { resolve } from 'path';
 import { parse as parseYaml } from 'yaml';
 import { existsSync } from 'fs';
+import { getBuiltinToolNames, getBuiltinJobNames } from '@lodestone/core';
 
 export function statusCommand(): Command {
   const cmd = new Command('status');
@@ -106,22 +107,12 @@ export function statusCommand(): Command {
         console.log(chalk.dim('  Engine:    ') + (isRunning ? chalk.green('Running') : chalk.dim('Stopped')));
 
         // Tools
-        const toolNames = [
-          'wiki-resolve', 'wiki-search', 'wiki-write', 'wiki-read',
-          'memory-store', 'memory-recall', 'smart-retrieve',
-          'decision-log', 'resume-state', 'watchdog', 'business-hours',
-          'web-search', 'web-fetch', 'file-ops', 'code-exec',
-          'calendar', 'vision', 'voice', 'coordinator',
-          'shell', 'http', 'process-manager', 'diff-patch', 'git',
-          'browser', 'scheduler', 'send-message', 'database', 'mcp-client',
-          'image-gen', 'ocr', 'transcribe', 'clipboard', 'notify',
-          'secrets', 'search-engine', 'screenshot', 'archive', 'lsp',
-        ];
+        const toolNames = getBuiltinToolNames();
         console.log(chalk.dim('  Tools:     ') + chalk.white(`${toolNames.length} built-in`));
         console.log(chalk.dim('             ') + chalk.dim(toolNames.join(', ')));
 
         // Proactive jobs
-        const jobNames = ['sensorium', 'sleep-cycle', 'drift-detection'];
+        const jobNames = getBuiltinJobNames();
         console.log(chalk.dim('  Jobs:      ') + chalk.white(`${jobNames.length} scheduled`));
         console.log(chalk.dim('             ') + chalk.dim(jobNames.join(', ')));
 

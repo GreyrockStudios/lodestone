@@ -97,7 +97,8 @@ export class AgentLoop {
     let traceId: string | undefined;
     try {
       traceId = this.engine.safety.explainability.beginTrace(sessionId, userMessage);
-    } catch {
+    } catch (err) {
+      this.logger.debug('Explainability beginTrace failed', { error: err instanceof Error ? err.message : String(err) });
       // Best-effort
     }
 
@@ -109,7 +110,8 @@ export class AgentLoop {
         senderName: '',
         channelId: '',
       });
-    } catch {
+    } catch (err) {
+      this.logger.debug('onMessage plugin hook failed', { error: err instanceof Error ? err.message : String(err) });
       // Plugin hooks are best-effort — never block the loop
     }
 
@@ -151,7 +153,8 @@ export class AgentLoop {
         systemPrompt,
         messages: messages.length,
       });
-    } catch {
+    } catch (err) {
+      this.logger.debug('beforeResponse plugin hook failed', { error: err instanceof Error ? err.message : String(err) });
       // Best-effort — don't block
     }
 
@@ -298,7 +301,8 @@ export class AgentLoop {
         score: confidenceScore.score.toFixed(2),
         band: confidenceScore.band,
       });
-    } catch {
+    } catch (err) {
+      this.logger.debug('Confidence scoring failed', { error: err instanceof Error ? err.message : String(err) });
       // Best-effort — don't block on confidence scoring
     }
 
@@ -347,7 +351,8 @@ export class AgentLoop {
           inputTokens: Math.ceil(userMessage.length / 4),
           outputTokens: totalTokens - Math.ceil(userMessage.length / 4),
         });
-      } catch {
+      } catch (err) {
+        this.logger.debug('Cost tracking failed', { error: err instanceof Error ? err.message : String(err) });
         // Best-effort — don't block on cost tracking
       }
     }
@@ -366,7 +371,8 @@ export class AgentLoop {
     // 10. Explainability — end trace and store
     try {
       this.engine.safety.explainability.endTrace(traceId || sessionId, currentResponse);
-    } catch {
+    } catch (err) {
+      this.logger.debug('Explainability endTrace failed', { error: err instanceof Error ? err.message : String(err) });
       // Best-effort
     }
 
@@ -384,7 +390,8 @@ export class AgentLoop {
       if (score.adjustedScore < 50) {
         currentResponse += `\n\n_Confidence: ${score.band} — ${score.label}_`;
       }
-    } catch {
+    } catch (err) {
+      this.logger.debug('Confidence display failed', { error: err instanceof Error ? err.message : String(err) });
       // Best-effort
     }
 
@@ -392,10 +399,14 @@ export class AgentLoop {
     if (this.engine.improvement.skillSynthesizer && toolCallsMade.length > 0) {
       try {
         this.engine.improvement.skillSynthesizer.recordToolSequence(sessionId, toolCallsMade.map(tc => ({
-          toolName: tc.toolName,
+          toolId: tc.toolName,
+          params: {},
+          success: tc.success,
+          durationMs: tc.durationMs,
           timestamp: new Date().toISOString(),
-        } as any)));
-      } catch {
+        })));
+      } catch (err) {
+        this.logger.debug('Skill synthesizer recording failed', { error: err instanceof Error ? err.message : String(err) });
         // Best-effort
       }
     }
@@ -403,15 +414,15 @@ export class AgentLoop {
     // 13. Failure replay — record decision trace
     try {
       this.engine.safety.failureReplay.recordDecisionTrace({
-        traceId: traceId || (sessionId + '-' + Date.now()),
+        id: traceId || (sessionId + '-' + Date.now()),
         sessionId,
-        timestamp: new Date().toISOString(),
-        userMessage,
-        response: currentResponse,
-        toolCalls: toolCallsMade.map(tc => ({ toolName: tc.toolName, step: tc.toolName, result: 'completed' } as any)),
-        outcome: 'completed',
+        timestamp: Date.now(),
+        steps: toolCallsMade.map(tc => ({ tool: tc.toolName, action: tc.toolName, success: tc.success, durationMs: tc.durationMs })),
+        outcome: 'success',
+        finalResponse: currentResponse,
       } as any);
-    } catch {
+    } catch (err) {
+      this.logger.debug('Failure replay recording failed', { error: err instanceof Error ? err.message : String(err) });
       // Best-effort
     }
 
@@ -560,7 +571,8 @@ export class AgentLoop {
       };
       const style = this.engine.contextualStyle.getStyle(styleContext);
       prompt = this.engine.contextualStyle.applyStyle(prompt, style);
-    } catch {
+    } catch (err) {
+      this.logger.debug('Contextual style adaptation failed', { error: err instanceof Error ? err.message : String(err) });
       // Best-effort — style adaptation shouldn't block
     }
 
@@ -766,7 +778,8 @@ export class AgentLoop {
             tc = { ...tc, arguments: modified.params };
           }
         }
-      } catch {
+      } catch (err) {
+        this.logger.debug('beforeTool plugin hook failed', { tool: tc.toolName, error: err instanceof Error ? err.message : String(err) });
         // Plugin hooks are best-effort — never block the loop
       }
       if (pluginBlocked) continue;
@@ -835,7 +848,8 @@ const matches = isRegex
             });
             continue; // Skip to next tool
           }
-        } catch {
+        } catch (err) {
+          this.logger.debug('Self-constraint check failed', { tool: tc.toolName, error: err instanceof Error ? err.message : String(err) });
           // Best-effort — don't block on constraint check errors
         }
       }
@@ -884,7 +898,8 @@ const matches = isRegex
           result: result.summary?.substring(0, 200) || (result.success ? 'success' : result.error?.substring(0, 200) || 'unknown'),
           durationMs: result.durationMs,
         });
-      } catch {
+      } catch (err) {
+        this.logger.debug('Explainability addStep failed', { tool: tc.toolName, error: err instanceof Error ? err.message : String(err) });
         // Best-effort
       }
 
@@ -919,7 +934,8 @@ const matches = isRegex
         // Route through storeFact — triggers compounding, entity extraction, cross-referencing
         try {
           await this.engine.memory.storeFact(capture.text, capture.category, capture.importance);
-        } catch {
+        } catch (err) {
+          this.logger.debug('storeFact failed during auto-capture', { error: err instanceof Error ? err.message : String(err) });
           // If storeFact fails (e.g. LanceDB down), continue with wiki write
         }
 
@@ -939,7 +955,8 @@ const matches = isRegex
                 source: 'auto-capture',
               });
             }
-          } catch {
+          } catch (err) {
+            this.logger.debug('Wiki write failed during auto-capture', { error: err instanceof Error ? err.message : String(err) });
             // Best-effort — don't fail the turn if wiki write fails
           }
         }

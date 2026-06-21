@@ -34,7 +34,10 @@ export class CoordinatorTool implements Tool {
   async execute(params: Record<string, unknown>, context: ToolContext): Promise<ToolResult> {
     const startMs = Date.now();
     const action = params.action as string;
-    const coordinator = context.engine.coordinator;
+    const coordinator = (context.engine as any)?.coordinator;
+    if (!coordinator) {
+      return { success: false, data: null, summary: 'Coordinator not available', error: 'Engine coordinator not initialized', durationMs: Date.now() - startMs, includeInContext: true };
+    }
 
     switch (action) {
       case 'spawn': {

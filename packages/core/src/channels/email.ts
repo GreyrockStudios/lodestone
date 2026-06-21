@@ -526,7 +526,13 @@ export class EmailChannel extends Channel {
           });
 
           f.once('end', () => {
-            resolve(messages);
+            imap.closeBox((closeErr: Error | null) => {
+              if (closeErr) {
+                // Best-effort close — log but don't fail
+                this.log.warn('[Channel:Email] Failed to close IMAP box', { error: closeErr instanceof Error ? closeErr.message : String(closeErr) });
+              }
+              resolve(messages);
+            });
           });
         });
       });

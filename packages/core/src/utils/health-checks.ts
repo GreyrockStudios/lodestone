@@ -146,8 +146,8 @@ export class HealthChecker {
    */
   checkDisk(path: string, thresholdPercent: number): DiskCheckResult {
     try {
-      // statfs in Node.js types expects a callback, but the sync version
-      // returns void. Use eval to bypass the type checker and get the result.
+      // statfsSync returns a StatFs object with bsize, blocks, bavail fields.
+      // This is available on Linux and macOS (Node >= 18).
       const stats = statfsSync(path);
       const bsize = stats.bsize;
       const total = stats.blocks * bsize;

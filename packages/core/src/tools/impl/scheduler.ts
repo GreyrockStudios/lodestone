@@ -278,7 +278,8 @@ export class SchedulerTool implements Tool {
     try {
       const raw = readFileSync(path, 'utf-8');
       return JSON.parse(raw) as SchedulerData;
-    } catch {
+    } catch (err) {
+      context.log.warn('Failed to load scheduler data, returning empty', { error: err instanceof Error ? err.message : String(err), path });
       return { tasks: [] };
     }
   }

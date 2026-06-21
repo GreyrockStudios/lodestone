@@ -20,6 +20,7 @@ import { existsSync } from 'fs';
 import { resolve, isAbsolute } from 'path';
 import { randomUUID } from 'crypto';
 import type { Tool, ToolDefinition, ToolResult, ToolContext } from '../definitions.js';
+import { getLogger } from '../../utils/logger.js';
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -131,6 +132,7 @@ export class LspTool implements Tool {
   // ─── Static server registry (shared across instances) ──────────────────────
 
   private static servers: Map<string, LspServer> = new Map();
+  private logger = getLogger('LspTool');
 
   private static serverKey(language: Language, workspaceRoot: string): string {
     return `${language}:${workspaceRoot}`;
@@ -227,7 +229,8 @@ export class LspTool implements Tool {
     // Check if the binary exists
     try {
       await this.checkBinary(config.command);
-    } catch {
+    } catch (err) {
+      this.logger.warn('LSP server binary not found', { language, command: config.command, error: err instanceof Error ? err.message : String(err) });
       return {
         success: false,
         data: null,
@@ -589,7 +592,8 @@ export class LspTool implements Tool {
           const p = msg.params as { uri: string; diagnostics: unknown[] };
           server.diagnostics.set(p.uri, p.diagnostics);
         }
-      } catch {
+      } catch (err) {
+        this.logger.warn('Malformed LSP JSON message, skipping', { error: err instanceof Error ? err.message : String(err) });
         // Malformed JSON — skip
       }
     }
@@ -621,7 +625,8 @@ export class LspTool implements Tool {
     try {
       await this.sendRequest(server, 'shutdown', {});
       this.sendNotification(server, 'exit', {});
-    } catch {
+    } catch (err) {
+      this.logger.warn('LSP server shutdown failed', { language: server.language, workspaceRoot: server.workspaceRoot, error: err instanceof Error ? err.message : String(err) });
       // Best-effort shutdown
     }
     server.process.kill();
