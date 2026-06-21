@@ -83,7 +83,7 @@ export const lodestoneSchema: ConfigSchema = {
             type: 'number',
             min: 1024,
             max: 1000000,
-            default: 202752,
+            default: 128000,
             description: 'Context window size in tokens',
           },
           maxTokens: {
@@ -195,9 +195,9 @@ export const lodestoneSchema: ConfigSchema = {
     type: 'object',
     description: 'Dashboard server configuration',
     properties: {
-      port: { type: 'number', min: 1, max: 65535, default: 4400 },
-      authToken: { type: 'string', description: 'Bearer token for API auth' },
-      corsOrigins: { type: 'array', items: { type: 'string' } },
+      port: { type: 'number', min: 1, max: 65535, default: 3002 },
+      apiToken: { type: 'string', description: 'Bearer token for API auth' },
+      corsOrigin: { type: 'string', description: 'CORS origin for dashboard' },
     },
   },
   logging: {

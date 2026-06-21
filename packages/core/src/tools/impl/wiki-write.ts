@@ -14,7 +14,7 @@ export class WikiWriteTool implements Tool {
       { name: 'title', type: 'string', description: 'Page title for frontmatter', required: false },
       { name: 'tags', type: 'string', description: 'Comma-separated tags', required: false },
     ] as ToolParameter[],
-    sideEffects: false,
+    sideEffects: true,
     requiresApproval: false,
   };
 

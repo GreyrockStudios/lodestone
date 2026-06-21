@@ -13,6 +13,7 @@ export class MemoryRecallTool implements Tool {
       { name: 'limit', type: 'number', description: 'Max results (default 5)', required: false },
     ] as ToolParameter[],
     sideEffects: false,
+    timeout: 15000,
     requiresApproval: false,
   };
 

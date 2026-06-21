@@ -27,7 +27,7 @@ llm:
 memory:
   wiki:
     path: ./workspace/memory/wiki
-  vector:
+  vectorDb:
     path: ./workspace/data/lancedb
 
 # ─── Session ─────────────────────────────────────────────────────────

@@ -1,7 +1,7 @@
 {
   "name": "lodestone",
   "version": "0.1.0",
-  "description": "Lodestone — standalone agent engine with memory, self-improvement, and proactivity",
+  "description": "Lodestone \u2014 standalone agent engine with memory, self-improvement, and proactivity",
   "type": "module",
   "private": false,
   "license": "MIT",
@@ -27,14 +27,14 @@
     "packages/*"
   ],
   "scripts": {
-    "build": "npm run build --workspaces",
+    "build": "npm run clean && npm run build --workspaces",
     "start": "node packages/core/dist/main.js",
     "dev": "npm run dev --workspace=@lodestone/core",
     "test": "npm run test --workspaces --if-present",
     "test:dogfood": "npm run test:dogfood --workspace=@lodestone/core --if-present",
     "test:all": "npm run test --workspaces --if-present && npm run test:dogfood --workspace=@lodestone/core --if-present",
     "lint": "npm run lint --workspaces --if-present",
-    "clean": "npm run clean --workspaces --if-present"
+    "clean": "rm -rf packages/*/dist"
   },
   "files": [
     "packages/core/dist",

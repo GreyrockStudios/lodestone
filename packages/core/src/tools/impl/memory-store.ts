@@ -14,6 +14,7 @@ export class MemoryStoreTool implements Tool {
       { name: 'importance', type: 'number', description: 'Importance 0-1 (default 0.7)', required: false },
     ] as ToolParameter[],
     sideEffects: false,
+    timeout: 15000,
     requiresApproval: false,
   };
 

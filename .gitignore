@@ -14,7 +14,17 @@ dist/
 
 # Environment
 .env
-.env.local
+.env.*
+!.env.example
+
+# Secrets & keys
+*.key
+*.pem
+secrets.*
+*.enc.json
+
+# Vector DB
+lancedb/
 
 # Data
 *.db

@@ -15,7 +15,7 @@ import { createCipheriv, createDecipheriv, scryptSync, randomBytes } from 'crypt
 import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'fs';
 import { join } from 'path';
 import { hostname, userInfo } from 'os';
-import type { Tool, ToolDefinition, ToolResult, ToolContext } from '../definitions.js';
+import type { Tool, ToolDefinition, ToolResult, ToolContext, ToolLogger } from '../definitions.js';
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -124,7 +124,7 @@ export class SecretsTool implements Tool {
     return join(workspaceRoot, 'data', 'secrets.enc.json');
   }
 
-  private loadSecrets(filePath: string): SecretsFile {
+  private loadSecrets(filePath: string, log?: ToolLogger): SecretsFile {
     if (!existsSync(filePath)) {
       return { v: 1, namespaces: {} };
     }
@@ -133,8 +133,9 @@ export class SecretsTool implements Tool {
       const parsed = JSON.parse(raw) as SecretsFile;
       if (!parsed.namespaces) parsed.namespaces = {};
       return parsed;
-    } catch {
-      // Corrupted file — return empty rather than throwing
+    } catch (err: unknown) {
+      // Corrupted file — warn and return empty rather than crashing
+      log?.warn('Secrets file corrupted, starting fresh', { error: err instanceof Error ? err.message : String(err) });
       return { v: 1, namespaces: {} };
     }
   }
@@ -155,7 +156,7 @@ export class SecretsTool implements Tool {
     const filePath = this.getSecretsFilePath(context.workspaceRoot);
 
     try {
-      const secrets = this.loadSecrets(filePath);
+      const secrets = this.loadSecrets(filePath, context.log);
       const ns = secrets.namespaces[namespace] || (secrets.namespaces[namespace] = {});
 
       switch (action) {

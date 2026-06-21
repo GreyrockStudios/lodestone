@@ -18,6 +18,7 @@ const definition: ToolDefinition = {
   ],
   sideEffects: false,
   requiresApproval: false,
+  timeout: 15000,
 };
 
 export class SmartRetrieveTool implements Tool {

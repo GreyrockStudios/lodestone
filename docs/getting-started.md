@@ -195,7 +195,7 @@ You'll see:
 [Lodestone] Starting engine...
 [Lodestone] Identity loaded: Jarvis
 [Lodestone] Safety system initialized
-[Lodestone]   Capabilities: 15 tools across 4 tiers
+[Lodestone]   Capabilities: 39 tools across 4 tiers
 [Lodestone]   Behavioral rules: 0 active
 [Lodestone] Engine started. Agent is thinking.
 ```
@@ -222,7 +222,7 @@ Press `Ctrl+C` in the terminal. The engine stops channels, cancels scheduled job
 
 ## 7. Built-in Tools
 
-Your agent comes with 15 tools out of the box:
+Your agent comes with 39 tools out of the box:
 
 | Tool | Description | Tier |
 |------|-------------|------|

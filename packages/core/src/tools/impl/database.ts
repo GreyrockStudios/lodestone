@@ -155,6 +155,9 @@ export class DatabaseTool implements Tool {
         case 'schema': {
           const table = params.table as string;
           if (!table) return this.missingParam('table', start);
+          if (!/^[a-zA-Z_][a-zA-Z0-9_]*$/.test(table)) {
+            return { success: false, data: null, summary: 'Invalid table name', error: 'Table name must be alphanumeric + underscore only', durationMs: Date.now() - start, includeInContext: true };
+          }
           const stmt = db.prepare(`PRAGMA table_info(${table})`);
           const columns = stmt.all() as { name: string; type: string; notnull: number; dflt_value: string | null; pk: number }[];
           return {

@@ -65,8 +65,12 @@ export class VectorMemory implements Partial<MemoryAccess> {
   async init(): Promise<void> {
     if (this.initialized) return;
 
-    this.db = await connect(this.config.dbPath);
-    this.initialized = true;
+    try {
+      this.db = await connect(this.config.dbPath);
+      this.initialized = true;
+    } catch (err: unknown) {
+      throw new MemoryError('Failed to initialize vector memory database', { context: { dbPath: this.config.dbPath, error: err instanceof Error ? err.message : String(err) } });
+    }
   }
 
   /** Store a fact in long-term memory */
@@ -157,9 +161,13 @@ export class VectorMemory implements Partial<MemoryAccess> {
     const key = results[0].metadata?.key as string | undefined;
     if (!key) return;
 
-    const table = await this.db!.openTable('memories');
-    await table.delete(`key = '${key}'`);
-    this.logger.info('Memory deleted', { key, query: query.slice(0, 50) });
+    try {
+      const table = await this.db!.openTable('memories');
+      await table.delete(`key = '${key}'`);
+      this.logger.info('Memory deleted', { key, query: query.slice(0, 50) });
+    } catch (err: unknown) {
+      throw new MemoryError('Failed to delete memory', { context: { key, error: err instanceof Error ? err.message : String(err) } });
+    }
   }
 
   // ─── Embedding ─────────────────────────────────────────────────────────

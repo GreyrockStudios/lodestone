@@ -27,10 +27,14 @@ export class WebFetchTool implements Tool {
     const start = Date.now();
 
     try {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 18000);
       const res = await fetch(url, {
         headers: { 'User-Agent': 'Lodestone/0.1 (agent runtime)' },
         redirect: 'follow',
+        signal: controller.signal,
       });
+      clearTimeout(timeout);
 
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
 

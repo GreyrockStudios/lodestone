@@ -251,19 +251,23 @@ lodestone init                Interactive workspace wizard
 lodestone start               Boot the engine
 lodestone status              Show engine status
 lodestone chat                Start TUI chat interface
-lodestone tools list          List registered tools (15 built-in)
+lodestone tools list          List registered tools (39 built-in)
 lodestone memory stats        Show memory statistics
 lodestone config show          Display current configuration
 lodestone config set <k> <v>  Update a config value
 lodestone doctor              Run 25 health checks
 ```
 
-## Built-in Tools (15)
+## Built-in Tools (39)
 
 | Tool | Purpose |
 |------|---------|
 | `wiki-resolve` | Resolve [[wikilinks]] to file paths and content |
 | `wiki-search` | Search wiki pages by title, slug, or tag |
+| `wiki-write` | Write and update wiki pages with frontmatter |
+| `wiki-read` | Read wiki page content by slug |
+| `memory-store` | Store facts in long-term vector memory |
+| `memory-recall` | Recall memories by semantic similarity |
 | `smart-retrieve` | Get wiki pages ranked by relevance to current task |
 | `decision-log` | Record and query decisions with rationale |
 | `resume-state` | Save/load task state across sessions |
@@ -273,6 +277,26 @@ lodestone doctor              Run 25 health checks
 | `web-fetch` | Fetch and extract readable content from a URL |
 | `file-ops` | Read, write, and manage files |
 | `code-exec` | Execute shell commands safely |
+| `shell` | Execute shell commands with sandboxing |
+| `http` | Make HTTP requests with timeout support |
+| `process-manager` | Spawn and manage background processes |
+| `diff-patch` | Apply find-and-replace patches to files |
+| `git` | Run git commands (status, diff, commit, etc.) |
+| `browser` | Browser automation via Playwright |
+| `scheduler` | Schedule and manage recurring tasks |
+| `send-message` | Send messages via email, Slack, Discord, Telegram |
+| `database` | Query SQLite/PostgreSQL databases |
+| `mcp-client` | Connect to MCP (Model Context Protocol) servers |
+| `image-gen` | Generate images via DALL-E or local models |
+| `ocr` | Extract text from images via Tesseract |
+| `transcribe` | Transcribe audio/video via Whisper |
+| `clipboard` | Read and write system clipboard |
+| `notify` | Send desktop notifications |
+| `secrets` | Store and retrieve encrypted secrets |
+| `search-engine` | Web search via SearXNG or Google CSE |
+| `screenshot` | Capture screenshots |
+| `archive` | Create and extract zip archives |
+| `lsp` | Language Server Protocol bridge for code intelligence |
 | `calendar` | Schedule and manage events |
 | `vision` | Analyze images and visual content |
 | `voice` | Text-to-speech output |
@@ -407,7 +431,7 @@ lodestone/
 
 ```bash
 npm run build          # Build all packages
-npm test               # Run 235 tests
+npm test               # Run 243 tests
 npm run test:dogfood   # Run 21 integration tests
 npm run dev            # Watch mode
 ```
@@ -461,8 +485,8 @@ agent.engine.safety.explainability.getTrace('session-1');
 ## Stats
 
 - **43,660 lines** of TypeScript
-- **235 tests** + 21 dogfood tests — all passing
-- **15 built-in tools**
+- **243 tests** + 21 dogfood tests — all passing
+- **39 built-in tools**
 - **5 channels** (CLI, TUI, Telegram, Discord, Email)
 - **8 self-improvement systems**
 - **8 safety systems**

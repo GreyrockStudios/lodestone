@@ -77,8 +77,16 @@ export function statusCommand(): Command {
           wikiPageCount = 0;
         }
 
-        // Check if engine is running (look for PID file or health endpoint)
-        const isRunning = false; // TODO: check actual process status
+        // Check if engine is running (try common webchat ports)
+        let isRunning = false;
+        for (const port of [3000, 3002]) {
+          try {
+            const res = await fetch(`http://127.0.0.1:${port}/health`, { signal: AbortSignal.timeout(1000) });
+            if (res.ok) { isRunning = true; break; }
+          } catch {
+            // try next port
+          }
+        }
 
         // Display status
         console.log('');
