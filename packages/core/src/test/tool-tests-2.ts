@@ -135,6 +135,39 @@ async function runTests() {
     console.log(`   → Correctly rejected path traversal`);
   });
 
+  await test('shell: timeoutMs parameter kills long-running command', async () => {
+    const ctx = makeMockContext();
+    const tool = new ShellExecTool({ workspaceRoot: WORKSPACE });
+    const result = await tool.execute({ command: 'sleep 10', timeoutMs: 500 }, ctx);
+    assert(!result.success, 'Expected failure for timed-out command');
+    const data = result.data as { timedOut: boolean; exitCode: number | null };
+    assert(data.timedOut === true, `Expected timedOut=true, got ${data.timedOut}`);
+    assert(result.error!.includes('Timeout'), `Expected error to mention timeout, got: ${result.error}`);
+    assert(result.summary.includes('timed out'), `Expected summary to mention timeout, got: ${result.summary}`);
+    console.log(`   → Timeout correctly detected and reported`);
+  });
+
+  await test('shell: stderr is captured separately', async () => {
+    const ctx = makeMockContext();
+    const tool = new ShellExecTool({ workspaceRoot: WORKSPACE });
+    const result = await tool.execute({ command: 'echo stdout-msg && echo stderr-msg >&2' }, ctx);
+    assert(result.success, `Expected success, got: ${result.error}`);
+    const data = result.data as { stdout: string; stderr: string };
+    assert(data.stdout.includes('stdout-msg'), `Expected stdout to contain message, got: "${data.stdout}"`);
+    assert(data.stderr.includes('stderr-msg'), `Expected stderr to contain message, got: "${data.stderr}"`);
+    console.log(`   → stdout: "${data.stdout.trim()}", stderr: "${data.stderr.trim()}"`);
+  });
+
+  await test('shell: error message includes command name', async () => {
+    const ctx = makeMockContext();
+    const tool = new ShellExecTool({ workspaceRoot: WORKSPACE });
+    const result = await tool.execute({ command: 'exit 7' }, ctx);
+    assert(!result.success, 'Expected failure');
+    assert(result.error!.includes('exit 7'), `Expected error to include command, got: ${result.error}`);
+    assert(result.summary.includes('exit 7'), `Expected summary to include command, got: ${result.summary}`);
+    console.log(`   → Error includes command context: "${result.error}"`);
+  });
+
   // ─── 2. HTTP ─────────────────────────────────────────────────────────────────
 
   await test('http: invalid URL is rejected', async () => {
@@ -142,8 +175,8 @@ async function runTests() {
     const tool = new HttpRequestTool();
     const result = await tool.execute({ method: 'GET', url: 'not-a-url' }, ctx);
     assert(!result.success, 'Expected failure for invalid URL');
-    assert(result.error === 'InvalidURL', `Expected InvalidURL, got: ${result.error}`);
-    console.log(`   → Correctly rejected invalid URL`);
+    assert(result.error!.includes('not a valid'), `Expected helpful error, got: ${result.error}`);
+    console.log(`   → Correctly rejected invalid URL: ${result.error}`);
   });
 
   await test('http: invalid method is rejected', async () => {
@@ -160,7 +193,19 @@ async function runTests() {
     assert(tool.definition.parameters.length >= 2, 'Expected at least 2 parameters');
     const methods = tool.definition.parameters.find(p => p.name === 'method');
     assert(!!methods?.enum?.includes('GET'), 'Expected GET in method enum');
+    // Verify maxRetries parameter exists
+    const maxRetries = tool.definition.parameters.find(p => p.name === 'maxRetries');
+    assert(!!maxRetries, 'Expected maxRetries parameter in definition');
     console.log(`   → Definition valid: ${tool.definition.name}`);
+  });
+
+  await test('http: invalid method error lists valid methods', async () => {
+    const ctx = makeMockContext();
+    const tool = new HttpRequestTool();
+    const result = await tool.execute({ method: 'BOGUS', url: 'https://example.com' }, ctx);
+    assert(!result.success, 'Expected failure for invalid method');
+    assert(result.error!.includes('GET'), `Expected error to list valid methods, got: ${result.error}`);
+    console.log(`   → Error: ${result.error}`);
   });
 
   // ─── 3. Process Manager ───────────────────────────────────────────────────────

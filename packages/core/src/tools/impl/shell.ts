@@ -26,7 +26,7 @@ export class ShellExecTool implements Tool {
     parameters: [
       { name: 'command', type: 'string', description: 'Shell command to execute', required: true },
       { name: 'cwd', type: 'string', description: 'Working directory (relative to workspace root)', required: false },
-      { name: 'timeout', type: 'number', description: 'Timeout in ms (default: 30000)', required: false, default: 30000 },
+      { name: 'timeoutMs', type: 'number', description: 'Timeout in ms (default: 30000). Process is killed if exceeded.', required: false, default: 30000 },
     ],
     sideEffects: true,
     requiresApproval: true,
@@ -46,7 +46,7 @@ export class ShellExecTool implements Tool {
   async execute(params: Record<string, unknown>, _context: ToolContext): Promise<ToolResult> {
     const command = params.command as string;
     const cwdParam = (params.cwd as string) || '.';
-    const timeout = (params.timeout as number) || this.config.defaultTimeout;
+    const timeoutMs = (params.timeoutMs as number) || (params.timeout as number) || this.config.defaultTimeout;
     const start = Date.now();
 
     // Sandbox cwd to workspace root
@@ -63,12 +63,32 @@ export class ShellExecTool implements Tool {
     }
 
     try {
-      const { stdout, stderr, exitCode } = await this.runCommand(command, cwd, timeout);
+      const { stdout, stderr, exitCode, timedOut } = await this.runCommand(command, cwd, timeoutMs);
 
       const truncate = (s: string): string =>
         s.length > this.config.maxOutput
           ? s.slice(0, this.config.maxOutput) + '\n...[truncated]'
           : s;
+
+      if (timedOut) {
+        return {
+          success: false,
+          data: {
+            stdout: truncate(stdout),
+            stderr: truncate(stderr),
+            exitCode: null,
+            timedOut: true,
+            durationMs: Date.now() - start,
+          },
+          summary: `Command timed out after ${timeoutMs}ms: \`${command.slice(0, 100)}\``,
+          error: `Timeout: command \`${command.slice(0, 80)}\` exceeded ${timeoutMs}ms limit`,
+          durationMs: Date.now() - start,
+          includeInContext: true,
+        };
+      }
+
+      const cmdPreview = command.length > 80 ? command.slice(0, 77) + '...' : command;
+      const trimmedStderr = stderr.trim();
 
       return {
         success: exitCode === 0,
@@ -76,21 +96,24 @@ export class ShellExecTool implements Tool {
           stdout: truncate(stdout),
           stderr: truncate(stderr),
           exitCode,
+          timedOut: false,
           durationMs: Date.now() - start,
         },
         summary: exitCode === 0
-          ? `Command succeeded (exit 0, ${Date.now() - start}ms)`
-          : `Command failed (exit ${exitCode}): ${stderr.slice(0, 200)}`,
-        error: exitCode === 0 ? undefined : `Exit code ${exitCode}`,
+          ? `\`${cmdPreview}\` succeeded (exit 0, ${Date.now() - start}ms)`
+          : `\`${cmdPreview}\` failed with exit code ${exitCode}${trimmedStderr ? ': ' + trimmedStderr.slice(0, 150) : ''}`,
+        error: exitCode === 0 ? undefined : `Command \`${cmdPreview}\` exited with code ${exitCode}${trimmedStderr ? ' — ' + trimmedStderr.slice(0, 200) : ''}`,
         durationMs: Date.now() - start,
         includeInContext: true,
       };
     } catch (err) {
+      const cmdPreview = command.length > 80 ? command.slice(0, 77) + '...' : command;
+      const errMsg = err instanceof Error ? err.message : String(err);
       return {
         success: false,
         data: null,
-        summary: `Shell error: ${err}`,
-        error: String(err),
+        summary: `\`${cmdPreview}\` threw an error: ${errMsg}`,
+        error: `Shell execution error for \`${cmdPreview}\`: ${errMsg}`,
         durationMs: Date.now() - start,
         includeInContext: false,
       };
@@ -108,19 +131,32 @@ export class ShellExecTool implements Tool {
   private runCommand(
     command: string,
     cwd: string,
-    timeout: number,
-  ): Promise<{ stdout: string; stderr: string; exitCode: number }> {
+    timeoutMs: number,
+  ): Promise<{ stdout: string; stderr: string; exitCode: number; timedOut: boolean }> {
     return new Promise((resolvePromise) => {
-      exec(command, {
+      const child = exec(command, {
         cwd,
-        timeout,
+        timeout: timeoutMs,
         maxBuffer: 1024 * 1024,
         env: { ...process.env },
       }, (err, stdout, stderr) => {
+        // Node sets err.killed=true when the process was killed by timeout
+        const timedOut = !!err && (err as { killed?: boolean }).killed === true;
         resolvePromise({
           stdout: stdout || '',
           stderr: stderr || '',
-          exitCode: err ? (err as { code?: number }).code ?? 1 : 0,
+          exitCode: timedOut ? -1 : (err ? (err as { code?: number }).code ?? 1 : 0),
+          timedOut,
+        });
+      });
+
+      // Safety: ensure the child process is cleaned up if the promise is never settled
+      child.on('error', () => {
+        resolvePromise({
+          stdout: '',
+          stderr: 'Failed to spawn process',
+          exitCode: -1,
+          timedOut: false,
         });
       });
     });
