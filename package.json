@@ -1,7 +1,7 @@
 {
   "name": "lodestone",
   "version": "0.1.0",
-  "description": "Lodestone \u2014 standalone agent engine with memory, self-improvement, and proactivity",
+  "description": "Lodestone — standalone agent engine with memory, self-improvement, and proactivity",
   "type": "module",
   "private": false,
   "license": "MIT",
@@ -40,7 +40,8 @@
     "test:dogfood": "npm run test:dogfood --workspace=@lodestone/core --if-present",
     "test:all": "npm run test --workspaces --if-present && npm run test:dogfood --workspace=@lodestone/core --if-present",
     "lint": "npm run lint --workspaces --if-present",
-    "clean": "rm -rf packages/*/dist"
+    "clean": "rm -rf packages/*/dist",
+    "prepare": "husky"
   },
   "files": [
     "packages/core/dist",
@@ -68,6 +69,12 @@
   },
   "devDependencies": {
     "@types/better-sqlite3": "^7.6.13",
+    "@typescript-eslint/eslint-plugin": "^8.61.1",
+    "@typescript-eslint/parser": "^8.61.1",
+    "eslint": "^10.5.0",
+    "husky": "^9.1.7",
+    "lint-staged": "^17.0.8",
+    "prettier": "^3.8.4",
     "socket.io-client": "^4.8.3"
   },
   "author": "Greyrock Studio",
@@ -77,5 +84,14 @@
   },
   "publishConfig": {
     "access": "public"
+  },
+  "lint-staged": {
+    "*.{ts,tsx}": [
+      "prettier --write",
+      "eslint --fix"
+    ],
+    "*.{json,md,yml,yaml}": [
+      "prettier --write"
+    ]
   }
 }
