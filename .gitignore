@@ -66,3 +66,20 @@ chat.sh
 
 # Test
 coverage/
+# Internal dev artifacts (not for public release)
+qa-sweep-*.md
+REPO_SETUP.md
+gumroad-listing.md
+ADRS.md
+site/
+*.tsbuildinfo
+
+# Internal test files (dev scaffolding, not public API)
+packages/core/src/test/dogfood*.ts
+packages/core/src/test/e2e-*.ts
+packages/core/src/test/live-*.ts
+packages/core/src/test/m1-integration.ts
+packages/core/src/test/webchat-test.ts
+packages/core/src/test/webchat-integration.ts
+packages/core/src/test/tui-chat.ts
+packages/core/src/test/tui-onboarding.ts
