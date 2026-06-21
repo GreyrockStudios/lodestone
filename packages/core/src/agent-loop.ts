@@ -186,7 +186,8 @@ export class AgentLoop {
       const toolResults = await this.executeToolCalls(
         sessionId,
         llmResponse.toolCalls,
-        streamHandler
+        streamHandler,
+        traceId
       );
 
       // Record tool calls
@@ -402,7 +403,7 @@ export class AgentLoop {
     // 13. Failure replay — record decision trace
     try {
       this.engine.safety.failureReplay.recordDecisionTrace({
-        traceId: sessionId + '-' + Date.now(),
+        traceId: traceId || (sessionId + '-' + Date.now()),
         sessionId,
         timestamp: new Date().toISOString(),
         userMessage,
@@ -723,7 +724,8 @@ export class AgentLoop {
   private async executeToolCalls(
     sessionId: string,
     toolCalls: ParsedToolCall[],
-    streamHandler?: StreamHandler
+    streamHandler: StreamHandler | undefined,
+    traceId?: string
   ): Promise<ToolCallResult[]> {
     const results: ToolCallResult[] = [];
     const identity = await this.engine.identity.load();
@@ -876,7 +878,7 @@ const matches = isRegex
 
       // Explainability — record tool step
       try {
-        this.engine.safety.explainability.addStep(sessionId, {
+        this.engine.safety.explainability.addStep(traceId || sessionId, {
           phase: 'tool_call',
           description: `Called tool: ${tc.toolName}`,
           result: result.summary?.substring(0, 200) || (result.success ? 'success' : result.error?.substring(0, 200) || 'unknown'),

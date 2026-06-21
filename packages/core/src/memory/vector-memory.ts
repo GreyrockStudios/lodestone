@@ -153,11 +153,13 @@ export class VectorMemory implements Partial<MemoryAccess> {
 
     if (results.length === 0) return;
 
-    // Delete the most relevant match
+    // Delete the most relevant match using its key
+    const key = results[0].metadata?.key as string | undefined;
+    if (!key) return;
+
     const table = await this.db!.openTable('memories');
-    // Note: LanceDB deletion API — this may need adjustment based on version
-    // For now, we'll mark memories as deleted via metadata
-    // Full deletion support will be added when we test against real LanceDB
+    await table.delete(`key = '${key}'`);
+    this.logger.info('Memory deleted', { key, query: query.slice(0, 50) });
   }
 
   // ─── Embedding ─────────────────────────────────────────────────────────
