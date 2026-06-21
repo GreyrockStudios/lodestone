@@ -378,6 +378,12 @@ node packages/core/dist/test/tool-tests-2.js  # 47 additional tool tests
 
 ---
 
+## Star History
+
+[![Star History Chart](https://api.star-history.com/svg?repos=GreyrockStudios/lodestone&type=Date)](https://star-history.com/#GreyrockStudios/lodestone&Date)
+
+---
+
 ## License
 
 MIT — do whatever you want. See [LICENSE](LICENSE).
