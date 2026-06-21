@@ -1,4 +1,7 @@
 /**
+ * Copyright (c) 2026 Greyrock Studios. MIT License.
+ */
+/**
  * Lodestone — Prediction Journal
  *
  * Log predictions before acting, then resolve them against actual outcomes.

@@ -1,4 +1,7 @@
 /**
+ * Copyright (c) 2026 Greyrock Studios. MIT License.
+ */
+/**
  * Lodestone Tool — Clipboard
  *
  * Read and write the system clipboard.

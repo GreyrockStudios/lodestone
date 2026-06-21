@@ -1,4 +1,7 @@
 /**
+ * Copyright (c) 2026 Greyrock Studios. MIT License.
+ */
+/**
  * Lodestone Tool — Code Execution
  *
  * Runs code in a sandboxed subprocess.

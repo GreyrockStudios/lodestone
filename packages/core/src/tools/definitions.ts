@@ -1,4 +1,7 @@
 /**
+ * Copyright (c) 2026 Greyrock Studios. MIT License.
+ */
+/**
  * Lodestone Core — Tool Definition & Execution
  *
  * Defines the tool interface that all Lodestone tools implement.

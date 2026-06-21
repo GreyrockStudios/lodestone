@@ -1,4 +1,7 @@
 /**
+ * Copyright (c) 2026 Greyrock Studios. MIT License.
+ */
+/**
  * Lodestone — Truth-Binding Response Layer
  *
  * Post-processing output guards that verify agent responses before

@@ -1,4 +1,7 @@
 /**
+ * Copyright (c) 2026 Greyrock Studios. MIT License.
+ */
+/**
  * Lodestone — Webhook System
  *
  * Incoming webhooks trigger agent actions (GitHub, Slack, custom).

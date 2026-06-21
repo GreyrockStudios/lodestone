@@ -1,4 +1,7 @@
 /**
+ * Copyright (c) 2026 Greyrock Studios. MIT License.
+ */
+/**
  * Migration 001 — Initial Schema
  *
  * Creates the base data directory structure and sets the initial config version.

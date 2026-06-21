@@ -1,4 +1,7 @@
 /**
+ * Copyright (c) 2026 Greyrock Studios. MIT License.
+ */
+/**
  * Lodestone — Contradiction Detection
  *
  * Maintains a belief log and detects when new statements contradict

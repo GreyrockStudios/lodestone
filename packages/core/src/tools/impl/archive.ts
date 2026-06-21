@@ -1,4 +1,7 @@
 /**
+ * Copyright (c) 2026 Greyrock Studios. MIT License.
+ */
+/**
  * Lodestone Tool — Archive (Zip)
  *
  * Compress, decompress, and list files in archives.

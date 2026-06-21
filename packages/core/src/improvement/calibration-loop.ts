@@ -1,4 +1,7 @@
 /**
+ * Copyright (c) 2026 Greyrock Studios. MIT License.
+ */
+/**
  * Lodestone Calibration Loop
  *
  * The feedback loop that closes the prediction → verification → calibration cycle.

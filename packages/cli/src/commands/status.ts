@@ -1,4 +1,7 @@
 /**
+ * Copyright (c) 2026 Greyrock Studios. MIT License.
+ */
+/**
  * `lodestone status` — Show engine status information.
  *
  * Displays: identity name, model, tools, sessions, uptime, memory stats.

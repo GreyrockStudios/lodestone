@@ -1,4 +1,7 @@
 /**
+ * Copyright (c) 2026 Greyrock Studios. MIT License.
+ */
+/**
  * Lodestone — Resume State Tool
  *
  * Save and restore task state across context compaction boundaries.

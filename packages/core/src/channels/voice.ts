@@ -1,4 +1,7 @@
 /**
+ * Copyright (c) 2026 Greyrock Studios. MIT License.
+ */
+/**
  * Lodestone Core — Voice Channel
  *
  * Voice-first channel: transcribes audio input via Whisper (API or local),

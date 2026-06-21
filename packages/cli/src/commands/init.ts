@@ -1,4 +1,7 @@
 /**
+ * Copyright (c) 2026 Greyrock Studios. MIT License.
+ */
+/**
  * `lodestone init` — Interactive workspace setup wizard.
  *
  * Creates a new Lodestone workspace with:

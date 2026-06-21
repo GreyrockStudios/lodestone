@@ -1,4 +1,7 @@
 /**
+ * Copyright (c) 2026 Greyrock Studios. MIT License.
+ */
+/**
  * Lodestone Tool — Vision / Multimodal
  *
  * Image understanding via vision models (OpenAI gpt-4o, Ollama with LLaVA)

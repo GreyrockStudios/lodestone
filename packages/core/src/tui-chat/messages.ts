@@ -1,4 +1,7 @@
 /**
+ * Copyright (c) 2026 Greyrock Studios. MIT License.
+ */
+/**
  * Lodestone — TUI Chat Message Types
  *
  * Defines the chat message interface and formatting functions.

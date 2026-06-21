@@ -1,4 +1,7 @@
 /**
+ * Copyright (c) 2026 Greyrock Studios. MIT License.
+ */
+/**
  * Lodestone — Improvement System
  *
  * The self-improvement subsystem. Wires together prediction journal,

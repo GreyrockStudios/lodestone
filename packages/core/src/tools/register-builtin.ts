@@ -1,4 +1,7 @@
 /**
+ * Copyright (c) 2026 Greyrock Studios. MIT License.
+ */
+/**
  * Lodestone — Built-in Tool Registration
  *
  * Shared function to register all 39 built-in tools on an engine instance.

@@ -1,4 +1,7 @@
 /**
+ * Copyright (c) 2026 Greyrock Studios. MIT License.
+ */
+/**
  * Lodestone Tool — Process Manager
  *
  * Manage background processes: start, stop, list, logs, poll, killGroup.

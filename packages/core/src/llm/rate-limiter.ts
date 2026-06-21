@@ -1,4 +1,7 @@
 /**
+ * Copyright (c) 2026 Greyrock Studios. MIT License.
+ */
+/**
  * Lodestone Core — LLM Rate Limiter
  *
  * Token bucket algorithm for requests, rolling window for tokens.

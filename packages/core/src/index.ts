@@ -1,4 +1,7 @@
 /**
+ * Copyright (c) 2026 Greyrock Studios. MIT License.
+ */
+/**
  * Lodestone Core — Public API
  *
  * This is the main entry point. Import from '@lodestone/core' to get

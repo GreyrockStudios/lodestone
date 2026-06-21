@@ -1,4 +1,7 @@
 /**
+ * Copyright (c) 2026 Greyrock Studios. MIT License.
+ */
+/**
  * Lodestone Core — Built-in Tool Implementations
  *
  * The core tools that give Lodestone its capabilities:

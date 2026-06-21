@@ -1,4 +1,7 @@
 /**
+ * Copyright (c) 2026 Greyrock Studios. MIT License.
+ */
+/**
  * Lodestone — Evidence-Gated Memory Promotion
  *
  * Before a scratch buffer entry or vector memory gets promoted to the

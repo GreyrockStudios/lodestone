@@ -1,4 +1,7 @@
 /**
+ * Copyright (c) 2026 Greyrock Studios. MIT License.
+ */
+/**
  * Lodestone Core — LLM Retry Handler
  *
  * Exponential backoff retry with circuit breaker support.

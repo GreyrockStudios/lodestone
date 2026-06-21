@@ -1,4 +1,7 @@
 /**
+ * Copyright (c) 2026 Greyrock Studios. MIT License.
+ */
+/**
  * Lodestone — Shared Config Loader
  *
  * Loads and parses lodestone.config.yaml into a full LodestoneConfig object.

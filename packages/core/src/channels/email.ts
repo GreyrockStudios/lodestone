@@ -1,4 +1,7 @@
 /**
+ * Copyright (c) 2026 Greyrock Studios. MIT License.
+ */
+/**
  * Lodestone Core — Email Channel
  *
  * IMAP polling for incoming emails, SMTP for outgoing via nodemailer.

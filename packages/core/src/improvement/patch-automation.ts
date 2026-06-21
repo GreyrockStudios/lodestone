@@ -1,4 +1,7 @@
 /**
+ * Copyright (c) 2026 Greyrock Studios. MIT License.
+ */
+/**
  * Lodestone — Patch Automation
  *
  * Extends SelfPatching with automated patch proposal from the sleep cycle,

@@ -1,4 +1,7 @@
 /**
+ * Copyright (c) 2026 Greyrock Studios. MIT License.
+ */
+/**
  * Lodestone Tool — Send Message
  *
  * Send messages to external channels: Slack, Discord, Telegram, Email, Webhook.

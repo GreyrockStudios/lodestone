@@ -1,4 +1,7 @@
 /**
+ * Copyright (c) 2026 Greyrock Studios. MIT License.
+ */
+/**
  * Lodestone — Behavioral Learning
  *
  * When a user corrects an agent response, this subsystem extracts

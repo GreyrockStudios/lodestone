@@ -1,4 +1,7 @@
 /**
+ * Copyright (c) 2026 Greyrock Studios. MIT License.
+ */
+/**
  * Lodestone Tool — Web Search
  *
  * Searches the web using SearXNG (self-hosted) or Brave Search API.

@@ -1,4 +1,7 @@
 /**
+ * Copyright (c) 2026 Greyrock Studios. MIT License.
+ */
+/**
  * Lodestone Proactive Intelligence
  *
  * Turns the agent from reactive to proactive. Uses intent prediction,

@@ -1,4 +1,7 @@
 /**
+ * Copyright (c) 2026 Greyrock Studios. MIT License.
+ */
+/**
  * `lodestone doctor` — Health check and diagnostics.
  *
  * Checks: config validity, identity files, workspace structure, data dirs,

@@ -1,4 +1,7 @@
 /**
+ * Copyright (c) 2026 Greyrock Studios. MIT License.
+ */
+/**
  * `lodestone start` — Boot the Lodestone engine.
  *
  * Loads config, creates engine, registers tools, starts scheduler.

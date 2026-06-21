@@ -1,4 +1,7 @@
 /**
+ * Copyright (c) 2026 Greyrock Studios. MIT License.
+ */
+/**
  * Lodestone Dashboard Authentication
  *
  * Token-based auth with per-IP rate limiting.

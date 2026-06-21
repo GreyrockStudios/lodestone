@@ -1,4 +1,7 @@
 /**
+ * Copyright (c) 2026 Greyrock Studios. MIT License.
+ */
+/**
  * Lodestone Core — Developer SDK
  *
  * A clean, high-level API for embedding Lodestone into applications.

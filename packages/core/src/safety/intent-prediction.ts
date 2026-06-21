@@ -1,4 +1,7 @@
 /**
+ * Copyright (c) 2026 Greyrock Studios. MIT License.
+ */
+/**
  * Lodestone — Intent Prediction
  *
  * Lightweight classifier that predicts user intent from conversation context.

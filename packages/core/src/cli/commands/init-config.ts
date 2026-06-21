@@ -1,4 +1,7 @@
 /**
+ * Copyright (c) 2026 Greyrock Studios. MIT License.
+ */
+/**
  * Lodestone — Config Init Command
  *
  * `lodestone config init` — Generates a fully documented lodestone.config.yaml,

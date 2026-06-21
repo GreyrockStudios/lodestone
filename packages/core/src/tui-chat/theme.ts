@@ -1,4 +1,7 @@
 /**
+ * Copyright (c) 2026 Greyrock Studios. MIT License.
+ */
+/**
  * Lodestone — Theme System
  *
  * Defines color palettes for the TUI and provides preset themes.

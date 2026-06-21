@@ -1,4 +1,7 @@
 /**
+ * Copyright (c) 2026 Greyrock Studios. MIT License.
+ */
+/**
  * Lodestone Core — Migration System
  *
  * Manages schema and data migrations for the Lodestone engine.

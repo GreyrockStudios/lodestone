@@ -1,4 +1,7 @@
 /**
+ * Copyright (c) 2026 Greyrock Studios. MIT License.
+ */
+/**
  * Lodestone — Decision Log Tool
  *
  * Records decisions with rationale. Prevents re-litigating settled topics

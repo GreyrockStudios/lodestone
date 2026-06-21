@@ -1,4 +1,7 @@
 /**
+ * Copyright (c) 2026 Greyrock Studios. MIT License.
+ */
+/**
  * Lodestone Core — Memory System
  *
  * Three-layer memory: Wiki (curated knowledge), Vector (semantic recall),

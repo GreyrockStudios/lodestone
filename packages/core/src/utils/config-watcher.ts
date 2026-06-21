@@ -1,4 +1,7 @@
 /**
+ * Copyright (c) 2026 Greyrock Studios. MIT License.
+ */
+/**
  * Lodestone Config Watcher
  *
  * Watches the config file for changes and notifies registered callbacks.

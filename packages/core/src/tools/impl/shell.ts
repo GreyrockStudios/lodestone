@@ -1,4 +1,7 @@
 /**
+ * Copyright (c) 2026 Greyrock Studios. MIT License.
+ */
+/**
  * Lodestone Tool — Shell Execution
  *
  * Execute shell commands sandboxed to the workspace root.

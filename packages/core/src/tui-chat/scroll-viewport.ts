@@ -1,4 +1,7 @@
 /**
+ * Copyright (c) 2026 Greyrock Studios. MIT License.
+ */
+/**
  * Lodestone — Scroll Viewport Component
  *
  * A container that renders its children into a virtual buffer

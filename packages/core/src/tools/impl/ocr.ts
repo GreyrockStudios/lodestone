@@ -1,4 +1,7 @@
 /**
+ * Copyright (c) 2026 Greyrock Studios. MIT License.
+ */
+/**
  * Lodestone Tool — OCR (Optical Character Recognition)
  *
  * Extracts text from images and PDFs.

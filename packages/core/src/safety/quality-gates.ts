@@ -1,4 +1,7 @@
 /**
+ * Copyright (c) 2026 Greyrock Studios. MIT License.
+ */
+/**
  * Lodestone — Multi-Agent Quality Gates
  *
  * When the agent produces important output (wiki writes, code changes,

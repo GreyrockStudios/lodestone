@@ -1,4 +1,7 @@
 /**
+ * Copyright (c) 2026 Greyrock Studios. MIT License.
+ */
+/**
  * Lodestone Tool — Git Operations
  *
  * Structured git operations: status, diff, log, branch, commit, checkout, add, push, pull.

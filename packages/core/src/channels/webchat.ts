@@ -1,4 +1,7 @@
 /**
+ * Copyright (c) 2026 Greyrock Studios. MIT License.
+ */
+/**
  * Lodestone Core — Web Chat Channel
  *
  * Express.js server with Socket.IO for real-time WebSocket chat.

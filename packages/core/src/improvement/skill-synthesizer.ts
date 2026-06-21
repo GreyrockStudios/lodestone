@@ -1,4 +1,7 @@
 /**
+ * Copyright (c) 2026 Greyrock Studios. MIT License.
+ */
+/**
  * Lodestone — Skill Synthesizer
  *
  * Watches what tool sequences the agent uses repeatedly, then proposes

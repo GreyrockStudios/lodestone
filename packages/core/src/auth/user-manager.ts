@@ -1,4 +1,7 @@
 /**
+ * Copyright (c) 2026 Greyrock Studios. MIT License.
+ */
+/**
  * Lodestone Core — Multi-User Manager
  *
  * Per-user isolation: identity, permissions, memory namespaces, sessions.

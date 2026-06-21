@@ -1,4 +1,7 @@
 /**
+ * Copyright (c) 2026 Greyrock Studios. MIT License.
+ */
+/**
  * Lodestone — Wiki Search Tool
  *
  * Search wiki pages by title, slug, or tag.

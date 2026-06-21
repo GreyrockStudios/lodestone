@@ -1,4 +1,7 @@
 /**
+ * Copyright (c) 2026 Greyrock Studios. MIT License.
+ */
+/**
  * Lodestone Core — Main Engine
  *
  * The orchestrator. Wires together LLM, tools, memory, identity,

@@ -1,4 +1,7 @@
 /**
+ * Copyright (c) 2026 Greyrock Studios. MIT License.
+ */
+/**
  * Lodestone Core — Scratch Buffer
  *
  * Session-scoped key-value store that survives context compaction.

@@ -1,4 +1,7 @@
 /**
+ * Copyright (c) 2026 Greyrock Studios. MIT License.
+ */
+/**
  * Migration 003 — Add Dashboard Config
  *
  * Ensures the dashboard config section exists in the engine config.

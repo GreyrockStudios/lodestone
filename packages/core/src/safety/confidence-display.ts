@@ -1,4 +1,7 @@
 /**
+ * Copyright (c) 2026 Greyrock Studios. MIT License.
+ */
+/**
  * Lodestone — Confidence Transparency
  *
  * Every response includes a calibrated confidence score based on

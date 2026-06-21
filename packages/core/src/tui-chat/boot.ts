@@ -1,3 +1,6 @@
+/**
+ * Copyright (c) 2026 Greyrock Studios. MIT License.
+ */
 /* eslint-disable @typescript-eslint/no-explicit-any -- TUI code uses dynamic types throughout */
 /**
  * Lodestone — TUI Boot & Engine Initialization

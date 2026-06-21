@@ -1,4 +1,7 @@
 /**
+ * Copyright (c) 2026 Greyrock Studios. MIT License.
+ */
+/**
  * Lodestone Core — Wiki Store
  *
  * Manages the curated knowledge base. Markdown files with YAML frontmatter,

@@ -1,4 +1,7 @@
 /**
+ * Copyright (c) 2026 Greyrock Studios. MIT License.
+ */
+/**
  * Lodestone — Sleep Cycle
  *
  * The overnight self-improvement cycle. Inspired by SkillOpt-Sleep

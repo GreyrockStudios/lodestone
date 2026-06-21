@@ -1,4 +1,7 @@
 /**
+ * Copyright (c) 2026 Greyrock Studios. MIT License.
+ */
+/**
  * Lodestone — Business Hours Tool
  *
  * Checks if it's currently business hours. Useful for deciding whether

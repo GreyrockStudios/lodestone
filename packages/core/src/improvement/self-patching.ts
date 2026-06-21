@@ -1,4 +1,7 @@
 /**
+ * Copyright (c) 2026 Greyrock Studios. MIT License.
+ */
+/**
  * Lodestone — Self-Patching
  *
  * The agent can propose patches to its own source code, but every patch

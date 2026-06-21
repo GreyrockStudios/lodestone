@@ -1,4 +1,7 @@
 /**
+ * Copyright (c) 2026 Greyrock Studios. MIT License.
+ */
+/**
  * Lodestone — A/B Prompt Testing
  *
  * Compare response quality across prompt variations with statistical

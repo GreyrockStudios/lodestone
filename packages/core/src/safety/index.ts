@@ -1,4 +1,7 @@
 /**
+ * Copyright (c) 2026 Greyrock Studios. MIT License.
+ */
+/**
  * Lodestone — Safety Module
  *
  * Capability tiers, behavioral learning, and evidence-gated memory promotion.

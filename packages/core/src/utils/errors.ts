@@ -1,4 +1,7 @@
 /**
+ * Copyright (c) 2026 Greyrock Studios. MIT License.
+ */
+/**
  * Lodestone Core — Typed Error Classes
  *
  * Structured error hierarchy for deterministic error handling.

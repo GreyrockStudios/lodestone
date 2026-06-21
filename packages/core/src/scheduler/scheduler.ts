@@ -1,4 +1,7 @@
 /**
+ * Copyright (c) 2026 Greyrock Studios. MIT License.
+ */
+/**
  * Lodestone Core — Scheduler
  *
  * Proactive scheduling system. Manages cron-like jobs that make the agent

@@ -1,4 +1,7 @@
 /**
+ * Copyright (c) 2026 Greyrock Studios. MIT License.
+ */
+/**
  * Lodestone Core — Telegram Channel
  *
  * Uses grammy for Telegram Bot API interaction.

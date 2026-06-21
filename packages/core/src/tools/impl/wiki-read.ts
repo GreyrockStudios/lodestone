@@ -1,4 +1,7 @@
 /**
+ * Copyright (c) 2026 Greyrock Studios. MIT License.
+ */
+/**
  * Wiki Read Tool — read a wiki page by slug
  */
 import type { Tool, ToolContext, ToolDefinition, ToolParameter, ToolResult } from '../definitions.js';

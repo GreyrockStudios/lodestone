@@ -1,4 +1,7 @@
 /**
+ * Copyright (c) 2026 Greyrock Studios. MIT License.
+ */
+/**
  * Lodestone — Cross-Agent Knowledge Transfer
  *
  * Enables structured knowledge sharing between agents. Knowledge items

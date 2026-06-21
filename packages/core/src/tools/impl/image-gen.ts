@@ -1,4 +1,7 @@
 /**
+ * Copyright (c) 2026 Greyrock Studios. MIT License.
+ */
+/**
  * Lodestone Tool — Image Generation
  *
  * Generates images via DALL-E (OpenAI), Stability AI, or local Ollama models.

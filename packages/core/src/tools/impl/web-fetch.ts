@@ -1,4 +1,7 @@
 /**
+ * Copyright (c) 2026 Greyrock Studios. MIT License.
+ */
+/**
  * Lodestone Tool — Web Fetch
  *
  * Fetches a URL and extracts readable content as markdown or text.

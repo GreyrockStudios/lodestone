@@ -1,4 +1,7 @@
 /**
+ * Copyright (c) 2026 Greyrock Studios. MIT License.
+ */
+/**
  * `lodestone chat` — Start the TUI chat interface.
  *
  * Launches the pi-tui based terminal UI for interactive chat

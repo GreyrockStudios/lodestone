@@ -1,4 +1,7 @@
 /**
+ * Copyright (c) 2026 Greyrock Studios. MIT License.
+ */
+/**
  * Lodestone Tool — Voice
  *
  * Gives the agent voice capabilities: transcribe audio files and synthesize speech.

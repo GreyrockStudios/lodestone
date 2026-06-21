@@ -1,4 +1,7 @@
 /**
+ * Copyright (c) 2026 Greyrock Studios. MIT License.
+ */
+/**
  * Wiki Write Tool — write a page to the wiki with frontmatter
  */
 import type { Tool, ToolContext, ToolDefinition, ToolParameter, ToolResult } from '../definitions.js';

@@ -1,4 +1,7 @@
 /**
+ * Copyright (c) 2026 Greyrock Studios. MIT License.
+ */
+/**
  * Memory Recall Tool — search long-term memory for relevant facts
  */
 import type { Tool, ToolContext, ToolDefinition, ToolParameter, ToolResult } from '../definitions.js';

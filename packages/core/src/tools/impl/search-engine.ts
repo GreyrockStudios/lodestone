@@ -1,4 +1,7 @@
 /**
+ * Copyright (c) 2026 Greyrock Studios. MIT License.
+ */
+/**
  * Lodestone Tool — Search Engine
  *
  * Web search via Google Custom Search, Bing Search API, or SearXNG.

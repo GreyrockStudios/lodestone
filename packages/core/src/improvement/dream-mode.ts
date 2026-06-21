@@ -1,4 +1,7 @@
 /**
+ * Copyright (c) 2026 Greyrock Studios. MIT License.
+ */
+/**
  * Lodestone — Dream Mode
  *
  * During idle time, the agent replays past conversations, identifies

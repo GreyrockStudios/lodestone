@@ -1,4 +1,7 @@
 /**
+ * Copyright (c) 2026 Greyrock Studios. MIT License.
+ */
+/**
  * Lodestone Core — Cost Tracking
  *
  * Per-conversation token usage, daily/weekly/monthly cost reports,

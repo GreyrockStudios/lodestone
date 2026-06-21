@@ -1,4 +1,7 @@
 /**
+ * Copyright (c) 2026 Greyrock Studios. MIT License.
+ */
+/**
  * Lodestone — Shared Boot Logic
  *
  * Extracts the engine startup sequence (register tools, create session,

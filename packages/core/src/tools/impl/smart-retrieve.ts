@@ -1,4 +1,7 @@
 /**
+ * Copyright (c) 2026 Greyrock Studios. MIT License.
+ */
+/**
  * Lodestone — Smart Retrieve Tool
  *
  * Gets wiki pages ranked by relevance to current task.

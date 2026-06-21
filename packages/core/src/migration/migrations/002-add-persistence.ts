@@ -1,4 +1,7 @@
 /**
+ * Copyright (c) 2026 Greyrock Studios. MIT License.
+ */
+/**
  * Migration 002 — Add Persistence
  *
  * Ensures the sessions.db file exists for session persistence.

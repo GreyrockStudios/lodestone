@@ -1,4 +1,7 @@
 /**
+ * Copyright (c) 2026 Greyrock Studios. MIT License.
+ */
+/**
  * Lodestone — Knowledge Graph
  *
  * Adds entity-relationship modeling on top of the wiki system.

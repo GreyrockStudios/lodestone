@@ -1,4 +1,7 @@
 /**
+ * Copyright (c) 2026 Greyrock Studios. MIT License.
+ */
+/**
  * `lodestone lint` — Lint the wiki for broken links, missing frontmatter, orphans, stale pages.
  */
 

@@ -1,4 +1,7 @@
 /**
+ * Copyright (c) 2026 Greyrock Studios. MIT License.
+ */
+/**
  * Lodestone Tool — MCP Client
  *
  * Connect to external MCP (Model Context Protocol) servers.

@@ -1,4 +1,7 @@
 /**
+ * Copyright (c) 2026 Greyrock Studios. MIT License.
+ */
+/**
  * Lodestone — Drift Detector
  *
  * Compares recent behavior against core principles from RULES.md.

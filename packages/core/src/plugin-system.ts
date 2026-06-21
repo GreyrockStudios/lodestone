@@ -1,4 +1,7 @@
 /**
+ * Copyright (c) 2026 Greyrock Studios. MIT License.
+ */
+/**
  * Lodestone Core — Plugin System
  *
  * Third-party extensions hook into the agent lifecycle without touching

@@ -1,4 +1,7 @@
 /**
+ * Copyright (c) 2026 Greyrock Studios. MIT License.
+ */
+/**
  * Lodestone — Failure Replay
  *
  * When something goes wrong, replay the exact decision sequence that led

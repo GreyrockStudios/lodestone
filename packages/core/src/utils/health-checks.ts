@@ -1,4 +1,7 @@
 /**
+ * Copyright (c) 2026 Greyrock Studios. MIT License.
+ */
+/**
  * Lodestone Health Checks
  *
  * Real health checking — pings LLM, checks channels, inspects disk/memory.

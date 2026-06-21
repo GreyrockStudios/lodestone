@@ -1,4 +1,7 @@
 /**
+ * Copyright (c) 2026 Greyrock Studios. MIT License.
+ */
+/**
  * Lodestone — RBT Diagnosis (Roses, Buds, Thorns)
  *
  * A structured self-assessment framework. Analyzes recent activity logs

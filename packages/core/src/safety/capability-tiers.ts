@@ -1,4 +1,7 @@
 /**
+ * Copyright (c) 2026 Greyrock Studios. MIT License.
+ */
+/**
  * Lodestone — Capability Tiers
  *
  * Every tool has a risk level. Before executing a privileged tool,

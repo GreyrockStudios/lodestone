@@ -1,4 +1,7 @@
 /**
+ * Copyright (c) 2026 Greyrock Studios. MIT License.
+ */
+/**
  * Lodestone Core — Streaming Response Handler
  *
  * Handles streaming LLM responses, tool calls, and partial content.

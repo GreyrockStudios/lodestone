@@ -1,4 +1,7 @@
 /**
+ * Copyright (c) 2026 Greyrock Studios. MIT License.
+ */
+/**
  * Lodestone — Wiki Resolve Tool
  *
  * Resolves [[wikilinks]] to file paths, frontmatter, and content snippets.

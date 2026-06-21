@@ -1,4 +1,7 @@
 /**
+ * Copyright (c) 2026 Greyrock Studios. MIT License.
+ */
+/**
  * Lodestone Utils — Public API
  */
 export { Logger, ChildLogger, initLogger, getLogger, type LoggerConfig, type LogLevel, type LogEntry } from './logger.js';

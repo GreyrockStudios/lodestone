@@ -1,4 +1,7 @@
 /**
+ * Copyright (c) 2026 Greyrock Studios. MIT License.
+ */
+/**
  * Lodestone Tool — Calendar Integration
  *
  * Reads calendar events from CalDAV or Google Calendar API.

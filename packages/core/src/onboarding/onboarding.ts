@@ -1,4 +1,7 @@
 /**
+ * Copyright (c) 2026 Greyrock Studios. MIT License.
+ */
+/**
  * Lodestone — Onboarding Wizard
  *
  * Robust readline-based onboarding with validation, defaults, back navigation,

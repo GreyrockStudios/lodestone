@@ -1,4 +1,7 @@
 /**
+ * Copyright (c) 2026 Greyrock Studios. MIT License.
+ */
+/**
  * Lodestone — Self-Imposed Constraints
  *
  * The agent proposes new safety rules based on near-misses.

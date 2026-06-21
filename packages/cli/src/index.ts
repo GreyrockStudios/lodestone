@@ -1,4 +1,7 @@
 #!/usr/bin/env node
+/**
+ * Copyright (c) 2026 Greyrock Studios. MIT License.
+ */
 
 /**
  * Lodestone CLI — Command-line interface for the Lodestone agent engine.

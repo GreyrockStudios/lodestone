@@ -1,4 +1,7 @@
 /**
+ * Copyright (c) 2026 Greyrock Studios. MIT License.
+ */
+/**
  * Memory Store Tool — explicitly store a fact/memory into the vector store + wiki
  */
 import type { Tool, ToolContext, ToolDefinition, ToolParameter, ToolResult } from '../definitions.js';

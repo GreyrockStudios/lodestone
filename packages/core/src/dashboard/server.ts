@@ -1,4 +1,7 @@
 /**
+ * Copyright (c) 2026 Greyrock Studios. MIT License.
+ */
+/**
  * Lodestone — Dashboard API Server
  *
  * Lightweight HTTP server that exposes the agent's state via a REST API

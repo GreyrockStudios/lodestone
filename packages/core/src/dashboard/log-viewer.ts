@@ -1,4 +1,7 @@
 /**
+ * Copyright (c) 2026 Greyrock Studios. MIT License.
+ */
+/**
  * Lodestone Dashboard — Log Viewer
  *
  * Reads structured logs from the Lodestone log file, parses JSON or text lines,

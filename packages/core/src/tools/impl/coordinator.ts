@@ -1,4 +1,7 @@
 /**
+ * Copyright (c) 2026 Greyrock Studios. MIT License.
+ */
+/**
  * Lodestone — Multi-Agent Coordinator Tool
  *
  * Allows the agent to spawn, monitor, and coordinate sub-agent tasks.

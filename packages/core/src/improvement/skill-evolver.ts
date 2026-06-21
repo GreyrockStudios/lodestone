@@ -1,4 +1,7 @@
 /**
+ * Copyright (c) 2026 Greyrock Studios. MIT License.
+ */
+/**
  * Lodestone — Skill Evolver
  *
  * Learn from experience. Extract durable rules from trial-and-error.

@@ -1,4 +1,7 @@
 /**
+ * Copyright (c) 2026 Greyrock Studios. MIT License.
+ */
+/**
  * Lodestone Memory Compounding
  *
  * Makes memory compound over time. Auto-extracts entities from wiki writes,

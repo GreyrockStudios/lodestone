@@ -1,4 +1,7 @@
 /**
+ * Copyright (c) 2026 Greyrock Studios. MIT License.
+ */
+/**
  * Lodestone — Workspace Creator
  *
  * Shared module for creating a Lodestone workspace from onboarding answers.

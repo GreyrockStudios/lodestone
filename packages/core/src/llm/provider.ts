@@ -1,4 +1,7 @@
 /**
+ * Copyright (c) 2026 Greyrock Studios. MIT License.
+ */
+/**
  * Lodestone Core — LLM Provider Abstraction
  *
  * Abstracts across Ollama, OpenAI, Anthropic, and any OpenAI-compatible API.
