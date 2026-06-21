@@ -7,7 +7,7 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/greyrockstudios/lodestone.git"
+    "url": "https://github.com/greyrock-studios/lodestone.git"
   },
   "keywords": [
     "ai",
@@ -18,7 +18,13 @@
     "proactive",
     "wiki",
     "vector-db",
-    "autonomous"
+    "autonomous",
+    "chatbot",
+    "rag",
+    "tools",
+    "framework",
+    "typescript",
+    "automation"
   ],
   "bin": {
     "lodestone": "./packages/cli/dist/index.js"
@@ -63,5 +69,13 @@
   "devDependencies": {
     "@types/better-sqlite3": "^7.6.13",
     "socket.io-client": "^4.8.3"
+  },
+  "author": "Greyrock Studio",
+  "homepage": "https://lodestone.greyrockstudios.com",
+  "bugs": {
+    "url": "https://github.com/greyrock-studios/lodestone/issues"
+  },
+  "publishConfig": {
+    "access": "public"
   }
 }
