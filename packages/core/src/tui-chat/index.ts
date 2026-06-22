@@ -10,29 +10,29 @@
  * onboarding, and boot sequence.
  */
 
-import { TUI, ProcessTerminal, Text, Box, Markdown, Editor, Spacer } from '@earendil-works/pi-tui';
-import { LodestoneEngine } from '../engine.js';
-import { AgentLoop } from '../agent-loop.js';
-import { StreamHandler } from '../streaming/handler.js';
-import { ChatRenderer, StatusState } from './streaming.js';
-import { ChatMessage } from './messages.js';
-import { getTheme, DEFAULT_THEME, THEMES, THEME_NAMES, fg } from './theme.js';
-import { ScrollViewport } from './scroll-viewport.js';
-import { handleCommand, CommandContext } from './commands.js';
-import { boot, generateSurpriseName, applyAgentName } from './boot.js';
-import { runOnboarding } from '../test/tui-onboarding.js';
-import { resolve } from 'path';
-import { existsSync } from 'fs';
+import { TUI, ProcessTerminal, Text, Box, Markdown, Editor, Spacer } from "@earendil-works/pi-tui";
+import { LodestoneEngine } from "../engine.js";
+import { AgentLoop } from "../agent-loop.js";
+import { StreamHandler } from "../streaming/handler.js";
+import { ChatRenderer, StatusState } from "./streaming.js";
+import { ChatMessage } from "./messages.js";
+import { getTheme, DEFAULT_THEME, THEMES, THEME_NAMES, fg } from "./theme.js";
+import { ScrollViewport } from "./scroll-viewport.js";
+import { handleCommand, CommandContext } from "./commands.js";
+import { boot, generateSurpriseName, applyAgentName } from "./boot.js";
+import { runOnboarding } from "../tui-onboarding/conversational.js";
+import { resolve } from "path";
+import { existsSync } from "fs";
 
-const R = '\x1B[0m';
-const B = '\x1B[1m';
+const R = "\x1B[0m";
+const B = "\x1B[1m";
 
 /**
  * Main entry point for the TUI chat.
  */
 export async function startTUI(workspace?: string, model?: string): Promise<void> {
-  let WORKSPACE = workspace || process.env.LODESTONE_WORKSPACE || '/tmp/lodestone-test/workspace';
-  const effectiveModel = model || process.env.LODESTONE_MODEL || 'glm-5.2:cloud';
+  let WORKSPACE = workspace || process.env.LODESTONE_WORKSPACE || "/tmp/lodestone-test/workspace";
+  const effectiveModel = model || process.env.LODESTONE_MODEL || "glm-5.2:cloud";
 
   // ─── TUI Setup ────────────────────────────────────────────────────────
 
@@ -42,31 +42,37 @@ export async function startTUI(workspace?: string, model?: string): Promise<void
 
   const chatLog = new ScrollViewport();
 
-  const bootMsg = new Markdown('', 1, 1, theme.markdown as any);
-  bootMsg.setText(`${B}${'\x1B[38;2;246;196;83m'}${theme.statusBar.icon} Lodestone${R}  Booting...`);
+  const bootMsg = new Markdown("", 1, 1, theme.markdown as any);
+  bootMsg.setText(
+    `${B}${"\x1B[38;2;246;196;83m"}${theme.statusBar.icon} Lodestone${R}  Booting...`
+  );
   chatLog.addChild(bootMsg);
   chatLog.addChild(new Spacer(1));
 
-  const statusText = new Text(` ${B}${'\x1B[38;2;246;196;83m'}${theme.statusBar.icon}${R} Booting... `, 0, 0);
-  const statusBar = new Box(0, 0, (line: string) => `${'\x1B[48;2;30;35;42m'}${line}${R}`);
+  const statusText = new Text(
+    ` ${B}${"\x1B[38;2;246;196;83m"}${theme.statusBar.icon}${R} Booting... `,
+    0,
+    0
+  );
+  const statusBar = new Box(0, 0, (line: string) => `${"\x1B[48;2;30;35;42m"}${line}${R}`);
   statusBar.addChild(statusText);
 
   const selectListTheme = {
-    selectedBg: (s: string) => `${'\x1B[48;2;60;65;75m'}${s}${R}`,
-    selectedFg: (s: string) => `${'\x1B[38;2;246;196;83m'}${s}${R}`,
+    selectedBg: (s: string) => `${"\x1B[48;2;60;65;75m"}${s}${R}`,
+    selectedFg: (s: string) => `${"\x1B[38;2;246;196;83m"}${s}${R}`,
     itemBg: (s: string) => s,
-    itemFg: (s: string) => `${'\x1B[2m'}${s}${R}`,
+    itemFg: (s: string) => `${"\x1B[2m"}${s}${R}`,
     descriptionBg: (s: string) => s,
-    descriptionFg: (s: string) => `${'\x1B[2m'}${s}${R}`,
-    borderChar: '─',
-    borderFg: (s: string) => `${'\x1B[38;2;60;65;75m'}${s}${R}`,
-    scrollIndicator: '▼',
-    scrollFg: '\x1B[2m',
+    descriptionFg: (s: string) => `${"\x1B[2m"}${s}${R}`,
+    borderChar: "─",
+    borderFg: (s: string) => `${"\x1B[38;2;60;65;75m"}${s}${R}`,
+    scrollIndicator: "▼",
+    scrollFg: "\x1B[2m",
     maxVisible: 5,
   };
 
   const editor = new Editor(tui, {
-    borderColor: (s: string) => `${'\x1B[38;2;60;65;75m'}${s}${R}`,
+    borderColor: (s: string) => `${"\x1B[38;2;60;65;75m"}${s}${R}`,
     selectList: selectListTheme as any,
   });
 
@@ -88,15 +94,17 @@ export async function startTUI(workspace?: string, model?: string): Promise<void
   let loop: AgentLoop;
   let identity: any;
   let sessionId: string;
-  let displayName = 'Lodestone';
+  let displayName = "Lodestone";
   let bootResult: any;
 
   // ─── Onboarding check ────────────────────────────────────────────────
 
-  const workspaceExists = existsSync(resolve(WORKSPACE, 'IDENTITY.md'));
+  const workspaceExists = existsSync(resolve(WORKSPACE, "IDENTITY.md"));
 
   if (!workspaceExists) {
-    bootMsg.setText(`${B}${'\x1B[38;2;246;196;83m'}${theme.statusBar.icon} ${displayName}${R}\n\nNo workspace found. Let's set one up!`);
+    bootMsg.setText(
+      `${B}${"\x1B[38;2;246;196;83m"}${theme.statusBar.icon} ${displayName}${R}\n\nNo workspace found. Let's set one up!`
+    );
     tui.requestRender();
 
     const onboardingResult = await runOnboarding(
@@ -105,12 +113,12 @@ export async function startTUI(workspace?: string, model?: string): Promise<void
       editor,
       () => renderer.refreshAll(),
       (state: StatusState, detail?: string) => renderer.updateStatus(state, detail),
-      WORKSPACE,
+      WORKSPACE
     );
 
     if (!onboardingResult) {
       tui.stop();
-      process.stdout.write(`\n${'\x1B[2m'}Setup cancelled.${R}\n\n`);
+      process.stdout.write(`\n${"\x1B[2m"}Setup cancelled.${R}\n\n`);
       process.exit(0);
     }
 
@@ -119,7 +127,9 @@ export async function startTUI(workspace?: string, model?: string): Promise<void
     process.env.LODESTONE_MODEL = onboardingResult.model;
     WORKSPACE = onboardingResult.workspace;
 
-    bootMsg.setText(`${B}${'\x1B[38;2;246;196;83m'}${theme.statusBar.icon} ${displayName}${R}\n\nWorkspace created! Booting...`);
+    bootMsg.setText(
+      `${B}${"\x1B[38;2;246;196;83m"}${theme.statusBar.icon} ${displayName}${R}\n\nWorkspace created! Booting...`
+    );
     tui.requestRender();
   }
 
@@ -127,7 +137,9 @@ export async function startTUI(workspace?: string, model?: string): Promise<void
 
   try {
     bootResult = await boot(WORKSPACE, effectiveModel, (msg: string) => {
-      bootMsg.setText(`${B}${'\x1B[38;2;246;196;83m'}${theme.statusBar.icon} ${displayName}${R}\n${msg}`);
+      bootMsg.setText(
+        `${B}${"\x1B[38;2;246;196;83m"}${theme.statusBar.icon} ${displayName}${R}\n${msg}`
+      );
       tui.requestRender();
     });
 
@@ -142,15 +154,31 @@ export async function startTUI(workspace?: string, model?: string): Promise<void
     renderer.setModelName(bootResult.model);
 
     // Handle "surprise me" name
-    if ((bootResult as unknown as { onboardingResult?: { agentName?: string; userName?: string; templates?: string[] } }).onboardingResult?.agentName === '__surprise__') {
+    if (
+      (
+        bootResult as unknown as {
+          onboardingResult?: { agentName?: string; userName?: string; templates?: string[] };
+        }
+      ).onboardingResult?.agentName === "__surprise__"
+    ) {
       const chosenName = await generateSurpriseName(
         engine,
-        (bootResult as unknown as { onboardingResult?: { agentName?: string; userName?: string; templates?: string[] } }).onboardingResult?.userName || 'User',
-        (bootResult as unknown as { onboardingResult?: { agentName?: string; userName?: string; templates?: string[] } }).onboardingResult?.templates || [],
+        (
+          bootResult as unknown as {
+            onboardingResult?: { agentName?: string; userName?: string; templates?: string[] };
+          }
+        ).onboardingResult?.userName || "User",
+        (
+          bootResult as unknown as {
+            onboardingResult?: { agentName?: string; userName?: string; templates?: string[] };
+          }
+        ).onboardingResult?.templates || [],
         (msg: string) => {
-          bootMsg.setText(`${B}${'\x1B[38;2;246;196;83m'}${theme.statusBar.icon} ${displayName}${R}\n${msg}`);
+          bootMsg.setText(
+            `${B}${"\x1B[38;2;246;196;83m"}${theme.statusBar.icon} ${displayName}${R}\n${msg}`
+          );
           tui.requestRender();
-        },
+        }
       );
       if (chosenName) {
         applyAgentName(WORKSPACE, chosenName);
@@ -158,8 +186,8 @@ export async function startTUI(workspace?: string, model?: string): Promise<void
         displayName = identity?.identity?.name || chosenName;
         renderer.setDisplayName(displayName);
         renderer.pushMessage({
-          role: 'system',
-          text: `${'\x1B[38;2;125;211;165m'}I'm ${B}${chosenName}${R}. Nice to meet you.`,
+          role: "system",
+          text: `${"\x1B[38;2;125;211;165m"}I'm ${B}${chosenName}${R}. Nice to meet you.`,
           ts: Date.now(),
         });
         renderer.addMessage(renderer.Messages[renderer.Messages.length - 1]);
@@ -170,22 +198,23 @@ export async function startTUI(workspace?: string, model?: string): Promise<void
     // Boot complete
     const toolCount = engine.tools.listDefinitions().length;
     const welcomeText = [
-      `${B}${'\x1B[38;2;246;196;83m'}${theme.statusBar.icon} ${displayName} ready.${R}`,
+      `${B}${"\x1B[38;2;246;196;83m"}${theme.statusBar.icon} ${displayName} ready.${R}`,
       `**Identity:** ${identity.identity.name}  ·  **Model:** ${bootResult.model}  ·  **Tools:** ${toolCount}`,
-      `Self-improvement: ${'\x1B[38;2;125;211;165m'}✓${R}  ·  Predictions  ·  RBT  ·  Drift  ·  Skills  ·  Sleep`,
-      '',
-      'Type a message to chat, or /help for commands.',
-      `${'\x1B[2m'}Tip: Alt+Enter for multi-line input. PgUp/PgDn to scroll.${R}`,
-    ].join('\n');
+      `Self-improvement: ${"\x1B[38;2;125;211;165m"}✓${R}  ·  Predictions  ·  RBT  ·  Drift  ·  Skills  ·  Sleep`,
+      "",
+      "Type a message to chat, or /help for commands.",
+      `${"\x1B[2m"}Tip: Alt+Enter for multi-line input. PgUp/PgDn to scroll.${R}`,
+    ].join("\n");
     bootMsg.setText(welcomeText);
-    renderer.updateStatus('ready');
+    renderer.updateStatus("ready");
     tui.requestRender();
-
   } catch (err) {
-    bootMsg.setText(`${'\x1B[38;2;220;38;38m'}**Boot failed:** ${err instanceof Error ? err.message : String(err)}`);
-    renderer.updateStatus('error');
+    bootMsg.setText(
+      `${"\x1B[38;2;220;38;38m"}**Boot failed:** ${err instanceof Error ? err.message : String(err)}`
+    );
+    renderer.updateStatus("error");
     tui.requestRender();
-    console.error('Boot error:', err);
+    console.error("Boot error:", err);
     return;
   }
 
@@ -194,10 +223,10 @@ export async function startTUI(workspace?: string, model?: string): Promise<void
   editor.onSubmit = async (text: string) => {
     const trimmed = text.trim();
     if (!trimmed || isProcessing) return;
-    editor.setText('');
+    editor.setText("");
 
     // Check slash commands
-    if (trimmed.startsWith('/')) {
+    if (trimmed.startsWith("/")) {
       const ctx: CommandContext = {
         engine,
         messages: renderer.Messages,
@@ -215,22 +244,28 @@ export async function startTUI(workspace?: string, model?: string): Promise<void
             editor,
             () => renderer.refreshAll(),
             (state: StatusState, detail?: string) => renderer.updateStatus(state, detail),
-            WORKSPACE,
+            WORKSPACE
           );
         },
         createSession: () => {
           const newId = engine.createSession();
           sessionId = newId;
           loop = new AgentLoop(engine, {
-            maxToolRounds: 10, maxTokens: 4096, temperature: 0.7,
-            stream: true, autoCapture: true, autoRecall: true,
+            maxToolRounds: 10,
+            maxTokens: 4096,
+            temperature: 0.7,
+            stream: true,
+            autoCapture: true,
+            autoRecall: true,
           });
           return newId;
         },
         setTheme: (name: string) => {
           theme = getTheme(name);
           renderer.setTheme(theme);
-          bootMsg.setText(`${B}${fg(theme.colors.accent)}${theme.statusBar.icon} ${displayName}${R}  Theme changed to ${B}${theme.name}${R}`);
+          bootMsg.setText(
+            `${B}${fg(theme.colors.accent)}${theme.statusBar.icon} ${displayName}${R}  Theme changed to ${B}${theme.name}${R}`
+          );
           tui.requestRender();
         },
         cleanup,
@@ -240,7 +275,11 @@ export async function startTUI(workspace?: string, model?: string): Promise<void
       if (result.handled) {
         if (result.themeChanged) {
           ctx.setTheme(result.themeChanged);
-          renderer.addMessage({ role: 'system', text: `Theme changed to ${B}${result.themeChanged}${R}`, ts: Date.now() });
+          renderer.addMessage({
+            role: "system",
+            text: `Theme changed to ${B}${result.themeChanged}${R}`,
+            ts: Date.now(),
+          });
           renderer.refreshAll();
         }
         return;
@@ -250,41 +289,51 @@ export async function startTUI(workspace?: string, model?: string): Promise<void
     // ─── LLM with streaming ─────────────────────────────────────────
 
     isProcessing = true;
-    renderer.pushMessage({ role: 'user', text: trimmed, ts: Date.now() });
+    renderer.pushMessage({ role: "user", text: trimmed, ts: Date.now() });
     renderer.addMessage(renderer.Messages[renderer.Messages.length - 1]);
     renderer.incrementMsgCount();
     tui.requestRender();
-    renderer.updateStatus('thinking', 'waiting for LLM');
+    renderer.updateStatus("thinking", "waiting for LLM");
 
     const streamHandler = new StreamHandler();
 
-    streamHandler.on('text_delta', (event: any) => {
+    streamHandler.on("text_delta", (event: any) => {
       const delta = (event.data as { text: string }).text;
       if (!renderer.IsStreaming) {
         renderer.startStreamingMessage();
-        renderer.updateStatus('streaming');
+        renderer.updateStatus("streaming");
       }
       renderer.appendStreamingText(delta);
     });
 
-    streamHandler.on('tool_call_start', (event: any) => {
+    streamHandler.on("tool_call_start", (event: any) => {
       const data = event.data as { toolCallId: string; toolName: string };
-      renderer.updateStatus('tool', data.toolName);
+      renderer.updateStatus("tool", data.toolName);
       renderer.pushMessage({
-        role: 'tool',
-        text: '',
+        role: "tool",
+        text: "",
         ts: Date.now(),
         toolName: data.toolName,
         toolSuccess: true,
         toolDuration: 0,
-        toolSummary: 'running...',
+        toolSummary: "running...",
       });
     });
 
-    streamHandler.on('tool_result', (event: any) => {
-      const data = event.data as { toolName: string; success: boolean; result: string; durationMs: number };
-      renderer.updateToolResult(data.toolName, data.success, data.durationMs, data.result?.slice(0, 120) || '');
-      renderer.updateStatus('streaming', `tool: ${data.toolName}`);
+    streamHandler.on("tool_result", (event: any) => {
+      const data = event.data as {
+        toolName: string;
+        success: boolean;
+        result: string;
+        durationMs: number;
+      };
+      renderer.updateToolResult(
+        data.toolName,
+        data.success,
+        data.durationMs,
+        data.result?.slice(0, 120) || ""
+      );
+      renderer.updateStatus("streaming", `tool: ${data.toolName}`);
       renderer.refreshAll();
     });
 
@@ -292,12 +341,12 @@ export async function startTUI(workspace?: string, model?: string): Promise<void
       const result = await loop.run(sessionId, trimmed, streamHandler);
 
       const assistantMsg: ChatMessage = {
-        role: 'assistant',
-        text: result.response || renderer.StreamingBuffer || '(no response)',
+        role: "assistant",
+        text: result.response || renderer.StreamingBuffer || "(no response)",
         ts: Date.now(),
         tokens: result.totalTokens,
         ms: result.durationMs,
-        tools: result.toolCalls.map(tc => tc.toolName),
+        tools: result.toolCalls.map((tc) => tc.toolName),
       };
 
       if (renderer.IsStreaming) {
@@ -308,17 +357,22 @@ export async function startTUI(workspace?: string, model?: string): Promise<void
 
       // Update tool messages with final durations
       for (const tc of result.toolCalls) {
-        renderer.updateToolResult(tc.toolName, tc.success, tc.durationMs, tc.summary?.slice(0, 120) || '');
+        renderer.updateToolResult(
+          tc.toolName,
+          tc.success,
+          tc.durationMs,
+          tc.summary?.slice(0, 120) || ""
+        );
       }
 
       isProcessing = false;
       renderer.incrementMsgCount();
-      renderer.updateStatus('ready', `${renderer.MsgCount} msgs`);
+      renderer.updateStatus("ready", `${renderer.MsgCount} msgs`);
       renderer.refreshAll();
     } catch (err) {
       const errMsg: ChatMessage = {
-        role: 'system',
-        text: `${'\x1B[38;2;220;38;38m'}**Error:** ${err instanceof Error ? err.message : String(err)}`,
+        role: "system",
+        text: `${"\x1B[38;2;220;38;38m"}**Error:** ${err instanceof Error ? err.message : String(err)}`,
         ts: Date.now(),
       };
 
@@ -329,7 +383,7 @@ export async function startTUI(workspace?: string, model?: string): Promise<void
       }
 
       isProcessing = false;
-      renderer.updateStatus('error');
+      renderer.updateStatus("error");
       renderer.refreshAll();
     }
   };
@@ -340,7 +394,7 @@ export async function startTUI(workspace?: string, model?: string): Promise<void
     if (engine?.channelManager?.isRunning()) {
       const channels = engine.channelManager.listChannels();
       if (channels.length > 0) {
-        return channels.map(c => `${fg(theme.colors.success)}${c.name}✓${R}`).join(' ');
+        return channels.map((c) => `${fg(theme.colors.success)}${c.name}✓${R}`).join(" ");
       }
     }
     return undefined;
@@ -349,24 +403,24 @@ export async function startTUI(workspace?: string, model?: string): Promise<void
   // ─── Keyboard Handler (Scroll) ──────────────────────────────────────────
 
   tui.addInputListener((data: string) => {
-    if (data === '\x1b[5~' || data === '\x1b[5;~') {
+    if (data === "\x1b[5~" || data === "\x1b[5;~") {
       renderer.scrollUp(10);
-      renderer.updateStatus('ready');
+      renderer.updateStatus("ready");
       return { consume: true };
     }
-    if (data === '\x1b[6~' || data === '\x1b[6;~') {
+    if (data === "\x1b[6~" || data === "\x1b[6;~") {
       renderer.scrollDown(10);
-      renderer.updateStatus('ready');
+      renderer.updateStatus("ready");
       return { consume: true };
     }
-    if (data === '\x1b[H' || data === '\x1b[1~') {
+    if (data === "\x1b[H" || data === "\x1b[1~") {
       renderer.scrollToTop();
-      renderer.updateStatus('ready');
+      renderer.updateStatus("ready");
       return { consume: true };
     }
-    if (data === '\x1b[F' || data === '\x1b[4~') {
+    if (data === "\x1b[F" || data === "\x1b[4~") {
       renderer.scrollToBottom();
-      renderer.updateStatus('ready');
+      renderer.updateStatus("ready");
       return { consume: true };
     }
     return undefined;
@@ -374,13 +428,21 @@ export async function startTUI(workspace?: string, model?: string): Promise<void
 
   // ─── Cleanup ────────────────────────────────────────────────────────
 
-  (editor as unknown as { onEscape: () => void }).onEscape = () => { cleanup(); };
-  process.on('SIGINT', () => { cleanup(); });
-  process.on('SIGTERM', () => { cleanup(); });
+  (editor as unknown as { onEscape: () => void }).onEscape = () => {
+    cleanup();
+  };
+  process.on("SIGINT", () => {
+    cleanup();
+  });
+  process.on("SIGTERM", () => {
+    cleanup();
+  });
 
   function cleanup() {
     tui.stop();
-    process.stdout.write(`\n${B}${'\x1B[38;2;246;196;83m'}${theme.statusBar.icon} Lodestone${R} session ended.\n\n`);
+    process.stdout.write(
+      `\n${B}${"\x1B[38;2;246;196;83m"}${theme.statusBar.icon} Lodestone${R} session ended.\n\n`
+    );
     process.exit(0);
   }
 }
