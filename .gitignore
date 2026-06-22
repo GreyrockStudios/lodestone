@@ -11,6 +11,7 @@ dist/
 *.d.ts.map
 *.tsbuildinfo
 !jest.config.js
+!eslint.config.js
 
 # Environment
 .env
