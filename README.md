@@ -348,11 +348,8 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for detailed guidelines.
 
 ```bash
 npm run build                    # Build both packages (core + CLI)
-npm test                         # 223 tests
-npm run test:all                  # Full suite including dogfood tests
-node packages/core/dist/test/tool-tests.js        # 8 core tool tests
-node packages/core/dist/test/tool-tests-2.js      # 47 additional tool tests
-node packages/core/dist/test/tool-tests-git-browser.js  # 15 git/browser tests
+npm test                         # Run all tool tests (21 tests)
+npm run test:all                  # Full suite including dogfood
 ```
 
 **223 tests total. All passing.**
