@@ -33,7 +33,7 @@
     "packages/*"
   ],
   "scripts": {
-    "build": "npm run clean && npm run build --workspaces",
+    "build": "npm run clean && tsc --build",
     "start": "node packages/core/dist/main.js",
     "dev": "npm run dev --workspace=@lodestone/core",
     "test": "npm run test --workspaces --if-present",
