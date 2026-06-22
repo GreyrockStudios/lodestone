@@ -6,7 +6,7 @@
 
 [![MIT License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.7-blue.svg)](https://www.typescriptlang.org/)
-[![Tests](https://img.shields.io/badge/tests-290%20passing-brightgreen.svg)](#testing)
+[![Tests](https://img.shields.io/badge/tests-223%20passing-brightgreen.svg)](#testing)
 [![Tools](https://img.shields.io/badge/tools-39%20built--in-purple.svg)](#built-in-tools)
 [![Node.js](https://img.shields.io/badge/node-%3E%3D22-brightgreen.svg)](https://nodejs.org/)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](CONTRIBUTING.md)
@@ -51,15 +51,15 @@ lodestone start
 
 ## Why Lodestone?
 
-| Without Lodestone | With Lodestone |
-|---|---|
-| Agent forgets everything each session | Three-layer memory: vector, wiki, scratch |
-| Same mistakes every time | Self-improvement: calibration, drift detection, skill synthesis |
-| Only works when you talk to it | Proactive: heartbeat, sensorium, sleep cycle, morning briefs |
-| No guardrails | Safety: quality gates, self-constraints, explainability |
-| Blank slate personality | Real identity: SOUL.md, RULES.md, HEARTBEAT.md |
-| Single channel | Multi-channel: Telegram, Discord, Email, Webchat, CLI |
-| 0 tools | 39 built-in tools, tested and ready |
+| Without Lodestone                     | With Lodestone                                                  |
+| ------------------------------------- | --------------------------------------------------------------- |
+| Agent forgets everything each session | Three-layer memory: vector, wiki, scratch                       |
+| Same mistakes every time              | Self-improvement: calibration, drift detection, skill synthesis |
+| Only works when you talk to it        | Proactive: heartbeat, sensorium, sleep cycle, morning briefs    |
+| No guardrails                         | Safety: quality gates, self-constraints, explainability         |
+| Blank slate personality               | Real identity: SOUL.md, RULES.md, HEARTBEAT.md                  |
+| Single channel                        | Multi-channel: Telegram, Discord, Email, Webchat, CLI           |
+| 0 tools                               | 39 built-in tools, tested and ready                             |
 
 ---
 
@@ -67,19 +67,19 @@ lodestone start
 
 Every tool your agent needs to actually do work — not just talk about it.
 
-| Category | Tools |
-|----------|-------|
-| **Knowledge** | wiki-resolve, wiki-search, wiki-write, wiki-read, smart-retrieve, decision-log |
-| **Memory** | memory-store, memory-recall, resume-state |
-| **Monitoring** | watchdog, business-hours |
-| **Web** | web-search, web-fetch, http, search-engine, browser |
-| **Code** | code-exec, shell, process-manager, diff-patch, git, lsp |
-| **Files** | file-ops, archive, clipboard, screenshot |
-| **Communication** | send-message, notify, voice |
-| **Data** | database, secrets |
-| **AI/ML** | image-gen, ocr, transcribe, vision |
-| **Scheduling** | scheduler, calendar |
-| **Orchestration** | coordinator, mcp-client |
+| Category          | Tools                                                                          |
+| ----------------- | ------------------------------------------------------------------------------ |
+| **Knowledge**     | wiki-resolve, wiki-search, wiki-write, wiki-read, smart-retrieve, decision-log |
+| **Memory**        | memory-store, memory-recall, resume-state                                      |
+| **Monitoring**    | watchdog, business-hours                                                       |
+| **Web**           | web-search, web-fetch, http, search-engine, browser                            |
+| **Code**          | code-exec, shell, process-manager, diff-patch, git, lsp                        |
+| **Files**         | file-ops, archive, clipboard, screenshot                                       |
+| **Communication** | send-message, notify, voice                                                    |
+| **Data**          | database, secrets                                                              |
+| **AI/ML**         | image-gen, ocr, transcribe, vision                                             |
+| **Scheduling**    | scheduler, calendar                                                            |
+| **Orchestration** | coordinator, mcp-client                                                        |
 
 All tools are TypeScript, fully tested, and use lazy imports for optional dependencies (Playwright, Tesseract, Whisper, etc.) — install only what you need.
 
@@ -89,31 +89,31 @@ All tools are TypeScript, fully tested, and use lazy imports for optional depend
 
 The agent doesn't just answer questions. It learns from every interaction.
 
-| System | What It Does | Schedule |
-|--------|-------------|----------|
-| **Prediction Journal** | Records predictions, checks outcomes, computes Brier scores | Each response |
-| **Calibration Loop** | Adjusts confidence based on historical accuracy | Hourly |
-| **Drift Correction** | Detects behavioral drift, injects corrective prompts | Every 6 hours |
-| **Dream Mode** | Consolidates learnings, synthesizes skills, patches behavior | Nightly 3am |
-| **A/B Testing** | Tests prompt variants and records outcomes | Per-response |
-| **Failure Replay** | Analyzes failures, generates prevention rules | On failure |
-| **Skill Synthesizer** | Creates new skills from accumulated tool sequences | During dream cycle |
-| **Sleep Cycle** | Full self-improvement cycle with pre-mortems and reflection | Nightly 3am |
+| System                 | What It Does                                                 | Schedule           |
+| ---------------------- | ------------------------------------------------------------ | ------------------ |
+| **Prediction Journal** | Records predictions, checks outcomes, computes Brier scores  | Each response      |
+| **Calibration Loop**   | Adjusts confidence based on historical accuracy              | Hourly             |
+| **Drift Correction**   | Detects behavioral drift, injects corrective prompts         | Every 6 hours      |
+| **Dream Mode**         | Consolidates learnings, synthesizes skills, patches behavior | Nightly 3am        |
+| **A/B Testing**        | Tests prompt variants and records outcomes                   | Per-response       |
+| **Failure Replay**     | Analyzes failures, generates prevention rules                | On failure         |
+| **Skill Synthesizer**  | Creates new skills from accumulated tool sequences           | During dream cycle |
+| **Sleep Cycle**        | Full self-improvement cycle with pre-mortems and reflection  | Nightly 3am        |
 
 ---
 
 ## Safety Systems
 
-| System | What It Does |
-|--------|-------------|
-| **Quality Gates** | Reviews outputs by type (code, advice, sensitive) and blocks low-quality responses |
-| **Self-Constraints** | Self-imposed behavioral limits approved by the agent itself |
-| **Explainability** | Records decision traces showing why each action was taken |
-| **Confidence Display** | Calibrated confidence scores (high/moderate/low/very-low) |
-| **Failure Replay** | Replays past failures to generate prevention rules |
-| **Intent Prediction** | Predicts user intent before executing tools |
-| **Behavioral Learning** | Learns from corrections and adjusts future behavior |
-| **Contextual Style** | Adapts tone, formality, and verbosity to context |
+| System                  | What It Does                                                                       |
+| ----------------------- | ---------------------------------------------------------------------------------- |
+| **Quality Gates**       | Reviews outputs by type (code, advice, sensitive) and blocks low-quality responses |
+| **Self-Constraints**    | Self-imposed behavioral limits approved by the agent itself                        |
+| **Explainability**      | Records decision traces showing why each action was taken                          |
+| **Confidence Display**  | Calibrated confidence scores (high/moderate/low/very-low)                          |
+| **Failure Replay**      | Replays past failures to generate prevention rules                                 |
+| **Intent Prediction**   | Predicts user intent before executing tools                                        |
+| **Behavioral Learning** | Learns from corrections and adjusts future behavior                                |
+| **Contextual Style**    | Adapts tone, formality, and verbosity to context                                   |
 
 ---
 
@@ -162,13 +162,13 @@ The agent doesn't just answer questions. It learns from every interaction.
 
 Start from a template. Customize everything.
 
-| Template | Best For | Focus |
-|----------|----------|-------|
-| `developer` | Software engineering | Code, PRs, debugging, git |
-| `business` | Sales, CRM, operations | Pipelines, follow-ups, revenue |
-| `creative` | Writing, content, marketing | Blog posts, copy, brainstorming |
-| `researcher` | Literature review, analysis | Citations, data, evidence |
-| `general` | All-purpose assistant | Adaptable to any domain |
+| Template     | Best For                    | Focus                           |
+| ------------ | --------------------------- | ------------------------------- |
+| `developer`  | Software engineering        | Code, PRs, debugging, git       |
+| `business`   | Sales, CRM, operations      | Pipelines, follow-ups, revenue  |
+| `creative`   | Writing, content, marketing | Blog posts, copy, brainstorming |
+| `researcher` | Literature review, analysis | Citations, data, evidence       |
+| `general`    | All-purpose assistant       | Adaptable to any domain         |
 
 Each template includes: IDENTITY.md, SOUL.md, USER.md, RULES.md, HEARTBEAT.md, and a lodestone.config.yaml.
 
@@ -182,19 +182,19 @@ Each template includes: IDENTITY.md, SOUL.md, USER.md, RULES.md, HEARTBEAT.md, a
 # LLM Provider — works with anything
 llm:
   default:
-    type: ollama                    # ollama | openai | anthropic
+    type: ollama # ollama | openai | anthropic
     model: glm-5.2:cloud
     baseUrl: http://127.0.0.1:11434/api
 
 # Three-layer memory
 memory:
   vectorDb:
-    provider: lancedb               # Local, no server needed
-    autoRecall: true                 # Auto-inject relevant memories
-    autoCapture: false               # Auto-store all turns
+    provider: lancedb # Local, no server needed
+    autoRecall: true # Auto-inject relevant memories
+    autoCapture: false # Auto-store all turns
   wiki:
-    autoLint: true                  # Nightly wiki lint
-    autoIndex: true                 # Auto-generate index.md
+    autoLint: true # Nightly wiki lint
+    autoIndex: true # Auto-generate index.md
 
 # Self-improvement (all on by default)
 proactive:
@@ -203,7 +203,7 @@ proactive:
     interval: 30m
   sleep:
     enabled: true
-    schedule: "0 3 * * *"            # Dream mode at 3am
+    schedule: "0 3 * * *" # Dream mode at 3am
   calibration:
     enabled: true
     interval: 1h
@@ -241,20 +241,20 @@ lodestone doctor              Run 25 health checks
 Embed Lodestone in your own application:
 
 ```typescript
-import { createAgent } from '@lodestone/core';
+import { createAgent } from "@lodestone/core";
 
 const agent = await createAgent({
-  workspaceRoot: './my-agent',
-  llm: { type: 'ollama', model: 'glm-5.2:cloud' },
+  workspaceRoot: "./my-agent",
+  llm: { type: "ollama", model: "glm-5.2:cloud" },
 });
 
 // Process a message
-const response = await agent.processMessage('user-1', 'What did we discuss yesterday?');
+const response = await agent.processMessage("user-1", "What did we discuss yesterday?");
 
 // Access subsystems directly
-agent.engine.memory.vector.store('key', 'value');
-agent.engine.safety.explainability.getTrace('session-1');
-agent.engine.improvement.skillSynthesizer.recordToolSequence('session-1', calls);
+agent.engine.memory.vector.store("key", "value");
+agent.engine.safety.explainability.getTrace("session-1");
+agent.engine.improvement.skillSynthesizer.recordToolSequence("session-1", calls);
 ```
 
 ---
@@ -262,20 +262,24 @@ agent.engine.improvement.skillSynthesizer.recordToolSequence('session-1', calls)
 ## Channel Setup
 
 ### Telegram
+
 1. Create a bot via [@BotFather](https://t.me/BotFather)
 2. Set `TELEGRAM_BOT_TOKEN` in `.env`
 3. Configure the Telegram channel in your config
 
 ### Discord
+
 1. Create a bot in the [Discord Developer Portal](https://discord.com/developers)
 2. Set `DISCORD_BOT_TOKEN` in `.env`
 3. Configure the Discord channel in your config
 
 ### Email
+
 1. Set `SMTP_HOST`, `SMTP_USER`, `SMTP_PASS` in `.env`
 2. Configure the email channel in your config
 
 ### Webchat
+
 Built-in TUI chat (`lodestone chat`) works out of the box. For a web interface, use the dashboard API server with Socket.IO.
 
 ---
@@ -283,6 +287,7 @@ Built-in TUI chat (`lodestone chat`) works out of the box. For a web interface, 
 ## Development
 
 ### Prerequisites
+
 - Node.js 22+
 - Ollama (for local LLM) or API keys for OpenAI/Anthropic
 
@@ -338,41 +343,46 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for detailed guidelines.
 ---
 
 <a name="testing"></a>
+
 ## Testing
 
 ```bash
-npm test                           # 243 tests (146 unit + 16 integration + 17 + 8 tool)
-node packages/core/dist/test/tool-tests-2.js  # 47 additional tool tests
+npm run build                    # Build both packages (core + CLI)
+npm test                         # 223 tests
+npm run test:all                  # Full suite including dogfood tests
+node packages/core/dist/test/tool-tests.js        # 8 core tool tests
+node packages/core/dist/test/tool-tests-2.js      # 47 additional tool tests
+node packages/core/dist/test/tool-tests-git-browser.js  # 15 git/browser tests
 ```
 
-**290 tests total. All passing.**
+**223 tests total. All passing.**
 
 ---
 
 ## Stats
 
-| Metric | Value |
-|--------|-------|
-| Lines of TypeScript | 52,000+ |
-| Tests | 290 (all passing) |
-| Built-in tools | 39 |
-| Channels | 5 (CLI, Telegram, Discord, Email, Webchat) |
-| Self-improvement systems | 8 |
-| Safety systems | 8 |
-| Plugin hooks | 5 lifecycle events |
-| Identity templates | 5 |
-| Example agents | 3 |
-| License | MIT |
+| Metric                   | Value                                      |
+| ------------------------ | ------------------------------------------ |
+| Lines of TypeScript      | 54,000+                                    |
+| Tests                    | 223 (all passing)                          |
+| Built-in tools           | 39                                         |
+| Channels                 | 5 (CLI, Telegram, Discord, Email, Webchat) |
+| Self-improvement systems | 8                                          |
+| Safety systems           | 8                                          |
+| Plugin hooks             | 5 lifecycle events                         |
+| Identity templates       | 5                                          |
+| Example agents           | 3                                          |
+| License                  | MIT                                        |
 
 ---
 
 ## Pricing
 
-| Tier | Price | What You Get |
-|------|-------|-------------|
-| **Community** | Free | Everything. MIT licensed. Forever. |
-| **Pro** | $197 ($97 early access) | Commercial license, priority support, premium channels, MCP client, setup wizard, automation recipes |
-| **Enterprise** | $997 | Everything in Pro + 5-seat license, custom tools, dedicated support, on-premise, SLA |
+| Tier           | Price                   | What You Get                                                                                         |
+| -------------- | ----------------------- | ---------------------------------------------------------------------------------------------------- |
+| **Community**  | Free                    | Everything. MIT licensed. Forever.                                                                   |
+| **Pro**        | $197 ($97 early access) | Commercial license, priority support, premium channels, MCP client, setup wizard, automation recipes |
+| **Enterprise** | $997                    | Everything in Pro + 5-seat license, custom tools, dedicated support, on-premise, SLA                 |
 
 [Get Pro Early Access →](https://lodestone.greyrockstudios.com#early-access)
 
