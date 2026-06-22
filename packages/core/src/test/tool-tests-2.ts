@@ -770,6 +770,10 @@ async function runTests() {
       { action: "write", text: "Lodestone test clipboard" },
       ctx
     );
+    if (!writeResult.success && writeResult.error?.includes("xclip")) {
+      console.log("   ⏭️  Skipped: clipboard utility not available (xclip/pbpaste)");
+      return;
+    }
     assert(writeResult.success, `Expected write success, got: ${writeResult.error}`);
 
     // Read back
