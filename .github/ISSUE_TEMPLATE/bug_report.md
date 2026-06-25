@@ -1,32 +1,63 @@
 ---
 name: Bug Report
 about: Report a bug in Lodestone
-title: '[BUG] '
-labels: bug
-assignees: ''
+title: "[BUG] "
+labels: bug, triage
+assignees: ""
 ---
 
-**Describe the bug**
+## Bug Description
+
 A clear description of what the bug is.
 
-**To Reproduce**
-Steps to reproduce:
-1. Run `...`
-2. See error
+## Steps to Reproduce
 
-**Expected behavior**
+1. Run `...`
+2. Click / type / execute `...`
+3. See error
+
+## Expected Behavior
+
 What you expected to happen.
 
-**Environment**
-- OS: [e.g., macOS 14, Ubuntu 22.04]
-- Node version: [e.g., 22.x]
-- Lodestone version: [e.g., 0.1.0]
-- LLM provider: [e.g., OpenAI, Anthropic, Ollama]
+## Actual Behavior
 
-**Logs**
+What actually happened (include error messages, screenshots, or logs).
+
+## Environment
+
+- **OS:** [e.g., macOS 15, Windows 11, Ubuntu 24.04]
+- **Lodestone version:** [e.g., 0.5.7 — check with `lodestone --version`]
+- **Node version:** [e.g., 22.x — run `node --version`]
+- **LLM provider:** [e.g., OpenAI, Anthropic, Ollama]
+- **Channel:** [e.g., Telegram, Discord, Webchat, CLI]
+
+## Logs
+
+<details>
+<summary>Click to expand logs</summary>
+
 ```
-Paste relevant logs here
+Paste relevant logs here. Run with DEBUG=lodestone:* for verbose output.
 ```
 
-**Additional context**
-Any other context about the problem.
+</details>
+
+## Configuration
+
+<details>
+<summary>Click to expand config (redact API keys!)</summary>
+
+```yaml
+# Redact any API keys before sharing
+model:
+  provider: ...
+  name: ...
+# Don't share your actual API key
+```
+
+</details>
+
+## Additional Context
+
+Any other context, screenshots, or workarounds.

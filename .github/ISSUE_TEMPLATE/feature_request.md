@@ -1,19 +1,29 @@
 ---
 name: Feature Request
 about: Suggest a new feature for Lodestone
-title: '[FEATURE] '
-labels: enhancement
-assignees: ''
+title: "[FEATURE] "
+labels: enhancement, triage
+assignees: ""
 ---
 
-**Is your feature request related to a problem?**
-A description of what the problem is.
+## Problem
 
-**Proposed solution**
+What problem does this feature solve? Who benefits?
+
+## Proposed Solution
+
 A clear description of what you want to happen.
 
-**Alternatives considered**
+## Alternatives Considered
+
 Any alternative solutions or features you've considered.
 
-**Additional context**
-Any other context or screenshots about the feature request.
+## Use Case
+
+Describe a specific scenario where this feature would help:
+
+- **As a** [type of user], I want to [do something] so that [benefit].
+
+## Additional Context
+
+Any other context, mockups, or screenshots about the feature.

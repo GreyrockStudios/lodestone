@@ -1,0 +1,8 @@
+blank_issue_enabled: false
+contact_links:
+  - name: Documentation
+    url: https://github.com/greyrock-studios/lodestone#readme
+    about: Check the README and docs before opening an issue.
+  - name: Support
+    url: https://heylodestone.com/support
+    about: Get help with installation, configuration, or usage questions.
